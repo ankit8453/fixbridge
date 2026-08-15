@@ -173,6 +173,53 @@ const baseConfigSchema = z.object({
   RANK_WEIGHT_PRICE: z.coerce.number().min(0).max(100).default(5),
   /** Distance at which the distance score halves. Smaller = more local bias. */
   RANK_DISTANCE_HALF_LIFE_KM: z.coerce.number().min(0.1).max(50).default(5),
+
+  /* ---- slots & bookings ---- */
+
+  /** How far ahead slots are materialised. The nightly job extends this. */
+  SLOT_HORIZON_DAYS: z.coerce.number().int().min(1).max(90).default(14),
+  /** Slot length. A template window shorter than this produces no slot. */
+  SLOT_INCREMENT_MINUTES: z.coerce.number().int().min(15).max(480).default(60),
+  /** How long a technician has to answer before the request expires. */
+  BOOKING_REQUEST_TTL_MINUTES: z.coerce.number().int().min(1).max(240).default(15),
+  /** Snapshot onto each booking at creation. Stored, never charged — Phase 8. */
+  BOOKING_VISIT_FEE_PAISE: z.coerce.number().int().min(0).default(4_900),
+  /** Start/end handshake codes. Shorter than a login OTP; spoken aloud, in person. */
+  BOOKING_OTP_LENGTH: z.coerce.number().int().min(4).max(8).default(4),
+  BOOKING_OTP_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(5),
+
+  /* ---- outbox ---- */
+
+  OUTBOX_POLL_INTERVAL_MS: z.coerce.number().int().min(200).max(60_000).default(2_000),
+  OUTBOX_BATCH_SIZE: z.coerce.number().int().min(1).max(500).default(50),
+  OUTBOX_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(50).default(8),
+  /** Backoff base in seconds: attempt N waits base * 2^(N-1), capped. */
+  OUTBOX_BACKOFF_BASE_SECONDS: z.coerce.number().int().min(1).max(600).default(5),
+  OUTBOX_BACKOFF_MAX_SECONDS: z.coerce.number().int().min(5).max(86_400).default(3_600),
+  /**
+   * Background jobs run in-process. Off by default in tests, which drive the
+   * jobs directly with an injected clock rather than waiting for a timer.
+   */
+  JOBS_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+  /** How often unanswered requests are swept. A minute is fine granularity here. */
+  BOOKING_EXPIRY_JOB_INTERVAL_MS: z.coerce.number().int().min(1_000).max(3_600_000).default(60_000),
+  /**
+   * How often the slot horizon is extended.
+   *
+   * Called "nightly" in the docs, but it is an interval, not a clock time: a
+   * process that restarts twice a day would never reach a 24-hour timer. The job
+   * is idempotent, so running it four times a day costs a diff that finds
+   * nothing — much cheaper than a horizon that quietly stopped advancing.
+   */
+  SLOT_HORIZON_JOB_INTERVAL_MS: z.coerce
+    .number()
+    .int()
+    .min(60_000)
+    .max(86_400_000)
+    .default(6 * 60 * 60 * 1_000),
 });
 
 /**

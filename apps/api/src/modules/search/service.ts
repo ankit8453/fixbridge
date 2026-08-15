@@ -4,6 +4,7 @@ import type { Translator } from '../../core/i18n';
 import { consumeRateLimit } from '../../core/rate-limit';
 import type { Badge } from '../verification/badge';
 import { formatTimeOfDay } from '../providers/availability';
+import { istDayOfWeek, istDayParts, istInstant } from '../bookings/slot-plan';
 import { PAISE_PER_RUPEE } from '@fixbridge/shared';
 import * as repo from './repository';
 import { isUsableQuery, normalizeSearchTerm } from './normalize';
@@ -104,9 +105,22 @@ export async function searchProviders(
 ): Promise<SearchProvidersResponse> {
   const cityId = query.city_id ?? context.config.DEFAULT_CITY_ID;
 
-  // Only the weekday matters: availability is a weekly template until Phase 6
-  // turns it into concrete dated slots.
-  const dayOfWeek = query.date ? query.date.getUTCDay() : null;
+  /**
+   * The requested window as real instants.
+   *
+   * Phase 5 only needed a weekday, because it matched weekly templates. Now that
+   * slots are materialised, availability is a question about a specific hour on
+   * a specific date — and the date arrives as an IST calendar day.
+   */
+  const window =
+    query.date && query.start_time !== undefined && query.end_time !== undefined
+      ? {
+          start: istInstant(istDayParts(query.date), query.start_time),
+          end: istInstant(istDayParts(query.date), query.end_time),
+        }
+      : null;
+
+  const dayOfWeek = window ? istDayOfWeek(window.start) : null;
 
   const rows = await repo.searchProviders(context.prisma, {
     cityId,
@@ -115,8 +129,8 @@ export async function searchProviders(
     categoryId: query.category_id ?? null,
     maxDistanceMetres: query.max_distance_km ? query.max_distance_km * 1000 : null,
     dayOfWeek,
-    startMinute: query.start_time ?? null,
-    endMinute: query.end_time ?? null,
+    windowStart: window?.start ?? null,
+    windowEnd: window?.end ?? null,
     candidateLimit: context.config.SEARCH_MAX_CANDIDATES,
   });
 
@@ -137,9 +151,11 @@ export async function searchProviders(
       badge: row.badge,
       yearsExperience: row.yearsExperience,
       completenessScore: row.completenessScore,
-      // Phase 9 and Phase 6 fill these; neutral until then.
+      // Trust score is Phase 9; neutral until then. Acceptance rate is real from
+      // Phase 6, but stays null below the small-sample floor so a technician with
+      // three jobs is not ranked on noise.
       trustScore: null,
-      acceptanceRate: null,
+      acceptanceRate: row.acceptanceRate,
       priceBandPosition: positions[index] ?? null,
     };
 

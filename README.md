@@ -11,8 +11,9 @@ Pradesh**, then the rest of India.
 > value of `APP_NAME`. Every user-facing string comes from `APP_NAME` or an i18n
 > key — never a literal.
 
-**Status:** Phase 5 of 14 complete — scaffold, health, identity/auth, profiles,
-the verification engine, and geo-search with Hinglish resolution.
+**Status:** Phase 6 of 14 complete — scaffold, health, identity/auth, profiles,
+the verification engine, geo-search with Hinglish resolution, and the booking
+engine with slots, a physical start/end handshake and a transactional outbox.
 
 ---
 
@@ -119,6 +120,7 @@ modules/         one folder per domain — routes.ts · service.ts · repository
   providers/     technician profiles, skills, price cards, availability, completeness
   verification/  KYC ladder, append-only event log, document uploads, badges
   search/        geo radius search, ranking scorer, Hinglish text resolution
+  bookings/      slots, booking state machine, handshake OTPs, expiry, stats
 types/           Express request augmentation
 ```
 
@@ -129,7 +131,9 @@ appear.
 Three design notes worth reading before touching those areas:
 [docs/geo-notes.md](docs/geo-notes.md) for PostGIS columns with Prisma,
 [docs/verification.md](docs/verification.md) for the append-only KYC model, and
-[docs/search.md](docs/search.md) for the ranking formula and query plan.
+[docs/search.md](docs/search.md) for the ranking formula and query plan, and
+[docs/bookings.md](docs/bookings.md) for the double-booking constraint, the
+booking state machine and the outbox contract.
 
 ### Phase plan
 
@@ -140,11 +144,11 @@ Three design notes worth reading before touching those areas:
 | 3 ✅  | Categories, customer addresses, technician profiles, completeness gate |
 | 4 ✅  | Verification — KYC ladder, append-only events, MinIO uploads, badges   |
 | 5 ✅  | Search — PostGIS radius, pluggable ranking, Hinglish synonym resolve   |
-| 6     | Bookings — slots, lifecycle, start/end OTP handshake                   |
+| 6 ✅  | Bookings — slots, lifecycle, start/end OTP handshake, outbox           |
 | 7     | Quotations — itemised, in-app approval                                 |
 | 8     | Payments — UPI collection, logged cash                                 |
 | 9     | Reviews — two-way ratings                                              |
-| 10    | Notifications — SMS / WhatsApp / push adapters                         |
+| 10    | Notifications — WhatsApp Business API / push adapters                  |
 | 11    | Admin console                                                          |
 | 12–13 | Mobile apps                                                            |
 | 14    | Launch hardening                                                       |
@@ -219,6 +223,20 @@ runtime. See [apps/api/.env.example](apps/api/.env.example).
 | `STORAGE_DOWNLOAD_URL_TTL_SECONDS` | `300`           | Pre-signed GET lifetime                                                                            |
 | `STORAGE_MAX_UPLOAD_BYTES`         | `10485760`      | 10 MB. Signed into the URL, so storage enforces it.                                                |
 | `SEED_OPS_PHONE`                   | `+919999900002` | Ops-only reviewer account created by `npm run seed`                                                |
+| `SLOT_HORIZON_DAYS`                | `14`            | How far ahead slots are materialised                                                               |
+| `SLOT_INCREMENT_MINUTES`           | `60`            | Slot length. A shorter template window produces nothing.                                           |
+| `BOOKING_REQUEST_TTL_MINUTES`      | `15`            | Unanswered requests expire and release their slot                                                  |
+| `BOOKING_VISIT_FEE_PAISE`          | `4900`          | Snapshotted onto each booking. Stored, never charged — Phase 8.                                    |
+| `BOOKING_OTP_LENGTH`               | `4`             | Handshake code length. Spoken aloud, in person.                                                    |
+| `BOOKING_OTP_MAX_ATTEMPTS`         | `5`             | Then the booking locks, and stays locked                                                           |
+| `OUTBOX_POLL_INTERVAL_MS`          | `2000`          | Dispatcher poll interval                                                                           |
+| `OUTBOX_BATCH_SIZE`                | `50`            | Events claimed per pass                                                                            |
+| `OUTBOX_MAX_ATTEMPTS`              | `8`             | Then the event is parked, not dropped                                                              |
+| `OUTBOX_BACKOFF_BASE_SECONDS`      | `5`             | Retry N waits `base × 2^(N−1)`, capped                                                             |
+| `OUTBOX_BACKOFF_MAX_SECONDS`       | `3600`          | Backoff ceiling                                                                                    |
+| `JOBS_ENABLED`                     | `true`          | In-process background jobs. Off in tests.                                                          |
+| `BOOKING_EXPIRY_JOB_INTERVAL_MS`   | `60000`         | How often stale requests are swept                                                                 |
+| `SLOT_HORIZON_JOB_INTERVAL_MS`     | `21600000`      | How often the horizon is extended. Also runs once at boot.                                         |
 
 > `TRUST_PROXY_HOPS` is a security control, not a formality. Trusting
 > `X-Forwarded-For` when nothing sets it lets any caller spoof their IP and walk
@@ -262,6 +280,15 @@ sensible default — override `POSTGRES_PORT` if 5432 is already taken locally.
   coordinates, only a distance.
 - **Ranking weights are config.** Reordering search results must never need a
   code change. See [docs/search.md](docs/search.md).
+- **Double booking is impossible at the database level.** A Postgres exclusion
+  constraint refuses any overlapping committed slot for the same technician.
+  Application locks make the common race a friendly 409; the constraint is the
+  guarantee. See [docs/bookings.md](docs/bookings.md).
+- **Booking history is append-only too**, on the same terms as verification, and
+  a booking's status is a projection of its event log.
+- **Domain events are written in the same transaction as the state change** — a
+  transactional outbox, not a broker call. Delivery is at-least-once, so **every
+  consumer must be idempotent**.
 - **Modular monolith.** One Postgres, one Redis. No Kafka, no microservices, no
   Kubernetes — this is pilot traffic in one city.
 

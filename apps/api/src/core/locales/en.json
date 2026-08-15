@@ -29,6 +29,17 @@
     "documentAdded": "Document added.",
     "documentDeleted": "Document removed."
   },
+  "bookings": {
+    "requested": "Request sent. The technician will confirm shortly.",
+    "accepted": "Booking confirmed. Please reach on time.",
+    "rejected": "Request declined.",
+    "enRoute": "On the way. The customer has been told.",
+    "started": "Work started.",
+    "completed": "Work completed.",
+    "cancelled": "Booking cancelled.",
+    "slotBlocked": "Those hours are blocked. You will not get bookings for them.",
+    "slotUnblocked": "Those hours are open for bookings again."
+  },
   "verification": {
     "uploadUrlIssued": "Ready to upload.",
     "documentUploaded": "Document received.",
@@ -107,6 +118,22 @@
       "availabilityEndBeforeStart": "The end time must be after the start time. For work past midnight, add one entry per day.",
       "availabilityInvalid": "Those working hours are not valid.",
       "documentNotFound": "We could not find that document."
+    },
+    "bookings": {
+      "notFound": "We could not find that booking.",
+      "slotUnavailable": "That time has just been taken. Please pick another.",
+      "slotInPast": "That time has already passed.",
+      "slotNotToggleable": "Those hours cannot be changed. A booking may already be on them.",
+      "providerUnavailable": "That technician is not taking bookings right now.",
+      "categoryNotOffered": "That technician does not offer this service.",
+      "invalidTransition": "That action is not possible right now.",
+      "alreadyFinished": "This booking is already finished.",
+      "notYours": "You cannot do this on this booking.",
+      "invalidReason": "Please choose a valid reason.",
+      "otpMissing": "There is no code to check for this booking yet.",
+      "otpInvalid": "That code is not correct. Please check with the customer.",
+      "otpLocked": "Too many wrong codes. Please contact support to continue.",
+      "windowTooWide": "Please ask for a shorter date range."
     },
     "verification": {
       "documentNotFound": "We could not find that document.",

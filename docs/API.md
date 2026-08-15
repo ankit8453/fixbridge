@@ -765,9 +765,11 @@ matched than the ranking candidate cap (200).
 a customer matches when they fall inside _that_ radius. `max_distance_km` only
 narrows it further and can never widen it.
 
-**Availability is checked against weekly templates**, and the template must
-**fully cover** the requested window — a technician free 18:00–20:00 does not
-match a 19:00–21:00 request. Phase 6 will additionally subtract booked slots.
+**Availability is checked against real open slots.** The `date` is read as an
+IST calendar day, and a technician matches only if they have an `open` slot that
+**fully covers** the requested window — a slot 18:00–19:00 does not satisfy a
+19:00–21:00 request, and an hour somebody has already booked is not availability.
+(Phase 5 matched weekly templates and documented the gap; Phase 6 closed it.)
 
 | Status | Code               | When                                                                                             |
 | ------ | ------------------ | ------------------------------------------------------------------------------------------------ |
@@ -1086,7 +1088,184 @@ The badge also appears on `GET /api/v1/providers/me`:
 
 > **Badge and `isListed` are independent.** Completeness decides whether a
 > technician can be _found_; verification decides whether they are _trusted_.
-> Phase 5 search will require both.
+> Search requires both.
+
+---
+
+## Bookings and slots — `/api/v1/bookings`
+
+Design rationale, the state diagram, the handshake sequence and the outbox
+contract are in [bookings.md](bookings.md).
+
+> **One technician, one job, one hour.** A Postgres exclusion constraint refuses
+> any overlapping `held`/`booked` slot for the same provider. There is no request
+> shape that can get around it.
+
+### Availability
+
+#### `GET /api/v1/providers/:providerId/slots`
+
+**Public**, rate limited with the same per-IP budget as search — a customer picks
+a time before they sign in, and this is the step right after a search.
+
+| Query param | Required | Meaning                                            |
+| ----------- | -------- | -------------------------------------------------- |
+| `from`      | ✅       | ISO instant, inclusive                             |
+| `to`        | ✅       | ISO instant, exclusive. Span ≤ `SLOT_HORIZON_DAYS` |
+
+```bash
+curl 'http://localhost:3000/api/v1/providers/195e4019-.../slots?from=2026-08-16T00:00:00Z&to=2026-08-18T00:00:00Z'
+```
+
+**`200 OK`**
+
+```json
+{
+  "providerId": "195e4019-d1a9-4ea6-bac9-3b4945bdc1c6",
+  "slots": [
+    { "id": "0f2c…", "startsAt": "2026-08-16T03:30:00.000Z", "endsAt": "2026-08-16T04:30:00.000Z" }
+  ]
+}
+```
+
+**Only `open` slots are returned.** A booked hour simply disappears from the
+list rather than appearing with a status — who booked what, and when a technician
+took the afternoon off, is nobody else's business.
+
+| Status | Code               | When                                            |
+| ------ | ------------------ | ----------------------------------------------- |
+| `400`  | `VALIDATION_ERROR` | Missing/invalid `from`/`to`, or window too wide |
+| `429`  | `RATE_LIMITED`     | Over the per-IP search budget                   |
+
+#### `POST /api/v1/providers/me/slots/:slotId/block` · `/unblock`
+
+**Technician only.** Takes an hour off sale, or puts it back. Only `open ↔
+blocked`; an hour somebody has booked cannot be blocked away from under them.
+
+**`200 OK`** → `{ "slot": { "id", "startsAt", "endsAt" }, "message": "…" }`
+
+| Status | Code                  | When                                              |
+| ------ | --------------------- | ------------------------------------------------- |
+| `403`  | `FORBIDDEN`           | Caller is not a technician                        |
+| `409`  | `SLOT_NOT_TOGGLEABLE` | Not their slot, or not in a state that can toggle |
+
+### The booking lifecycle
+
+All routes below require authentication.
+
+#### `POST /api/v1/bookings`
+
+**Customer only.**
+
+| Field         | Required | Meaning                                 |
+| ------------- | -------- | --------------------------------------- |
+| `slotId`      | ✅       | An `open` slot, in the future           |
+| `categoryId`  | ✅       | Must be a service the technician offers |
+| `addressId`   | ✅       | Must belong to the caller. Snapshotted  |
+| `priceCardId` | —        | Recorded for Phase 7's quotation        |
+| `problemNote` | —        | Up to 500 chars                         |
+
+The three search gates are re-checked here: a technician who went unlisted,
+lost their badge or was blocked between the search and the tap cannot be booked.
+
+**`201 Created`** → `{ "booking": <BookingDetail>, "message": "…" }`. The slot
+becomes `held`.
+
+| Status | Code                   | When                                            |
+| ------ | ---------------------- | ----------------------------------------------- |
+| `400`  | `VALIDATION_ERROR`     | Bad body, or the slot has already started       |
+| `404`  | `ADDRESS_NOT_FOUND`    | The address is not the caller's                 |
+| `409`  | `SLOT_UNAVAILABLE`     | Taken — including losing a race by microseconds |
+| `409`  | `PROVIDER_UNAVAILABLE` | Unlisted, unverified or blocked technician      |
+
+#### `GET /api/v1/bookings?side=customer|provider`
+
+Both sides list "my bookings" from the same path. A technician who is also a
+customer gets whichever side they ask for. Defaults to `customer`.
+
+#### `GET /api/v1/bookings/:bookingId`
+
+Either party. A stranger gets `404`, not `403` — they should not learn that the
+booking exists.
+
+**`BookingDetail`**
+
+```json
+{
+  "id": "8b1e…",
+  "status": "IN_PROGRESS",
+  "categoryId": 2,
+  "startsAt": "2026-08-16T03:30:00.000Z",
+  "endsAt": "2026-08-16T04:30:00.000Z",
+  "problemNote": "Geyser is not heating",
+  "visitFeePaise": 4900,
+  "address": { "addressText": "…", "landmark": "…", "cityId": 1, "lat": 23.16, "lng": 79.94 },
+  "counterpart": { "name": "Ramesh Vishwakarma", "phone": "+919000000001", "phoneRevealed": true },
+  "startOtp": "4821",
+  "endOtp": "9037",
+  "events": [
+    {
+      "id": "…",
+      "eventType": "requested",
+      "actorType": "customer",
+      "payload": {},
+      "createdAt": "…"
+    }
+  ],
+  "createdAt": "…"
+}
+```
+
+| Field               | Visibility                                                   |
+| ------------------- | ------------------------------------------------------------ |
+| `counterpart.phone` | Masked outside `ACCEPTED`…`WORK_DONE`; full inside           |
+| `address`           | Always to the customer; to the technician only once accepted |
+| `startOtp`          | **Customer only**, from `ACCEPTED`                           |
+| `endOtp`            | **Customer only**, and only at `IN_PROGRESS`                 |
+| `visitFeePaise`     | Snapshot at creation. Stored, never charged — Phase 8        |
+
+#### Provider actions
+
+| Route                       | Body                | Result                                    |
+| --------------------------- | ------------------- | ----------------------------------------- |
+| `POST /:bookingId/accept`   | —                   | `ACCEPTED`, slot → `booked`, codes issued |
+| `POST /:bookingId/reject`   | `{ reason, note? }` | `REJECTED`, slot → `open`                 |
+| `POST /:bookingId/en-route` | —                   | `EN_ROUTE`                                |
+| `POST /:bookingId/start`    | `{ otp }`           | `ARRIVED` **then** `IN_PROGRESS`          |
+| `POST /:bookingId/complete` | `{ otp }`           | `WORK_DONE`                               |
+
+`reason` for reject is one of `too_far` · `busy` · `wrong_skill` · `other`
+(`other` requires a `note`).
+
+`start` appends **two** events, because the history should show that arrival was
+proven rather than only that work began.
+
+#### `POST /:bookingId/cancel`
+
+Either party, with `{ reason, note? }` drawn from their own list:
+
+| Side       | Reasons                                                                   |
+| ---------- | ------------------------------------------------------------------------- |
+| Customer   | `changed_mind` · `found_other` · `emergency` · `provider_delay` · `other` |
+| Technician | `emergency` · `vehicle_issue` · `wrong_skill` · `other`                   |
+
+The lists differ because the codes mean different things: a customer's
+`found_other` is market feedback, a technician's `vehicle_issue` is a reliability
+signal Phase 9 will weigh. Sending the other side's code is a `400`.
+
+**Nothing cancels from `ARRIVED` onwards.** Once a technician is at the door, "I
+changed my mind" is a dispute, not a cancellation.
+
+#### Booking errors
+
+| Status | Code                         | When                                                  |
+| ------ | ---------------------------- | ----------------------------------------------------- |
+| `401`  | `BOOKING_OTP_INVALID`        | Wrong handshake code. `details.remaining` counts down |
+| `403`  | `BOOKING_WRONG_ACTOR`        | The other party may do this, but you may not          |
+| `404`  | `BOOKING_NOT_FOUND`          | Unknown, or not yours                                 |
+| `409`  | `BOOKING_INVALID_TRANSITION` | Not possible from the current status                  |
+| `409`  | `BOOKING_OTP_MISSING`        | No code is active for this booking yet                |
+| `423`  | `BOOKING_OTP_LOCKED`         | Five wrong codes. Ops must unlock                     |
 
 ---
 
@@ -1156,11 +1335,10 @@ These prefixes resolve to registered routers with no handlers yet, so any path
 under them returns the standard `404 NOT_FOUND` envelope. Listed here so the URL
 space is reserved and visible.
 
-| Prefix                  | Phase | Will contain                                      |
-| ----------------------- | ----- | ------------------------------------------------- |
-| `/api/v1/bookings`      | 6     | slots, booking lifecycle, start/end OTP handshake |
-| `/api/v1/quotations`    | 7     | itemised quotations, in-app approval              |
-| `/api/v1/payments`      | 8     | UPI collection, logged cash                       |
-| `/api/v1/reviews`       | 9     | two-way ratings                                   |
-| `/api/v1/notifications` | 10    | WhatsApp / push adapters                          |
-| `/api/v1/admin`         | 11    | admin console API                                 |
+| Prefix                  | Phase | Will contain                         |
+| ----------------------- | ----- | ------------------------------------ |
+| `/api/v1/quotations`    | 7     | itemised quotations, in-app approval |
+| `/api/v1/payments`      | 8     | UPI collection, logged cash          |
+| `/api/v1/reviews`       | 9     | two-way ratings                      |
+| `/api/v1/notifications` | 10    | WhatsApp / push adapters             |
+| `/api/v1/admin`         | 11    | admin console API                    |

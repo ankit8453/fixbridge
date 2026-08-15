@@ -54,23 +54,36 @@ whole reason for `geography` over `geometry`, where it would mean degrees.
 `max_distance_km` narrows that further. It never widens it: a customer cannot
 reach a technician who has said they do not travel that far.
 
-### Availability is templates, not slots
+### Availability is real slots
 
-> **Phase 5 checks weekly templates. Phase 6 will additionally subtract
-> already-booked slots.** A provider matching here is _nominally_ free, not
-> _confirmed_ free.
+> Phase 5 shipped this against weekly templates and flagged the gap: a provider
+> matching a template is _nominally_ free, not _confirmed_ free. **Phase 6
+> materialised slots and closed it.**
 
-`date` is used only to derive a weekday. A provider matches when an active
-template on that weekday **fully covers** the requested window:
+`date` is read as an **IST calendar day** and combined with `start_time` and
+`end_time` into real instants. A provider matches when they have an `open` slot
+that **fully covers** the window:
 
 ```sql
-pat.day_of_week = $day
-AND pat.start_minute <= $start
-AND pat.end_minute   >= $end
+EXISTS (
+  SELECT 1 FROM slots s
+  WHERE s.provider_id = pp.user_id
+    AND s.status = 'open'
+    AND s.starts_at <= $windowStart
+    AND s.ends_at   >= $windowEnd
+)
 ```
 
-Full coverage, not overlap. A technician free 18:00–20:00 cannot take a
+Full coverage, not overlap. A technician free 18:00–19:00 cannot take a
 19:00–21:00 job, and returning them would waste everybody's time.
+
+Because the predicate reads `status = 'open'`, an hour somebody has already
+booked drops out on its own — there is no separate subtraction step, and no way
+for the two to disagree. Slot generation and the exclusion constraint behind it
+are in [bookings.md](bookings.md).
+
+The weekday is still derived, but only to pick the `nextAvailability` window
+shown on the result card.
 
 ### What a result card never contains
 
@@ -112,7 +125,7 @@ score = ( distance      × W_distance
 | `experience`   | `min(1, years / 15)`                         | Diminishing returns, flat after 15 years.                                                                                                                                  |
 | `completeness` | `score / 100`                                | A fuller profile is a better result card.                                                                                                                                  |
 | `trust`        | Phase 9                                      | Neutral until then.                                                                                                                                                        |
-| `acceptance`   | Phase 6                                      | Neutral until then.                                                                                                                                                        |
+| `acceptance`   | `accepted / decided`, 30-day window          | Real from Phase 6. Null — and therefore neutral — below 5 decided requests, so a newcomer is not ranked on noise.                                                          |
 | `price`        | **inverted** — `1 − position`                | Position is relative to the current result set, because "expensive" only means anything next to the other quotes on screen.                                                |
 
 ### Default weights
@@ -133,16 +146,21 @@ input; nothing else in the codebase knows they exist. Tests prove it by
 constructing a price-only weighting and asserting the ordering flips, with no
 code change.
 
-### Signals that do not exist yet
+### Missing signals default to the midpoint
 
-`trustScore` (Phase 9) and `acceptanceRate` (Phase 6) are in the input type
-today, defaulting to **0.5** — the midpoint.
+`trustScore` (Phase 9) and any provider without enough booking history default to
+**0.5**.
 
 The midpoint is deliberate. Zero would push everyone down equally, making the
 weight meaningless; one would make everyone look perfect until real data arrived
-and then drop everyone's score at once. The midpoint means that when Phase 6
-starts supplying real acceptance rates for _some_ providers, those with data move
-up or down around the ones without, and nothing reshuffles for no reason.
+and then drop everyone's score at once. The midpoint means a technician with a
+0.8 acceptance rate and one with no record yet sit near each other rather than at
+opposite ends of the list.
+
+Phase 6 proved the design out: acceptance rate went from a documented `null` to a
+real number without this file's scorer changing at all — the phase added data,
+not a new scoring interface. `RankInput` still carries `trustScore` for Phase 9
+to fill the same way.
 
 ### Ranking runs in TypeScript, not SQL
 
@@ -304,8 +322,7 @@ volume, and a test asserts it.
 
 ## What is deliberately not here
 
-- **Slot-level availability** — Phase 6. Templates only, as described above.
-- Real trust scores and acceptance rates — Phases 9 and 6.
+- Real trust scores — Phase 9. Acceptance rate arrived in Phase 6.
 - Caching of search _results_. Only the category counts are cached; a stale
   result list would show technicians who have since gone offline.
 - Search analytics and query logging — Phase 14 funnel work.

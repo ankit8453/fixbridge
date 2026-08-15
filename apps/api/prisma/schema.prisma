@@ -70,6 +70,7 @@ model User {
   customerProfile CustomerProfile?
   providerProfile ProviderProfile?
   addresses       Address[]
+  bookings        Booking[]        @relation("CustomerBookings")
 
   @@index([status])
   @@map("users")
@@ -113,9 +114,9 @@ model RefreshToken {
   @@map("refresh_tokens")
 }
 
-/* -------------------------------------------------------------------------- */
-/* Service taxonomy                                                           */
-/* -------------------------------------------------------------------------- */
+// ---------------------------------------------------------------------------
+// Service taxonomy
+// ---------------------------------------------------------------------------
 
 /// Two levels only: a cluster (`parent_id IS NULL`) and the services under it.
 /// The depth limit is an application invariant — Postgres cannot express
@@ -141,6 +142,7 @@ model Category {
   skills     ProviderSkill[]
   priceCards ProviderPriceCard[]
   synonyms   HinglishSynonym[]
+  bookings   Booking[]
 
   @@unique([cityId, slug])
   @@index([cityId, isActive])
@@ -173,9 +175,9 @@ model HinglishSynonym {
   @@map("hinglish_synonyms")
 }
 
-/* -------------------------------------------------------------------------- */
-/* Customers                                                                  */
-/* -------------------------------------------------------------------------- */
+// ---------------------------------------------------------------------------
+// Customers
+// ---------------------------------------------------------------------------
 
 /// Created lazily on the first profile write — auth already created the user row.
 model CustomerProfile {
@@ -224,9 +226,9 @@ model Address {
   @@map("addresses")
 }
 
-/* -------------------------------------------------------------------------- */
-/* Providers (technicians)                                                    */
-/* -------------------------------------------------------------------------- */
+// ---------------------------------------------------------------------------
+// Providers (technicians)
+// ---------------------------------------------------------------------------
 
 enum PriceType {
   fixed
@@ -276,14 +278,17 @@ model ProviderProfile {
   createdAt          DateTime                               @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  user              User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  city              City                          @relation(fields: [cityId], references: [id], onDelete: Restrict)
+  user              User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  city              City                           @relation(fields: [cityId], references: [id], onDelete: Restrict)
   skills            ProviderSkill[]
   priceCards        ProviderPriceCard[]
   availability      ProviderAvailabilityTemplate[]
   documents         ProviderDocument[]
   verificationCases VerificationCase[]
   verification      ProviderVerificationSummary?
+  slots             Slot[]
+  bookings          Booking[]
+  stats             ProviderStats?
 
   @@index([cityId, isListed])
   @@map("provider_profiles")
@@ -320,6 +325,7 @@ model ProviderPriceCard {
 
   provider ProviderProfile @relation(fields: [providerId], references: [userId], onDelete: Cascade)
   category Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  bookings Booking[]
 
   @@index([providerId, isActive])
   @@map("provider_price_cards")
@@ -346,6 +352,7 @@ model ProviderAvailabilityTemplate {
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   provider ProviderProfile @relation(fields: [providerId], references: [userId], onDelete: Cascade)
+  slots    Slot[]
 
   @@index([providerId, dayOfWeek])
   @@map("provider_availability_templates")
@@ -373,9 +380,9 @@ model ProviderDocument {
   @@map("provider_documents")
 }
 
-/* -------------------------------------------------------------------------- */
-/* Verification                                                               */
-/* -------------------------------------------------------------------------- */
+// ---------------------------------------------------------------------------
+// Verification
+// ---------------------------------------------------------------------------
 
 /// 0 identity · 1 background · 2 skill · 3 references. Levels are independent —
 /// a provider may have level 0 and level 2 open at the same time.
@@ -484,20 +491,219 @@ model ProviderVerificationSummary {
   @@map("provider_verification_summaries")
 }
 
+// ---------------------------------------------------------------------------
+// Slots & bookings
+// ---------------------------------------------------------------------------
+
+enum SlotStatus {
+  open
+  held
+  booked
+  blocked
+
+  @@map("slot_status")
+}
+
+/// A concrete, bookable hour in a technician's calendar.
+///
+/// `starts_at`/`ends_at` are the readable truth; `time_range` is a `tstzrange`
+/// kept in lockstep by a trigger and exists solely so the exclusion constraint
+/// can do its job:
+///
+///   EXCLUDE USING gist (provider_id WITH =, time_range WITH &&)
+///     WHERE (status IN ('held','booked'))
+///
+/// That constraint is the double-booking wall. Application checks are a
+/// courtesy; this is the thing that cannot be raced, forgotten or deployed
+/// around. See docs/bookings.md.
+model Slot {
+  id               String                   @id @default(uuid()) @db.Uuid
+  providerId       String                   @map("provider_id") @db.Uuid
+  startsAt         DateTime                 @map("starts_at") @db.Timestamptz(3)
+  endsAt           DateTime                 @map("ends_at") @db.Timestamptz(3)
+  /// Derived from starts_at/ends_at by a trigger. Never written by hand.
+  timeRange        Unsupported("tstzrange") @map("time_range")
+  status           SlotStatus               @default(open)
+  /// Which availability template produced this slot, if any.
+  sourceTemplateId String?                  @map("source_template_id") @db.Uuid
+  bookingId        String?                  @unique @map("booking_id") @db.Uuid
+  createdAt        DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  provider       ProviderProfile               @relation(fields: [providerId], references: [userId], onDelete: Cascade)
+  sourceTemplate ProviderAvailabilityTemplate? @relation(fields: [sourceTemplateId], references: [id], onDelete: SetNull)
+  booking        Booking?                      @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@index([providerId, startsAt])
+  @@index([status, startsAt])
+  @@map("slots")
+}
+
+/// The lifecycle a job moves through. `WORK_DONE` is terminal *for this phase* —
+/// Phases 8 and 9 extend the machine with payment and review states, which is
+/// why the transition table is data rather than a switch statement.
+enum BookingStatus {
+  REQUESTED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  EN_ROUTE
+  ARRIVED
+  IN_PROGRESS
+  WORK_DONE
+  CANCELLED_BY_CUSTOMER
+  CANCELLED_BY_PROVIDER
+
+  @@map("booking_status")
+}
+
+enum BookingEventType {
+  requested
+  accepted
+  rejected
+  expired
+  en_route
+  arrived
+  work_started
+  work_done
+  cancelled_by_customer
+  cancelled_by_provider
+  /// Recorded, but moves nothing — a failed handshake is evidence, not a state.
+  otp_failed
+  otp_locked
+
+  @@map("booking_event_type")
+}
+
+enum BookingActorType {
+  customer
+  provider
+  system
+  ops
+
+  @@map("booking_actor_type")
+}
+
+model Booking {
+  id              String  @id @default(uuid()) @db.Uuid
+  customerId      String  @map("customer_id") @db.Uuid
+  providerId      String  @map("provider_id") @db.Uuid
+  categoryId      Int     @map("category_id")
+  priceCardId     String? @map("price_card_id") @db.Uuid
+  addressId       String? @map("address_id") @db.Uuid
+  /**
+   * What the address said at the moment of booking.
+   * The customer may edit or delete the address afterwards; a technician
+   * standing outside needs the address they were sent to, not the current one.
+   */
+  addressSnapshot Json    @map("address_snapshot") @db.JsonB
+
+  startsAt DateTime @map("starts_at") @db.Timestamptz(3)
+  endsAt   DateTime @map("ends_at") @db.Timestamptz(3)
+
+  problemNote   String?       @map("problem_note") @db.VarChar(500)
+  /// Snapshot of the visit fee at creation. Stored, never charged — Phase 8.
+  visitFeePaise Int           @map("visit_fee_paise")
+  status        BookingStatus @default(REQUESTED)
+
+  /// v1 has no reschedule: it is cancel + rebook, linked here for analytics.
+  rescheduledFromBookingId String? @map("rescheduled_from_booking_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  customer  User               @relation("CustomerBookings", fields: [customerId], references: [id], onDelete: Cascade)
+  provider  ProviderProfile    @relation(fields: [providerId], references: [userId], onDelete: Cascade)
+  category  Category           @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  priceCard ProviderPriceCard? @relation(fields: [priceCardId], references: [id], onDelete: SetNull)
+  events    BookingEvent[]
+  slots     Slot[]
+
+  @@index([customerId, createdAt])
+  @@index([providerId, createdAt])
+  @@index([status, createdAt])
+  @@map("bookings")
+}
+
+/// Append-only, exactly like `verification_events`. A booking's whole history is
+/// reconstructable from these rows and nothing may rewrite one.
+model BookingEvent {
+  id          String           @id @default(uuid()) @db.Uuid
+  bookingId   String           @map("booking_id") @db.Uuid
+  eventType   BookingEventType @map("event_type")
+  actorType   BookingActorType @map("actor_type")
+  actorUserId String?          @map("actor_user_id") @db.Uuid
+  payload     Json?            @db.JsonB
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId, createdAt])
+  @@map("booking_events")
+}
+
+// ---------------------------------------------------------------------------
+// Transactional outbox
+// ---------------------------------------------------------------------------
+
+/// Events written in the SAME transaction as the state change that caused them.
+///
+/// That is the whole point: a booking cannot be accepted without the
+/// `booking.accepted` event also existing, and an event cannot exist for a
+/// transition that rolled back. Delivery is at-least-once, so every consumer
+/// must be idempotent. See docs/bookings.md.
+model OutboxEvent {
+  id            String    @id @default(uuid()) @db.Uuid
+  topic         String    @db.VarChar(120)
+  aggregateType String    @map("aggregate_type") @db.VarChar(60)
+  aggregateId   String    @map("aggregate_id") @db.Uuid
+  payload       Json      @db.JsonB
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  processedAt   DateTime? @map("processed_at") @db.Timestamptz(3)
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime  @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
+  lastError     String?   @map("last_error") @db.VarChar(2000)
+
+  @@index([processedAt, nextAttemptAt])
+  @@index([aggregateType, aggregateId])
+  @@map("outbox")
+}
+
+/// Counters behind the acceptance rate that feeds search ranking.
+///
+/// Recomputed from `booking_events` whenever a relevant outbox event is
+/// delivered — at pilot volume that is a trivial query, and it means the numbers
+/// can never drift from the log they describe.
+model ProviderStats {
+  providerId               String   @id @map("provider_id") @db.Uuid
+  acceptedCount            Int      @default(0) @map("accepted_count")
+  rejectedCount            Int      @default(0) @map("rejected_count")
+  expiredCount             Int      @default(0) @map("expired_count")
+  cancelledByProviderCount Int      @default(0) @map("cancelled_by_provider_count")
+  /// Null until there are enough decided requests to mean anything.
+  acceptanceRate           Float?   @map("acceptance_rate")
+  windowDays               Int      @default(30) @map("window_days")
+  updatedAt                DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  provider ProviderProfile @relation(fields: [providerId], references: [userId], onDelete: Cascade)
+
+  @@map("provider_stats")
+}
+
 /// Every ops read of KYC material, recorded separately from the case timeline.
 ///
 /// Kept out of `verification_events` on purpose: a read is not a state
 /// transition, and mixing them would make the case history — the thing an
 /// incident review reads — mostly noise.
 model KycAccessLog {
-  id         String   @id @default(uuid()) @db.Uuid
-  providerId String   @map("provider_id") @db.Uuid
-  actorUserId String  @map("actor_user_id") @db.Uuid
-  caseId     String?  @map("case_id") @db.Uuid
+  id          String   @id @default(uuid()) @db.Uuid
+  providerId  String   @map("provider_id") @db.Uuid
+  actorUserId String   @map("actor_user_id") @db.Uuid
+  caseId      String?  @map("case_id") @db.Uuid
   /// Document ids whose signed URLs were handed out in this request.
   documentIds String[] @map("document_ids")
-  action     String   @db.VarChar(60)
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  action      String   @db.VarChar(60)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   @@index([providerId, createdAt])
   @@index([actorUserId, createdAt])

@@ -11,6 +11,7 @@ import { createOtpTransport } from '../modules/auth/transport';
 import type { OtpTransport } from '../modules/auth/transport';
 import { createUserDenylist, type UserDenylist } from '../modules/auth/denylist';
 import { createStubGeoService, type GeoService } from './geo';
+import { createOutboxRegistry, type OutboxRegistry } from './outbox';
 import { createS3StorageService, type StorageService } from './storage';
 import { createDefaultAdapters, type VerificationAdapters } from '../modules/verification/adapters';
 
@@ -35,6 +36,8 @@ export interface AppContext {
   storage: StorageService;
   /** Third-party KYC vendors. Manual (ops-decided) until one is contracted. */
   adapters: VerificationAdapters;
+  /** Where domain events are published. Phases 9 and 10 subscribe here. */
+  outbox: OutboxRegistry;
 }
 
 export const CONTEXT_KEY = 'appContext';
@@ -54,6 +57,7 @@ export function createContext(config: AppConfig = loadConfig()): AppContext {
     geo: createStubGeoService(),
     storage: createS3StorageService(config, logger),
     adapters: createDefaultAdapters(),
+    outbox: createOutboxRegistry(),
   };
 }
 

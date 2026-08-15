@@ -8,10 +8,10 @@ import type { Badge } from '../verification/badge';
  *   1. **Weights live in config, nowhere else.** Reordering search results must
  *      never need a code change, so the scorer reads weights from its input and
  *      no other module knows they exist.
- *   2. **Signals that do not exist yet are still in the type.** Trust score
- *      arrives in Phase 9 and acceptance rate in Phase 6. Declaring them now
- *      with documented neutral defaults means those phases add data, not a new
- *      scoring interface.
+ *   2. **Signals that do not exist yet are still in the type.** Declaring them
+ *      with documented neutral defaults means a later phase adds data, not a new
+ *      scoring interface — which is exactly how acceptance rate landed in Phase
+ *      6 without this file changing. Trust score is still waiting on Phase 9.
  *
  * Every component is normalised to 0..1 before weighting, so a weight is
  * directly readable as "how much this matters relative to the others".
@@ -28,7 +28,7 @@ export interface RankInput {
   completenessScore: number;
   /** 0–1. Phase 9. Null until then. */
   trustScore: number | null;
-  /** 0–1, share of requests accepted. Phase 6. Null until then. */
+  /** 0–1, share of requests accepted. Null below the small-sample floor. */
   acceptanceRate: number | null;
   /** 0–1, where 0 is the cheapest in the result set. Null when no price is set. */
   priceBandPosition: number | null;
@@ -52,9 +52,9 @@ export interface RankWeights {
  * All 0.5 — deliberately the midpoint, so an absent signal neither rewards nor
  * punishes. Using 0 would push every provider down equally (a wash, but it makes
  * the weight meaningless); using 1 would mean everyone looks perfect until real
- * data arrives and then everyone's score drops. The midpoint keeps ordering
- * stable when Phase 6 and Phase 9 start supplying real values for some providers
- * and not others.
+ * data arrives and then everyone's score drops. The midpoint is what lets a new
+ * technician and a busy one with a 0.5 acceptance rate sit side by side rather
+ * than the newcomer being buried for having no record yet.
  */
 export const NEUTRAL_DEFAULTS = {
   trustScore: 0.5,

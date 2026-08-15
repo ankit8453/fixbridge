@@ -1,5 +1,6 @@
 import { PrismaClient, Role } from '@prisma/client';
 import { maskPhone, normalizePhone } from '../src/modules/auth/phone';
+import { seedBookings } from './seeds/bookings';
 import { seedCategories } from './seeds/categories';
 import { seedCustomer } from './seeds/customer';
 import { seedProviders } from './seeds/providers';
@@ -126,6 +127,9 @@ async function main(): Promise<void> {
   await seedProviders(prisma, cityId, categoryIdBySlug, listingThreshold);
   await seedVerification(prisma, opsUserId);
   await seedCustomer(prisma, cityId);
+  // Last: slots need listed providers, bookings need both the customer and the
+  // verification badges that made those providers listable in the first place.
+  await seedBookings(prisma, cityId);
   await ensureStorageBucket();
 }
 

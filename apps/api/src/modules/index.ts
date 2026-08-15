@@ -8,7 +8,7 @@ import {
   opsRouter as verificationOpsRouter,
 } from './verification/routes';
 import { router as searchRouter } from './search/routes';
-import { router as bookingsRouter } from './bookings/routes';
+import { router as bookingsRouter, providerSlotRouter, publicSlotRouter } from './bookings/routes';
 import { router as quotationsRouter } from './quotations/routes';
 import { router as paymentsRouter } from './payments/routes';
 import { router as reviewsRouter } from './reviews/routes';
@@ -26,6 +26,10 @@ export function registerModuleRoutes(app: Express): void {
   app.use(`${API_PREFIX}/auth`, authRouter);
   app.use(`${API_PREFIX}/categories`, categoriesRouter);
   app.use(`${API_PREFIX}/customers`, customersRouter);
+  // Slots live in the bookings module but hang off the providers path, which is
+  // where a client looks for them. Most specific prefix first.
+  app.use(`${API_PREFIX}/providers/me/slots`, providerSlotRouter);
+  app.use(`${API_PREFIX}/providers`, publicSlotRouter);
   app.use(`${API_PREFIX}/providers`, providersRouter);
   app.use(`${API_PREFIX}/verification`, verificationRouter);
   // Public and rate-limited — a customer chooses before they sign in.

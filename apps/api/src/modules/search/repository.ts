@@ -13,8 +13,9 @@ export interface SearchFilters {
   categoryId: number | null;
   maxDistanceMetres: number | null;
   dayOfWeek: number | null;
-  startMinute: number | null;
-  endMinute: number | null;
+  /** The requested window as instants. Null when no availability filter applies. */
+  windowStart: Date | null;
+  windowEnd: Date | null;
   /** Ranking happens in TypeScript, so the candidate set has to be bounded. */
   candidateLimit: number;
 }
@@ -27,6 +28,8 @@ export interface ProviderCandidateRow {
   serviceRadiusKm: number;
   badge: Badge;
   distanceMetres: number;
+  /** From `provider_stats`. Null below the small-sample floor — see bookings/stats. */
+  acceptanceRate: number | null;
   startingPricePaise: number | null;
   skills: { categoryId: number; slug: string; nameKey: string }[] | null;
   nextWindow: { dayOfWeek: number; startMinute: number; endMinute: number } | null;
@@ -75,10 +78,16 @@ export async function searchProviders(
         pp.completeness_score AS "completenessScore",
         pp.service_radius_km  AS "serviceRadiusKm",
         pvs.badge             AS badge,
+        -- LEFT JOIN, and the rate is nullable even when the row exists: a
+        -- provider with no stats row and one below the sample floor mean the
+        -- same thing to the scorer, and both must fall back to neutral rather
+        -- than dropping out of the result set.
+        pst.acceptance_rate   AS "acceptanceRate",
         ST_Distance(pp.base_location, c.point) AS "distanceMetres"
       FROM provider_profiles pp
       JOIN users u ON u.id = pp.user_id
       JOIN provider_verification_summaries pvs ON pvs.provider_id = pp.user_id
+      LEFT JOIN provider_stats pst ON pst.provider_id = pp.user_id
       CROSS JOIN customer c
       WHERE pp.city_id = ${filters.cityId}
         AND pp.is_listed = true
@@ -100,17 +109,18 @@ export async function searchProviders(
               AND ps.category_id IN (SELECT id FROM target_categories)
           )
         )
-        -- Availability is checked against templates, not slots: Phase 6 will
-        -- additionally subtract already-booked time.
+        -- Availability is checked against **real open slots**, not templates.
+        -- Phase 5 matched templates and documented the gap; Phase 6 materialised
+        -- slots, so a provider now only matches if the hour is genuinely free —
+        -- already-booked time is excluded by the slot's own status.
         AND (
-          ${dayOfWeek}::int IS NULL
+          ${filters.windowStart}::timestamptz IS NULL
           OR EXISTS (
-            SELECT 1 FROM provider_availability_templates pat
-            WHERE pat.provider_id = pp.user_id
-              AND pat.is_active = true
-              AND pat.day_of_week = ${dayOfWeek}::int
-              AND pat.start_minute <= ${filters.startMinute}::int
-              AND pat.end_minute >= ${filters.endMinute}::int
+            SELECT 1 FROM slots s
+            WHERE s.provider_id = pp.user_id
+              AND s.status = 'open'
+              AND s.starts_at <= ${filters.windowStart}::timestamptz
+              AND s.ends_at >= ${filters.windowEnd}::timestamptz
           )
         )
     )

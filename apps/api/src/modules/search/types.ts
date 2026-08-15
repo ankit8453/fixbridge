@@ -21,7 +21,7 @@ const timeOfDay = z
     return minutes;
   });
 
-/** `YYYY-MM-DD`. Only the weekday is used — see the availability note in docs. */
+/** `YYYY-MM-DD`, read as an IST calendar day and matched against real slots. */
 const isoDate = z
   .string()
   .trim()
