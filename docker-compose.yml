@@ -1,0 +1,44 @@
+# Local development infrastructure for the API.
+# The API itself runs on the host via `npm run start:dev` — no API container this phase.
+name: fixbridge
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: fixbridge-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fixbridge}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fixbridge}
+      POSTGRES_DB: ${POSTGRES_DB:-fixbridge}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-fixbridge} -d ${POSTGRES_DB:-fixbridge}']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  redis:
+    image: redis:7-alpine
+    container_name: fixbridge-redis
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+volumes:
+  postgres-data:
+  redis-data:

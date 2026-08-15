@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Fast feedback with no infrastructure: lint, format, build, unit tests.
+  verify:
+    name: Lint, build & unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Build
+        run: npm run build
+
+      - name: Unit tests
+        run: npm run test:unit
+
+  # Proves migrations apply to a completely fresh database and that /health
+  # goes green against real Postgres + Redis.
+  integration:
+    name: Migrations, seed & integration tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: fixbridge
+          POSTGRES_PASSWORD: fixbridge
+          POSTGRES_DB: fixbridge
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fixbridge -d fixbridge"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    env:
+      NODE_ENV: test
+      LOG_LEVEL: silent
+      DATABASE_URL: postgresql://fixbridge:fixbridge@localhost:5432/fixbridge?schema=public
+      REDIS_URL: redis://localhost:6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply migrations to a fresh database
+        run: npm run migrate:deploy
+
+      - name: Seed
+        run: npm run seed
+
+      - name: Seed again (must be idempotent)
+        run: npm run seed
+
+      - name: Full test suite (unit + integration)
+        run: npm test

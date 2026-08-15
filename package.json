@@ -1,0 +1,44 @@
+{
+  "name": "fixbridge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Verified hyperlocal skilled-services marketplace — modular monolith (internal codename: fixbridge; brand name not decided, see APP_NAME).",
+  "license": "UNLICENSED",
+  "workspaces": [
+    "packages/shared",
+    "apps/api"
+  ],
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "scripts": {
+    "build": "npm run build --workspace @fixbridge/shared && npm run build --workspace @fixbridge/api",
+    "start:dev": "npm run build --workspace @fixbridge/shared && npm run start:dev --workspace @fixbridge/api",
+    "start": "npm run start --workspace @fixbridge/api",
+    "test": "npm run test --workspace @fixbridge/api",
+    "test:unit": "npm run test:unit --workspace @fixbridge/api",
+    "typecheck": "npm run typecheck --workspace @fixbridge/shared && npm run typecheck --workspace @fixbridge/api",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "migrate": "npm run migrate --workspace @fixbridge/api",
+    "migrate:deploy": "npm run migrate:deploy --workspace @fixbridge/api",
+    "migrate:reset": "npm run migrate:reset --workspace @fixbridge/api",
+    "migrate:status": "npm run migrate:status --workspace @fixbridge/api",
+    "prisma:generate": "npm run prisma:generate --workspace @fixbridge/api",
+    "seed": "npm run seed --workspace @fixbridge/api",
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down",
+    "infra:reset": "docker compose down -v && docker compose up -d"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "eslint": "9.39.5",
+    "eslint-config-prettier": "10.1.8",
+    "globals": "16.5.0",
+    "prettier": "3.9.6",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.67.0"
+  }
+}

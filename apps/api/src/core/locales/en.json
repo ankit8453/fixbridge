@@ -1,0 +1,15 @@
+{
+  "health": {
+    "ok": "Service is running normally.",
+    "degraded": "Service is running with degraded dependencies."
+  },
+  "errors": {
+    "internal": "Something went wrong at our end. Please try again.",
+    "notFound": "We could not find what you were looking for.",
+    "validation": "Some of the details you sent are not valid.",
+    "unavailable": "This service is temporarily unavailable. Please try again shortly."
+  },
+  "common": {
+    "greeting": "Hello {{name}}"
+  }
+}

@@ -1,0 +1,10 @@
+# Prettier is configured with `endOfLine: lf`. Without this, a Windows clone
+# would check out CRLF and `npm run format:check` would fail on a clean tree.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
