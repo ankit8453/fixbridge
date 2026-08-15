@@ -189,7 +189,10 @@ export async function getOwnDownloadUrl(
   if (!document || document.status !== 'uploaded') throw documentNotFound(documentId);
 
   return {
-    url: await context.storage.getDownloadUrl(document.storageKey),
+    url: await context.storage.getDownloadUrl(document.storageKey, {
+      contentType: document.contentType,
+      filename: `${document.docType}-${document.id}`,
+    }),
     expiresInSeconds: context.config.STORAGE_DOWNLOAD_URL_TTL_SECONDS,
   };
 }
@@ -619,7 +622,11 @@ export async function getCaseForOps(
   const withUrls = await Promise.all(
     uploaded.map(async (doc) => ({
       ...toDocumentResponse(doc),
-      downloadUrl: await context.storage.getDownloadUrl(doc.storageKey),
+      // Inert by construction — see getDownloadUrl. Ops open these in a browser.
+      downloadUrl: await context.storage.getDownloadUrl(doc.storageKey, {
+        contentType: doc.contentType,
+        filename: `${doc.docType}-${doc.id}`,
+      }),
     })),
   );
 

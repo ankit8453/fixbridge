@@ -31,6 +31,18 @@ export interface StoredObject {
  * file bytes never pass through this process. That keeps KYC images off our
  * application logs, out of our request buffers, and off our bandwidth bill.
  */
+export interface DownloadOptions {
+  expirySeconds?: number;
+  /** Pinned into the signed URL so the browser cannot be told otherwise. */
+  contentType?: string;
+  filename?: string;
+}
+
+/** Keeps a crafted filename out of the `Content-Disposition` header. */
+function sanitizeFilename(filename: string): string {
+  return filename.replace(/["\\\r\n]/g, '').slice(0, 100) || 'document';
+}
+
 export interface StorageService {
   readonly name: string;
   getUploadUrl(input: {
@@ -38,7 +50,7 @@ export interface StorageService {
     contentType: string;
     contentLength: number;
   }): Promise<UploadTarget>;
-  getDownloadUrl(key: string, expirySeconds?: number): Promise<string>;
+  getDownloadUrl(key: string, options?: DownloadOptions): Promise<string>;
   head(key: string): Promise<StoredObject | null>;
   exists(key: string): Promise<boolean>;
   delete(key: string): Promise<void>;
@@ -102,9 +114,31 @@ export function createS3StorageService(config: AppConfig, logger: AppLogger): St
       };
     },
 
-    async getDownloadUrl(key, expirySeconds) {
-      return getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: key }), {
-        expiresIn: expirySeconds ?? config.STORAGE_DOWNLOAD_URL_TTL_SECONDS,
+    async getDownloadUrl(key, options) {
+      /**
+       * Force the download inert.
+       *
+       * A "certificate" can be an HTML or SVG file with a script in it. Served
+       * with its own content type it would execute in an ops reviewer's browser,
+       * on our origin, while they are logged in — a stored XSS delivered through
+       * the KYC queue. Pinning the response headers means the browser saves the
+       * file instead of rendering it, whatever the object claims to be.
+       *
+       * These are S3 response-header overrides, signed into the URL, so a caller
+       * cannot strip them without invalidating the signature.
+       */
+      const filename = options?.filename ?? key.split('/').pop() ?? 'document';
+
+      const command = new GetObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        ResponseContentDisposition: `attachment; filename="${sanitizeFilename(filename)}"`,
+        // Pinned to what we recorded at upload, never to what the object says.
+        ResponseContentType: options?.contentType ?? 'application/octet-stream',
+      });
+
+      return getSignedUrl(client, command, {
+        expiresIn: options?.expirySeconds ?? config.STORAGE_DOWNLOAD_URL_TTL_SECONDS,
       });
     },
 

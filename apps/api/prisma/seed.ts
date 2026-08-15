@@ -3,6 +3,7 @@ import { maskPhone, normalizePhone } from '../src/modules/auth/phone';
 import { seedCategories } from './seeds/categories';
 import { seedCustomer } from './seeds/customer';
 import { seedProviders } from './seeds/providers';
+import { seedSynonyms } from './seeds/synonyms';
 import { seedVerification } from './seeds/verification';
 
 /**
@@ -121,6 +122,7 @@ async function main(): Promise<void> {
   const opsUserId = await seedOpsUser(cityId);
 
   const categoryIdBySlug = await seedCategories(prisma, cityId);
+  await seedSynonyms(prisma, categoryIdBySlug);
   await seedProviders(prisma, cityId, categoryIdBySlug, listingThreshold);
   await seedVerification(prisma, opsUserId);
   await seedCustomer(prisma, cityId);

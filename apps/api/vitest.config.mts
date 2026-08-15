@@ -7,6 +7,21 @@ export default defineConfig({
     // Integration tests are matched by `*.integration.test.ts` and are excluded
     // via the CLI in `npm run test:unit` (used by CI's no-services job).
     globals: false,
+    /**
+     * One file at a time.
+     *
+     * Every integration suite shares the same Postgres, Redis and seeded
+     * dataset — one mutable fixture. Phase 5's gate tests block a seeded user
+     * and unlist a seeded profile (restoring both afterwards), while Phase 3 and
+     * Phase 4 assert exact counts over the same rows; run in parallel, those
+     * race. The same class of bug appeared in Phase 3 over shared Redis keys.
+     *
+     * Serialising costs a few seconds and removes an entire category of
+     * flakiness. Revisit only if the suite gets slow enough to hurt, and then by
+     * giving integration tests their own database rather than by re-enabling
+     * parallel access to a shared one.
+     */
+    fileParallelism: false,
     testTimeout: 15_000,
     hookTimeout: 30_000,
     env: {

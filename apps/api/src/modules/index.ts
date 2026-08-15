@@ -28,6 +28,7 @@ export function registerModuleRoutes(app: Express): void {
   app.use(`${API_PREFIX}/customers`, customersRouter);
   app.use(`${API_PREFIX}/providers`, providersRouter);
   app.use(`${API_PREFIX}/verification`, verificationRouter);
+  // Public and rate-limited — a customer chooses before they sign in.
   app.use(`${API_PREFIX}/search`, searchRouter);
   app.use(`${API_PREFIX}/bookings`, bookingsRouter);
   app.use(`${API_PREFIX}/quotations`, quotationsRouter);

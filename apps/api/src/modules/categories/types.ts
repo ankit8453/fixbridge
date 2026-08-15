@@ -21,6 +21,12 @@ export interface CategoryNode {
   nameKey: string;
   icon: string | null;
   sortOrder: number;
+  /**
+   * Searchable providers behind this category — listed, verified and active, the
+   * same gates search applies. A cluster sums its services. Cached for 5 minutes,
+   * so treat it as a browsing hint rather than a live number.
+   */
+  providerCount: number;
   children: CategoryNode[];
 }
 

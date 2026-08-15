@@ -1,8 +1,8 @@
 # API reference
 
 Updated every phase. Live so far: `auth` (Phase 2), `categories`, `customers`
-and `providers` (Phase 3), and `verification` (Phase 4). The remaining
-`/api/v1/*` routers are mounted but empty until their phase.
+and `providers` (Phase 3), `verification` (Phase 4), and `search` (Phase 5). The
+remaining `/api/v1/*` routers are mounted but empty until their phase.
 
 **Base URL (local):** `http://localhost:3000`
 **API prefix for domain modules:** `/api/v1`
@@ -698,6 +698,129 @@ document is meant to exist and where it will live.
 
 ---
 
+## Search — `/api/v1/search`
+
+**Public. No authentication.** A customer chooses a technician before they sign
+in. Rate limited to **30 requests per minute per IP** on both routes.
+
+Design rationale, the ranking formula and the query plan are in
+[search.md](search.md).
+
+### `GET /api/v1/search/providers`
+
+> **Only trustworthy supply is ever returned:** `is_listed = true` (profile
+> complete) **and** `badge >= VERIFIED` **and** the account is active. No
+> parameter relaxes those gates.
+
+| Query param                      | Required | Meaning                                                             |
+| -------------------------------- | -------- | ------------------------------------------------------------------- |
+| `lat`, `lng`                     | ✅       | The customer's location                                             |
+| `city_id`                        | —        | Defaults to `1` (Jabalpur)                                          |
+| `category_id`                    | —        | Leaf = that service; **cluster = every service beneath it**         |
+| `date`, `start_time`, `end_time` | —        | All three together or none                                          |
+| `max_distance_km`                | —        | Customer cap, ≤ 25, applied **on top of** the provider's own radius |
+| `sort`                           | —        | `rank` (default) · `distance` · `price_low`                         |
+| `page`, `page_size`              | —        | Default `1` / `10`, max page size 25                                |
+
+```bash
+curl 'http://localhost:3000/api/v1/search/providers?lat=23.1618&lng=79.9492&page_size=2' \
+  -H 'Accept-Language: en'
+```
+
+**`200 OK`**
+
+```json
+{
+  "results": [
+    {
+      "providerId": "195e4019-d1a9-4ea6-bac9-3b4945bdc1c6",
+      "displayName": "Ramesh Vishwakarma",
+      "badge": "VERIFIED",
+      "yearsExperience": 18,
+      "distanceKm": 0,
+      "skills": [
+        { "categoryId": 2, "slug": "house-wiring", "name": "House wiring & repair" },
+        { "categoryId": 5, "slug": "switchboard-mcb", "name": "Switchboard & MCB" }
+      ],
+      "startingPrice": { "amountPaise": 18000, "display": "₹180" },
+      "nextAvailability": { "dayOfWeek": 1, "startTime": "09:00", "endTime": "19:00" },
+      "locality": "nearby"
+    }
+  ],
+  "page": 1,
+  "pageSize": 2,
+  "total": 12,
+  "truncated": false,
+  "sort": "rank",
+  "query": { "cityId": 1, "categoryId": null, "maxDistanceKm": null, "availability": null }
+}
+```
+
+**Never in a result card:** the provider's coordinates, their phone, or any
+completeness internals. `distanceKm` is rounded to 0.1 km — precise enough to
+choose by, too coarse to locate someone's home. `truncated` is true when more
+matched than the ranking candidate cap (200).
+
+**Radius is the provider's own.** Each technician declared `service_radius_km`;
+a customer matches when they fall inside _that_ radius. `max_distance_km` only
+narrows it further and can never widen it.
+
+**Availability is checked against weekly templates**, and the template must
+**fully cover** the requested window — a technician free 18:00–20:00 does not
+match a 19:00–21:00 request. Phase 6 will additionally subtract booked slots.
+
+| Status | Code               | When                                                                                             |
+| ------ | ------------------ | ------------------------------------------------------------------------------------------------ |
+| `400`  | `VALIDATION_ERROR` | Missing `lat`/`lng`, partial availability trio, `end_time <= start_time`, `max_distance_km > 25` |
+| `429`  | `RATE_LIMITED`     | Over 30 requests/minute from this IP                                                             |
+
+### `GET /api/v1/search/resolve`
+
+Free text — in Hindi, English or Hinglish — to category suggestions. The app
+calls this as the customer types, then fires `/providers` with the chosen
+`category_id`.
+
+| Query param | Required | Meaning                              |
+| ----------- | -------- | ------------------------------------ |
+| `q`         | ✅       | What the customer typed, 1–120 chars |
+| `city_id`   | —        | Defaults to `1`                      |
+| `limit`     | —        | Default 8, max 20                    |
+
+```bash
+curl 'http://localhost:3000/api/v1/search/resolve?q=motor%20jal%20gayi' \
+  -H 'Accept-Language: en'
+```
+
+**`200 OK`**
+
+```json
+{
+  "query": "motor jal gayi",
+  "normalizedQuery": "motor jal gayi",
+  "suggestions": [
+    {
+      "categoryId": 8,
+      "slug": "motor-rewinding",
+      "name": "Motor rewinding",
+      "nameKey": "categories.motorRewinding",
+      "parentId": 7,
+      "matchReason": "synonym_exact",
+      "confidence": 1,
+      "matchedTerm": "motor jal gayi"
+    }
+  ]
+}
+```
+
+`matchReason` is `synonym_exact` · `synonym_prefix` · `synonym_fuzzy` ·
+`category_name` — the app can render a fuzzy hit as "did you mean…".
+
+All of these resolve to the same category: `motor jal gayi` · `मोटर जल गई` ·
+`MOTOR JAL GAYI` · `moter jal gai` (misspelling, via trigram). Nonsense returns
+an empty `suggestions` array with `200`, not an error.
+
+---
+
 ## Verification — `/api/v1/verification` and `/api/v1/admin/verification`
 
 The trust half of the product. Design rationale, the state machine and the
@@ -1033,12 +1156,11 @@ These prefixes resolve to registered routers with no handlers yet, so any path
 under them returns the standard `404 NOT_FOUND` envelope. Listed here so the URL
 space is reserved and visible.
 
-| Prefix                  | Phase | Will contain                                         |
-| ----------------------- | ----- | ---------------------------------------------------- |
-| `/api/v1/search`        | 5     | PostGIS nearby search, distance/rating/badge ranking |
-| `/api/v1/bookings`      | 6     | slots, booking lifecycle, start/end OTP handshake    |
-| `/api/v1/quotations`    | 7     | itemised quotations, in-app approval                 |
-| `/api/v1/payments`      | 8     | UPI collection, logged cash                          |
-| `/api/v1/reviews`       | 9     | two-way ratings                                      |
-| `/api/v1/notifications` | 10    | WhatsApp / push adapters                             |
-| `/api/v1/admin`         | 11    | admin console API                                    |
+| Prefix                  | Phase | Will contain                                      |
+| ----------------------- | ----- | ------------------------------------------------- |
+| `/api/v1/bookings`      | 6     | slots, booking lifecycle, start/end OTP handshake |
+| `/api/v1/quotations`    | 7     | itemised quotations, in-app approval              |
+| `/api/v1/payments`      | 8     | UPI collection, logged cash                       |
+| `/api/v1/reviews`       | 9     | two-way ratings                                   |
+| `/api/v1/notifications` | 10    | WhatsApp / push adapters                          |
+| `/api/v1/admin`         | 11    | admin console API                                 |

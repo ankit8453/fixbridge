@@ -3,6 +3,7 @@ import type { AppContext } from '../../core/context';
 import { AppError } from '../../core/errors';
 import type { Translator } from '../../core/i18n';
 import { findActiveByCity, findById } from './repository';
+import { getCategoryProviderCounts } from '../search/service';
 import type { CategoryNode, CategoryTreeResponse } from './types';
 
 /**
@@ -12,7 +13,11 @@ import type { CategoryNode, CategoryTreeResponse } from './types';
  * another city — is dropped rather than promoted to a root, so deactivating a
  * cluster hides everything beneath it without touching the children.
  */
-export function buildCategoryTree(rows: Category[], t: Translator): CategoryNode[] {
+export function buildCategoryTree(
+  rows: Category[],
+  t: Translator,
+  providerCounts: Record<number, number> = {},
+): CategoryNode[] {
   const toNode = (row: Category): CategoryNode => ({
     id: row.id,
     slug: row.slug,
@@ -20,6 +25,7 @@ export function buildCategoryTree(rows: Category[], t: Translator): CategoryNode
     nameKey: row.nameKey,
     icon: row.icon,
     sortOrder: row.sortOrder,
+    providerCount: providerCounts[row.id] ?? 0,
     children: [],
   });
 
@@ -39,6 +45,12 @@ export function buildCategoryTree(rows: Category[], t: Translator): CategoryNode
     byId.get(row.parentId)?.children.push(toNode(row));
   }
 
+  // A cluster's count is the sum of its services, so the app can grey out a
+  // whole cluster that has nobody behind any of it.
+  for (const root of roots) {
+    root.providerCount = root.children.reduce((sum, child) => sum + child.providerCount, 0);
+  }
+
   return roots;
 }
 
@@ -48,9 +60,16 @@ export async function getCategoryTree(
   cityId: number | undefined,
 ): Promise<CategoryTreeResponse> {
   const resolvedCityId = cityId ?? context.config.DEFAULT_CITY_ID;
-  const rows = await findActiveByCity(context.prisma, resolvedCityId);
 
-  return { cityId: resolvedCityId, categories: buildCategoryTree(rows, t) };
+  const [rows, providerCounts] = await Promise.all([
+    findActiveByCity(context.prisma, resolvedCityId),
+    getCategoryProviderCounts(context, resolvedCityId),
+  ]);
+
+  return {
+    cityId: resolvedCityId,
+    categories: buildCategoryTree(rows, t, providerCounts),
+  };
 }
 
 /** True for a service (leaf), false for a cluster (root). */

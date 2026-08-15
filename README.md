@@ -11,8 +11,8 @@ Pradesh**, then the rest of India.
 > value of `APP_NAME`. Every user-facing string comes from `APP_NAME` or an i18n
 > key — never a literal.
 
-**Status:** Phase 4 of 14 complete — scaffold, health, identity/auth, profiles
-(categories, addresses, technician profiles), and the verification engine.
+**Status:** Phase 5 of 14 complete — scaffold, health, identity/auth, profiles,
+the verification engine, and geo-search with Hinglish resolution.
 
 ---
 
@@ -118,6 +118,7 @@ modules/         one folder per domain — routes.ts · service.ts · repository
   customers/     customer profiles, saved addresses with PostGIS points
   providers/     technician profiles, skills, price cards, availability, completeness
   verification/  KYC ladder, append-only event log, document uploads, badges
+  search/        geo radius search, ranking scorer, Hinglish text resolution
 types/           Express request augmentation
 ```
 
@@ -125,9 +126,10 @@ Every other domain module is a stub until its phase. `repository.ts` is the only
 file in a module allowed to touch the database — and the only place raw SQL may
 appear.
 
-Two design notes worth reading before touching either area:
-[docs/geo-notes.md](docs/geo-notes.md) for PostGIS columns with Prisma, and
-[docs/verification.md](docs/verification.md) for the append-only KYC model.
+Three design notes worth reading before touching those areas:
+[docs/geo-notes.md](docs/geo-notes.md) for PostGIS columns with Prisma,
+[docs/verification.md](docs/verification.md) for the append-only KYC model, and
+[docs/search.md](docs/search.md) for the ranking formula and query plan.
 
 ### Phase plan
 
@@ -137,7 +139,7 @@ Two design notes worth reading before touching either area:
 | 2 ✅  | Identity & auth — OTP login, JWT, refresh rotation, roles              |
 | 3 ✅  | Categories, customer addresses, technician profiles, completeness gate |
 | 4 ✅  | Verification — KYC ladder, append-only events, MinIO uploads, badges   |
-| 5     | Search — PostGIS nearby, distance/rating/badge ranking                 |
+| 5 ✅  | Search — PostGIS radius, pluggable ranking, Hinglish synonym resolve   |
 | 6     | Bookings — slots, lifecycle, start/end OTP handshake                   |
 | 7     | Quotations — itemised, in-app approval                                 |
 | 8     | Payments — UPI collection, logged cash                                 |
@@ -254,7 +256,12 @@ sensible default — override `POSTGRES_PORT` if 5432 is already taken locally.
 - **Identity numbers are never stored.** Only the last 4 digits are accepted, and
   a repository-wide scan runs in CI to keep it that way.
 - **The API never handles uploaded file bytes** — clients PUT straight to object
-  storage through short-lived pre-signed URLs.
+  storage through short-lived pre-signed URLs, forced to download inert.
+- **Search only surfaces trustworthy supply** — listed, verified and active, with
+  no parameter that relaxes those gates. It never exposes a provider's
+  coordinates, only a distance.
+- **Ranking weights are config.** Reordering search results must never need a
+  code change. See [docs/search.md](docs/search.md).
 - **Modular monolith.** One Postgres, one Redis. No Kafka, no microservices, no
   Kubernetes — this is pilot traffic in one city.
 

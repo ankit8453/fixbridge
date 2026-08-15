@@ -140,11 +140,37 @@ model Category {
   children   Category[]          @relation("CategoryTree")
   skills     ProviderSkill[]
   priceCards ProviderPriceCard[]
+  synonyms   HinglishSynonym[]
 
   @@unique([cityId, slug])
   @@index([cityId, isActive])
   @@index([parentId])
   @@map("categories")
+}
+
+/// How people actually ask for a service, mapped to what we call it.
+///
+/// A customer types "motor jal gayi" or "मोटर जल गई", not "motor rewinding".
+/// Both scripts are stored as plain rows because this is a data problem, not a
+/// code one — ops can add a phrase without a deploy.
+///
+/// `term` is stored already normalised (see `modules/search/normalize.ts`); the
+/// query path normalises the same way, and a shared function guarantees they
+/// cannot drift apart.
+model HinglishSynonym {
+  id         Int      @id @default(autoincrement())
+  term       String   @db.VarChar(120)
+  categoryId Int      @map("category_id")
+  /// Lets a phrase point more strongly at one category than another.
+  weight     Int      @default(1)
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([term, categoryId])
+  @@index([categoryId])
+  @@map("hinglish_synonyms")
 }
 
 /* -------------------------------------------------------------------------- */

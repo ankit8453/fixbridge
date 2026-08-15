@@ -140,6 +140,39 @@ const baseConfigSchema = z.object({
 
   /** Phone for the ops-only account created by `npm run seed`. */
   SEED_OPS_PHONE: z.string().min(1).default('+919999900002'),
+
+  /* ---- search ---- */
+
+  /** Public endpoint, so it gets its own per-IP budget. */
+  SEARCH_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).max(1_000).default(30),
+  /** Hard ceiling on the customer-supplied `max_distance_km`. */
+  SEARCH_MAX_DISTANCE_KM: z.coerce.number().int().min(1).max(100).default(25),
+  /**
+   * How many matches are pulled back for ranking before pagination. Ranking runs
+   * in TypeScript so the scorer stays pure and pluggable, which means the
+   * candidate set has to be bounded. See docs/search.md.
+   */
+  SEARCH_MAX_CANDIDATES: z.coerce.number().int().min(10).max(2_000).default(200),
+  /** pg_trgm similarity floor for fuzzy synonym matching. */
+  SEARCH_TRIGRAM_THRESHOLD: z.coerce.number().min(0.05).max(1).default(0.3),
+  /** Category provider counts are cached; staleness is accepted, see docs. */
+  CATEGORY_COUNT_CACHE_TTL_SECONDS: z.coerce.number().int().min(0).max(3_600).default(300),
+
+  /* ---- ranking weights ----
+   * Changing how results are ordered must never require a code change. Every
+   * weight is config; the scorer reads them and nothing else does.
+   */
+  RANK_WEIGHT_DISTANCE: z.coerce.number().min(0).max(100).default(50),
+  RANK_WEIGHT_BADGE: z.coerce.number().min(0).max(100).default(15),
+  RANK_WEIGHT_EXPERIENCE: z.coerce.number().min(0).max(100).default(10),
+  RANK_WEIGHT_COMPLETENESS: z.coerce.number().min(0).max(100).default(5),
+  /** Phase 9 supplies real trust scores; until then every provider is neutral. */
+  RANK_WEIGHT_TRUST: z.coerce.number().min(0).max(100).default(10),
+  /** Phase 6 supplies real acceptance rates. */
+  RANK_WEIGHT_ACCEPTANCE: z.coerce.number().min(0).max(100).default(5),
+  RANK_WEIGHT_PRICE: z.coerce.number().min(0).max(100).default(5),
+  /** Distance at which the distance score halves. Smaller = more local bias. */
+  RANK_DISTANCE_HALF_LIFE_KM: z.coerce.number().min(0.1).max(50).default(5),
 });
 
 /**

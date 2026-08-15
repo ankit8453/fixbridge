@@ -443,6 +443,72 @@ describe('Phase 4 — document storage round-trip', () => {
     expect(response.status).toBe(400);
   });
 
+  /**
+   * Carry-over from the Phase 4 review. A "certificate" can be an HTML or SVG
+   * file with a script in it; served with its own content type it would run in
+   * an ops reviewer's logged-in browser. The signed URL must force a download.
+   */
+  it('signs download URLs that force an inert attachment', async (ctx) => {
+    if (!app || !context || !storageAvailable) return ctx.skip();
+
+    const tech = await signInAsTechnician(app, PHONES.technician);
+    const documentId = await uploadDocument(app, tech.accessToken, 'certificate');
+
+    const response = await request(app)
+      .get(`/api/v1/verification/documents/${documentId}/download-url`)
+      .set(auth(tech.accessToken))
+      .expect(200);
+
+    const url = new URL(response.body.url as string);
+
+    expect(url.searchParams.get('response-content-disposition')).toMatch(/^attachment;/);
+    expect(url.searchParams.get('response-content-type')).toBe('image/png');
+    // The overrides are inside the signature, so they cannot be stripped.
+    expect(url.searchParams.get('X-Amz-SignedHeaders')).toBeTruthy();
+  });
+
+  it('forces the same attachment headers on the ops case view', async (ctx) => {
+    if (!app || !context || !storageAvailable) return ctx.skip();
+
+    const tech = await signInAsTechnician(app, PHONES.technician);
+    const ops = await signInAsOps(app, context, PHONES.ops);
+    await uploadDocument(app, tech.accessToken, 'certificate');
+
+    const created = await request(app)
+      .post('/api/v1/verification/levels/1/submit')
+      .set(auth(tech.accessToken))
+      .send({ consent: true })
+      .expect(201);
+
+    const detail = await request(app)
+      .get(`/api/v1/admin/verification/cases/${created.body.case.id}`)
+      .set(auth(ops.accessToken))
+      .expect(200);
+
+    for (const document of detail.body.documents as { downloadUrl: string }[]) {
+      const url = new URL(document.downloadUrl);
+      expect(url.searchParams.get('response-content-disposition')).toMatch(/^attachment;/);
+      expect(url.searchParams.get('response-content-type')).toBe('image/png');
+    }
+  });
+
+  it('serves the file with the forced headers, not the object’s own', async (ctx) => {
+    if (!app || !context || !storageAvailable) return ctx.skip();
+
+    const tech = await signInAsTechnician(app, PHONES.technician);
+    const documentId = await uploadDocument(app, tech.accessToken, 'certificate');
+
+    const response = await request(app)
+      .get(`/api/v1/verification/documents/${documentId}/download-url`)
+      .set(auth(tech.accessToken))
+      .expect(200);
+
+    const fetched = await fetch(response.body.url as string);
+
+    expect(fetched.ok).toBe(true);
+    expect(fetched.headers.get('content-disposition')).toMatch(/^attachment;/);
+  });
+
   it('expires download URLs', async (ctx) => {
     if (!app || !context || !storageAvailable) return ctx.skip();
 
@@ -453,7 +519,9 @@ describe('Phase 4 — document storage round-trip', () => {
     });
 
     // One second of validity, then wait it out — the signature must stop working.
-    const url = await context.storage.getDownloadUrl(document?.storageKey ?? '', 1);
+    const url = await context.storage.getDownloadUrl(document?.storageKey ?? '', {
+      expirySeconds: 1,
+    });
     expect((await fetch(url)).ok).toBe(true);
 
     await new Promise((resolve) => setTimeout(resolve, 2_000));
