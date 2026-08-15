@@ -48,23 +48,23 @@ leaves it consumable.
 
 ### `apps/api/src/core`
 
-| File | What it does |
-|---|---|
-| `config.ts` | Zod-validated `process.env` → frozen typed config. Pure `parseConfig(env)` plus a memoised `loadConfig()`. Loads `apps/api/.env` via dotenv without ever overriding a real env var. `ConfigValidationError` lists **every** bad field at once and points at `.env.example`. |
-| `logger.ts` | pino factory. JSON everywhere, `pino-pretty` only when `NODE_ENV=development`. `base` carries `app`/`env` from config — no brand literal. Redacts `authorization`, `cookie`, `*.password`, `*.otp`, `*.token`. |
-| `errors.ts` | `AppError(statusCode, code, message, { details, messageKey, cause })` + `isAppError`, with `badRequest`/`unauthorized`/`forbidden`/`notFound`/`conflict`/`internal` helpers. |
-| `i18n.ts` | `resolveLocale` (q-value aware, region subtags stripped, `*` → default), `translate`, `createTranslator`. Falls back locale → default locale → the key itself. `{{var}}` interpolation. |
-| `locales/hi.json`, `locales/en.json` | `health.ok`, `health.degraded`, `errors.internal`, `errors.notFound`, `errors.validation`, `errors.unavailable`, `common.greeting`. |
-| `prisma.ts` | `PrismaClient` factory; `warn`/`error` events piped into pino. |
-| `redis.ts` | ioredis factory with connect/ready/end/error logging and a capped retry strategy (gives up after 10 attempts so a dead Redis cannot pin the process open). |
-| `context.ts` | `AppContext` (config, logger, prisma, redis, version), `createContext`, `getContext(req)`, `disposeContext`. |
-| `version.ts` | Reads the API `package.json` version at startup. |
-| `shutdown.ts` | SIGTERM/SIGINT/`unhandledRejection`/`uncaughtException` → drain HTTP, disconnect Prisma + Redis, forced exit after `SHUTDOWN_TIMEOUT_MS`. Re-entrancy guarded. |
-| `middleware/request-id.ts` | Accepts `X-Request-Id` matching `[A-Za-z0-9._:-]{1,128}`, else mints a UUID v4. Echoes it and binds `req.log = logger.child({ requestId })`. |
-| `middleware/locale.ts` | Sets `req.locale`, `req.t`, and the `Content-Language` response header. |
-| `middleware/request-logger.ts` | One structured line per completed request with method/path/status/durationMs. |
-| `middleware/not-found.ts` | Unmatched route → `AppError` 404 through the same envelope. |
-| `middleware/error-handler.ts` | `ZodError` → 400 + per-field details · `AppError` → its own status/code, localised when it carries a `messageKey` · anything else → 500 with a generic localised message. Every response carries `requestId`; stacks only when `NODE_ENV !== production`. |
+| File                                 | What it does                                                                                                                                                                                                                                                                |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `config.ts`                          | Zod-validated `process.env` → frozen typed config. Pure `parseConfig(env)` plus a memoised `loadConfig()`. Loads `apps/api/.env` via dotenv without ever overriding a real env var. `ConfigValidationError` lists **every** bad field at once and points at `.env.example`. |
+| `logger.ts`                          | pino factory. JSON everywhere, `pino-pretty` only when `NODE_ENV=development`. `base` carries `app`/`env` from config — no brand literal. Redacts `authorization`, `cookie`, `*.password`, `*.otp`, `*.token`.                                                              |
+| `errors.ts`                          | `AppError(statusCode, code, message, { details, messageKey, cause })` + `isAppError`, with `badRequest`/`unauthorized`/`forbidden`/`notFound`/`conflict`/`internal` helpers.                                                                                                |
+| `i18n.ts`                            | `resolveLocale` (q-value aware, region subtags stripped, `*` → default), `translate`, `createTranslator`. Falls back locale → default locale → the key itself. `{{var}}` interpolation.                                                                                     |
+| `locales/hi.json`, `locales/en.json` | `health.ok`, `health.degraded`, `errors.internal`, `errors.notFound`, `errors.validation`, `errors.unavailable`, `common.greeting`.                                                                                                                                         |
+| `prisma.ts`                          | `PrismaClient` factory; `warn`/`error` events piped into pino.                                                                                                                                                                                                              |
+| `redis.ts`                           | ioredis factory with connect/ready/end/error logging and a capped retry strategy (gives up after 10 attempts so a dead Redis cannot pin the process open).                                                                                                                  |
+| `context.ts`                         | `AppContext` (config, logger, prisma, redis, version), `createContext`, `getContext(req)`, `disposeContext`.                                                                                                                                                                |
+| `version.ts`                         | Reads the API `package.json` version at startup.                                                                                                                                                                                                                            |
+| `shutdown.ts`                        | SIGTERM/SIGINT/`unhandledRejection`/`uncaughtException` → drain HTTP, disconnect Prisma + Redis, forced exit after `SHUTDOWN_TIMEOUT_MS`. Re-entrancy guarded.                                                                                                              |
+| `middleware/request-id.ts`           | Accepts `X-Request-Id` matching `[A-Za-z0-9._:-]{1,128}`, else mints a UUID v4. Echoes it and binds `req.log = logger.child({ requestId })`.                                                                                                                                |
+| `middleware/locale.ts`               | Sets `req.locale`, `req.t`, and the `Content-Language` response header.                                                                                                                                                                                                     |
+| `middleware/request-logger.ts`       | One structured line per completed request with method/path/status/durationMs.                                                                                                                                                                                               |
+| `middleware/not-found.ts`            | Unmatched route → `AppError` 404 through the same envelope.                                                                                                                                                                                                                 |
+| `middleware/error-handler.ts`        | `ZodError` → 400 + per-field details · `AppError` → its own status/code, localised when it carries a `messageKey` · anything else → 500 with a generic localised message. Every response carries `requestId`; stacks only when `NODE_ENV !== production`.                   |
 
 `src/types/express.d.ts` augments `Express.Request` with `requestId`, `log`,
 `locale`, `t`.
@@ -82,17 +82,17 @@ mounted under `/api/v1/<module>` by `src/modules/index.ts`.
 
 ### Endpoints
 
-| Method | Path | Status |
-|---|---|---|
-| `GET` | `/health` | Live. 200 when both checks pass, 503 when either fails. |
-| — | `/api/v1/{auth,customers,providers,verification,search,bookings,quotations,payments,reviews,notifications,admin}` | Mounted, empty. |
+| Method | Path                                                                                                              | Status                                                  |
+| ------ | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `GET`  | `/health`                                                                                                         | Live. 200 when both checks pass, 503 when either fails. |
+| —      | `/api/v1/{auth,customers,providers,verification,search,bookings,quotations,payments,reviews,notifications,admin}` | Mounted, empty.                                         |
 
 ### Migrations
 
-| Migration | Contents |
-|---|---|
-| `20260815000000_enable_extensions` | Hand-written raw SQL: `CREATE EXTENSION IF NOT EXISTS postgis;` and `pg_trgm`. Runs first. |
-| `20260815101931_create_cities` | Prisma-generated from `schema.prisma`: `cities(id serial PK, name varchar(120), state varchar(120), is_active bool default true, created_at timestamptz(3) default now())`, unique `(name, state)`, index on `is_active`. |
+| Migration                          | Contents                                                                                                                                                                                                                  |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `20260815000000_enable_extensions` | Hand-written raw SQL: `CREATE EXTENSION IF NOT EXISTS postgis;` and `pg_trgm`. Runs first.                                                                                                                                |
+| `20260815101931_create_cities`     | Prisma-generated from `schema.prisma`: `cities(id serial PK, name varchar(120), state varchar(120), is_active bool default true, created_at timestamptz(3) default now())`, unique `(name, state)`, index on `is_active`. |
 
 `prisma/seed.ts` upserts on the `(name, state)` natural key — idempotent.
 
@@ -111,22 +111,22 @@ mounted under `/api/v1/<module>` by `src/modules/index.ts`.
 
 ### Exact versions
 
-| | Version |
-|---|---|
-| Node (local dev, verified) | **v20.12.2**; `.nvmrc` pins major **20** |
-| npm | 9.8.1 |
-| **Prisma CLI + `@prisma/client`** | **6.19.3** |
-| TypeScript | 5.9.3 |
-| Express | 4.22.2 |
-| Vitest | 3.2.7 |
-| Zod | 4.4.3 |
-| pino / pino-pretty | 9.14.0 / 13.1.3 |
-| ioredis | 5.11.1 |
-| dotenv | 16.6.1 |
-| tsx | 4.23.12 |
-| supertest | 7.2.2 |
-| ESLint / typescript-eslint / Prettier | 9.39.5 / 8.67.0 / 3.9.6 |
-| PostGIS (from the image) | 3.4.3 · pg_trgm 1.6 |
+|                                       | Version                                  |
+| ------------------------------------- | ---------------------------------------- |
+| Node (local dev, verified)            | **v20.12.2**; `.nvmrc` pins major **20** |
+| npm                                   | 9.8.1                                    |
+| **Prisma CLI + `@prisma/client`**     | **6.19.3**                               |
+| TypeScript                            | 5.9.3                                    |
+| Express                               | 4.22.2                                   |
+| Vitest                                | 3.2.7                                    |
+| Zod                                   | 4.4.3                                    |
+| pino / pino-pretty                    | 9.14.0 / 13.1.3                          |
+| ioredis                               | 5.11.1                                   |
+| dotenv                                | 16.6.1                                   |
+| tsx                                   | 4.23.12                                  |
+| supertest                             | 7.2.2                                    |
+| ESLint / typescript-eslint / Prettier | 9.39.5 / 8.67.0 / 3.9.6                  |
+| PostGIS (from the image)              | 3.4.3 · pg_trgm 1.6                      |
 
 All dependencies are **pinned exactly** (no `^`) so every machine and CI run
 resolves identically; `package-lock.json` is committed.
@@ -148,8 +148,8 @@ resolves identically; `package-lock.json` is committed.
    Express 4.
 5. **Dependency-injected context over module singletons.** `AppContext` is built
    once at boot and hung off the Express app (`app.set('appContext')`); routers
-   read it with `getContext(req)`. This keeps every `routes.ts` a *plain exported
-   router* as the prompt asks, and means unit tests never transitively import
+   read it with `getContext(req)`. This keeps every `routes.ts` a _plain exported
+   router_ as the prompt asks, and means unit tests never transitively import
    Prisma/Redis or require a valid `.env`.
 6. **Stub routers are mounted, not just created.** Eleven empty routers are wired
    under `/api/v1/*` so the monolith's routing is proved now and later phases only
@@ -245,20 +245,20 @@ user-facing string contains a literal name** — logs get it from pino's `base:
 Every command below was run on this machine (Windows 11, Node v20.12.2, Docker
 28.0.4) and passed.
 
-| Check | Result |
-|---|---|
-| `npm install` | 338 packages; `shared` built and Prisma client generated by lifecycle hooks |
-| `npm run lint` | Clean, no errors or warnings |
-| `npm run format:check` | `All matched files use Prettier code style!` |
-| `npm run build` | Clean `tsc` for both workspaces; locale JSON copied into `dist/`, test files excluded |
-| `npm run typecheck` | Clean |
-| `npm run test:unit` | **45 passed** (4 files) |
-| `npm test` | **51 passed** (5 files) — 45 unit + 6 integration |
-| `npm test` with infra down | **45 passed, 6 skipped** — prints `[skipped] /health integration test — dependencies unreachable: … Start the services with \`docker compose up -d\` and rerun.` |
-| `docker compose up -d` | Both containers reach `healthy` |
-| Fresh-DB migration (`docker compose down -v` → `up -d` → `migrate:deploy`) | Both migrations applied cleanly to a virgin database |
-| Extensions after migration | `postgis 3.4.3`, `pg_trgm 1.6` present |
-| `npm run seed` run twice | `city ready: #1 Jabalpur, Madhya Pradesh` both times; `SELECT count(*) FROM cities` = **1** |
+| Check                                                                      | Result                                                                                                                                                           |
+| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm install`                                                              | 338 packages; `shared` built and Prisma client generated by lifecycle hooks                                                                                      |
+| `npm run lint`                                                             | Clean, no errors or warnings                                                                                                                                     |
+| `npm run format:check`                                                     | `All matched files use Prettier code style!`                                                                                                                     |
+| `npm run build`                                                            | Clean `tsc` for both workspaces; locale JSON copied into `dist/`, test files excluded                                                                            |
+| `npm run typecheck`                                                        | Clean                                                                                                                                                            |
+| `npm run test:unit`                                                        | **45 passed** (4 files)                                                                                                                                          |
+| `npm test`                                                                 | **51 passed** (5 files) — 45 unit + 6 integration                                                                                                                |
+| `npm test` with infra down                                                 | **45 passed, 6 skipped** — prints `[skipped] /health integration test — dependencies unreachable: … Start the services with \`docker compose up -d\` and rerun.` |
+| `docker compose up -d`                                                     | Both containers reach `healthy`                                                                                                                                  |
+| Fresh-DB migration (`docker compose down -v` → `up -d` → `migrate:deploy`) | Both migrations applied cleanly to a virgin database                                                                                                             |
+| Extensions after migration                                                 | `postgis 3.4.3`, `pg_trgm 1.6` present                                                                                                                           |
+| `npm run seed` run twice                                                   | `city ready: #1 Jabalpur, Madhya Pradesh` both times; `SELECT count(*) FROM cities` = **1**                                                                      |
 
 ### Working curl examples
 
