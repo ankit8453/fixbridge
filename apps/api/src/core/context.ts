@@ -7,6 +7,8 @@ import { createPrismaClient } from './prisma';
 import { createRedisClient } from './redis';
 import { APP_VERSION } from './version';
 import { AppError } from './errors';
+import { createOtpTransport } from '../modules/auth/transport';
+import type { OtpTransport } from '../modules/auth/transport';
 
 /**
  * Everything long-lived the app needs, built once at boot and hung off the
@@ -19,6 +21,8 @@ export interface AppContext {
   prisma: PrismaClient;
   redis: Redis;
   version: string;
+  /** How OTPs reach a human. Real SMS/WhatsApp delivery arrives in Phase 10. */
+  otpTransport: OtpTransport;
 }
 
 export const CONTEXT_KEY = 'appContext';
@@ -32,6 +36,7 @@ export function createContext(config: AppConfig = loadConfig()): AppContext {
     prisma: createPrismaClient(config, logger),
     redis: createRedisClient(config, logger),
     version: APP_VERSION,
+    otpTransport: createOtpTransport(logger, config.NODE_ENV),
   };
 }
 

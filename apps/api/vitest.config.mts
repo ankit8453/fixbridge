@@ -14,6 +14,15 @@ export default defineConfig({
       // output clean. Real values still come from apps/api/.env or the CI env.
       NODE_ENV: 'test',
       LOG_LEVEL: 'silent',
+
+      // Hermetic auth settings so the suite does not depend on a developer's
+      // .env. dotenv never overrides an already-set variable, so these win.
+      JWT_SECRET: 'test-only-secret-value-at-least-32-characters-long',
+      AUTH_FIXED_OTP: '000000',
+      AUTH_FIXED_OTP_PHONE_PREFIX: '+9199999',
+      OTP_MAX_PER_PHONE: '3',
+      OTP_MAX_PER_IP: '5',
+      OTP_RATE_WINDOW_SECONDS: '900',
     },
     reporters: ['default'],
   },

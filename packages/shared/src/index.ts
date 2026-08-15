@@ -34,6 +34,62 @@ export type Locale = (typeof SUPPORTED_LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = 'hi';
 
 /* -------------------------------------------------------------------------- */
+/* Identity                                                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Roles a user can hold. One user may hold several — a technician is very often
+ * also a customer — so these are modelled as a set, never a single column.
+ *
+ * Must stay in lockstep with the `role` enum in `apps/api/prisma/schema.prisma`;
+ * a compile-time assertion in the API enforces that.
+ */
+export const ROLES = ['customer', 'technician', 'ops', 'admin'] as const;
+
+export type Role = (typeof ROLES)[number];
+
+/** The role every brand-new account is created with. */
+export const DEFAULT_ROLE: Role = 'customer';
+
+export const USER_STATUSES = ['active', 'blocked'] as const;
+
+export type UserStatus = (typeof USER_STATUSES)[number];
+
+/** What the access token carries and what `req.user` exposes to handlers. */
+export interface AuthenticatedUser {
+  id: string;
+  roles: Role[];
+  deviceId: string;
+}
+
+/** A user as returned to a client — the phone is always masked. */
+export interface AuthUser {
+  id: string;
+  /** Masked, e.g. `+9198765*****`. The full number never leaves the server. */
+  phone: string;
+  name: string | null;
+  roles: Role[];
+  status: UserStatus;
+  defaultCityId: CityId | null;
+  createdAt: IsoTimestamp;
+}
+
+/** Issued by OTP verification and by refresh. */
+export interface AuthTokens {
+  tokenType: 'Bearer';
+  accessToken: string;
+  /** Access token lifetime in seconds. */
+  expiresIn: number;
+  /** Opaque random string — not a JWT. Only its hash is stored server-side. */
+  refreshToken: string;
+  refreshExpiresAt: IsoTimestamp;
+}
+
+export interface AuthSession extends AuthTokens {
+  user: AuthUser;
+}
+
+/* -------------------------------------------------------------------------- */
 /* Money                                                                      */
 /* -------------------------------------------------------------------------- */
 

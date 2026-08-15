@@ -73,6 +73,12 @@ jobs:
       LOG_LEVEL: silent
       DATABASE_URL: postgresql://fixbridge:fixbridge@localhost:5432/fixbridge?schema=public
       REDIS_URL: redis://localhost:6379
+      # Test-only auth settings. Not secrets — the fixed OTP is refused outright
+      # by the config schema whenever NODE_ENV=production.
+      JWT_SECRET: ci-only-secret-value-at-least-32-characters-long
+      AUTH_FIXED_OTP: '000000'
+      AUTH_FIXED_OTP_PHONE_PREFIX: '+9199999'
+      SEED_ADMIN_PHONE: '+919999900001'
 
     steps:
       - uses: actions/checkout@v4

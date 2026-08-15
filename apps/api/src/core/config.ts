@@ -35,7 +35,13 @@ const urlWithProtocols = (protocols: readonly string[], label: string) =>
       { message: `must be a valid ${label} URL (expected protocol: ${protocols.join(' or ')})` },
     );
 
-export const configSchema = z.object({
+/**
+ * The placeholder shipped in `.env.example`. Committing it to a real deployment
+ * would hand every attacker a token-signing key, so production rejects it.
+ */
+export const EXAMPLE_JWT_SECRET = 'dev-only-secret-change-me-at-least-32-chars';
+
+const baseConfigSchema = z.object({
   /** The brand name is not decided — this is the single source of truth for it. */
   APP_NAME: z.string().min(1).default(DEFAULT_APP_NAME),
   NODE_ENV: z.enum(NODE_ENVS).default('development'),
@@ -44,6 +50,68 @@ export const configSchema = z.object({
   DATABASE_URL: urlWithProtocols(['postgres:', 'postgresql:'], 'PostgreSQL'),
   REDIS_URL: urlWithProtocols(['redis:', 'rediss:'], 'Redis'),
   SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().min(0).max(120_000).default(10_000),
+
+  /**
+   * Hop count passed to Express's `trust proxy`. Keep at 0 unless the API really
+   * sits behind a proxy: trusting `X-Forwarded-For` blindly lets any caller spoof
+   * their IP and walk straight past the per-IP OTP rate limit.
+   */
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(0),
+
+  /* ---- auth ---- */
+
+  /** HS256 signing key for access tokens. No default — a missing key must fail the boot. */
+  JWT_SECRET: z.string().min(32, 'must be at least 32 characters'),
+  /** Access tokens are deliberately short-lived; refresh rotation covers longevity. */
+  JWT_ACCESS_TTL_SECONDS: z.coerce.number().int().min(60).max(3_600).default(900),
+  REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
+
+  OTP_TTL_SECONDS: z.coerce.number().int().min(60).max(1_800).default(300),
+  OTP_MAX_VERIFY_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(5),
+  OTP_RATE_WINDOW_SECONDS: z.coerce.number().int().min(60).max(3_600).default(900),
+  OTP_MAX_PER_PHONE: z.coerce.number().int().min(1).max(100).default(3),
+  OTP_MAX_PER_IP: z.coerce.number().int().min(1).max(1_000).default(5),
+
+  /**
+   * Development/testing shortcut: this OTP always verifies, but only for phones
+   * starting with `AUTH_FIXED_OTP_PHONE_PREFIX`. Refused outright in production
+   * by the refinement below — it is not a runtime check that can be bypassed.
+   */
+  AUTH_FIXED_OTP: z
+    .string()
+    .regex(/^\d{6}$/, 'must be exactly 6 digits')
+    .optional(),
+  AUTH_FIXED_OTP_PHONE_PREFIX: z
+    .string()
+    .regex(/^\+91\d{0,8}$/, 'must be an E.164 Indian prefix, e.g. +9199999')
+    .default('+9199999'),
+
+  /** Phone for the admin/ops account created by `npm run seed`. */
+  SEED_ADMIN_PHONE: z.string().min(1).default('+919999900001'),
+});
+
+/**
+ * Cross-field rules. These are schema-level, not runtime `if` statements, so a
+ * production process holding a dangerous combination cannot start at all.
+ */
+export const configSchema = baseConfigSchema.superRefine((config, ctx) => {
+  if (config.NODE_ENV !== 'production') return;
+
+  if (config.AUTH_FIXED_OTP !== undefined) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['AUTH_FIXED_OTP'],
+      message: 'must not be set when NODE_ENV=production — it would bypass OTP verification',
+    });
+  }
+
+  if (config.JWT_SECRET === EXAMPLE_JWT_SECRET) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['JWT_SECRET'],
+      message: 'must not be the placeholder from .env.example when NODE_ENV=production',
+    });
+  }
 });
 
 export type AppConfig = Readonly<z.infer<typeof configSchema>>;

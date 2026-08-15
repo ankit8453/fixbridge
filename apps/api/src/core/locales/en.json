@@ -3,11 +3,28 @@
     "ok": "Service is running normally.",
     "degraded": "Service is running with degraded dependencies."
   },
+  "auth": {
+    "otpSent": "We have sent a 6-digit code to your phone. It is valid for {{minutes}} minutes.",
+    "loggedIn": "Signed in successfully.",
+    "loggedOut": "Signed out successfully."
+  },
   "errors": {
     "internal": "Something went wrong at our end. Please try again.",
     "notFound": "We could not find what you were looking for.",
     "validation": "Some of the details you sent are not valid.",
-    "unavailable": "This service is temporarily unavailable. Please try again shortly."
+    "unavailable": "This service is temporarily unavailable. Please try again shortly.",
+    "auth": {
+      "invalidPhone": "Please enter a valid 10-digit Indian mobile number.",
+      "otpInvalid": "That code is not correct or has expired. Please try again, or request a new code.",
+      "otpAttemptsExceeded": "Too many wrong attempts. Please request a new code.",
+      "rateLimited": "Too many attempts. Please wait a little and try again.",
+      "tokenMissing": "Please sign in to continue.",
+      "tokenInvalid": "Your session is not valid. Please sign in again.",
+      "tokenExpired": "Your session has expired. Please sign in again.",
+      "refreshInvalid": "Your session is no longer valid. Please sign in again.",
+      "forbidden": "You do not have permission to do this.",
+      "accountBlocked": "This account has been blocked. Please contact support."
+    }
   },
   "common": {
     "greeting": "Hello {{name}}"

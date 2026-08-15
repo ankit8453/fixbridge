@@ -3,6 +3,11 @@ export interface AppErrorOptions {
   details?: unknown;
   /** i18n key used to localise the message for the caller. */
   messageKey?: string;
+  /**
+   * Response headers the error itself implies — `Retry-After` on a 429,
+   * `WWW-Authenticate` on a 401. Applied by the error middleware.
+   */
+  headers?: Record<string, string>;
   cause?: unknown;
 }
 
@@ -17,6 +22,7 @@ export class AppError extends Error {
   readonly code: string;
   readonly details?: unknown;
   readonly messageKey?: string;
+  readonly headers?: Record<string, string>;
   /** Marks errors we raised on purpose, as opposed to crashes. */
   readonly isOperational = true;
 
@@ -27,6 +33,7 @@ export class AppError extends Error {
     this.code = code;
     this.details = options.details;
     this.messageKey = options.messageKey;
+    this.headers = options.headers;
 
     if (typeof Error.captureStackTrace === 'function') {
       Error.captureStackTrace(this, AppError);
@@ -38,7 +45,23 @@ export class AppError extends Error {
   }
 
   static unauthorized(message: string, options?: AppErrorOptions): AppError {
-    return new AppError(401, 'UNAUTHORIZED', message, options);
+    return new AppError(401, 'UNAUTHORIZED', message, {
+      headers: { 'WWW-Authenticate': 'Bearer' },
+      ...options,
+    });
+  }
+
+  /** 429. `retryAfterSeconds` becomes the `Retry-After` header. */
+  static tooManyRequests(
+    message: string,
+    retryAfterSeconds: number,
+    options?: AppErrorOptions,
+  ): AppError {
+    return new AppError(429, 'RATE_LIMITED', message, {
+      messageKey: 'errors.auth.rateLimited',
+      headers: { 'Retry-After': String(Math.max(1, Math.ceil(retryAfterSeconds))) },
+      ...options,
+    });
   }
 
   static forbidden(message: string, options?: AppErrorOptions): AppError {

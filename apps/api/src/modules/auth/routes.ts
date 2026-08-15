@@ -1,4 +1,107 @@
-// Stub for Phase 2 — OTP login, JWT issuing and role guards. Filled then, not now.
-import { Router } from 'express';
+import { Router, type Request, type RequestHandler } from 'express';
+import { getContext } from '../../core/context';
+import { authenticate, getAuthUser } from '../../core/middleware/authenticate';
+import { requireRoles } from '../../core/middleware/require-roles';
+import * as service from './service';
+import { logoutSchema, refreshSchema, requestOtpSchema, verifyOtpSchema } from './types';
+import type { RequestContextInfo } from './types';
 
 export const router = Router();
+
+/** Wraps an async handler so a rejected promise reaches the error middleware. */
+const handle =
+  (fn: (req: Request, res: Parameters<RequestHandler>[1]) => Promise<void>): RequestHandler =>
+  (req, res, next) => {
+    fn(req, res).catch(next);
+  };
+
+function deps(req: Request): service.AuthDeps {
+  const context = getContext(req);
+  return { context, transport: context.otpTransport };
+}
+
+/** Caller metadata the service needs for rate limiting and device binding. */
+function requestInfo(req: Request): RequestContextInfo {
+  return {
+    ip: req.ip ?? 'unknown',
+    userAgent: req.header('user-agent') ?? null,
+  };
+}
+
+/**
+ * POST /api/v1/auth/otp/request
+ * Rate limited per phone and per IP. The response never contains the OTP.
+ */
+router.post(
+  '/otp/request',
+  handle(async (req, res) => {
+    const input = requestOtpSchema.parse(req.body);
+    const result = await service.requestOtp(deps(req), input, requestInfo(req));
+
+    res.status(200).json({
+      ...result,
+      message: req.t('auth.otpSent', { minutes: Math.round(result.expiresInSeconds / 60) }),
+    });
+  }),
+);
+
+/**
+ * POST /api/v1/auth/otp/verify
+ * Creates the account on first successful verification.
+ */
+router.post(
+  '/otp/verify',
+  handle(async (req, res) => {
+    const input = verifyOtpSchema.parse(req.body);
+    const session = await service.verifyOtp(deps(req), input, requestInfo(req));
+
+    res.status(200).json({ ...session, message: req.t('auth.loggedIn') });
+  }),
+);
+
+/**
+ * POST /api/v1/auth/refresh
+ * Rotates the refresh token. Replaying a rotated token revokes the whole device.
+ */
+router.post(
+  '/refresh',
+  handle(async (req, res) => {
+    const input = refreshSchema.parse(req.body);
+    const session = await service.refreshSession(deps(req), input, requestInfo(req));
+
+    res.status(200).json(session);
+  }),
+);
+
+/** POST /api/v1/auth/logout — idempotent. */
+router.post(
+  '/logout',
+  handle(async (req, res) => {
+    const input = logoutSchema.parse(req.body);
+    await service.logout(deps(req), input);
+
+    res.status(200).json({ message: req.t('auth.loggedOut') });
+  }),
+);
+
+/** GET /api/v1/auth/me — the demo protected route. */
+router.get(
+  '/me',
+  authenticate,
+  handle(async (req, res) => {
+    const user = await service.getCurrentUser(deps(req), getAuthUser(req).id);
+
+    res.status(200).json({ user, deviceId: getAuthUser(req).deviceId });
+  }),
+);
+
+/**
+ * GET /api/v1/auth/admin-only
+ *
+ * Demo route proving `requireRoles`. It lives here rather than in the admin
+ * module because that module belongs to Phase 11; delete it when real admin
+ * endpoints land.
+ */
+router.get('/admin-only', authenticate, requireRoles('admin'), (req, res) => {
+  res.status(200).json({ ok: true, roles: getAuthUser(req).roles });
+});

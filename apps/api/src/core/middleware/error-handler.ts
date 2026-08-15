@@ -59,6 +59,11 @@ export function createErrorHandler(options: ErrorHandlerOptions): ErrorRequestHa
       code = err.code;
       message = err.messageKey ? t(err.messageKey) : err.message;
       details = err.details;
+
+      // Headers the error itself implies: Retry-After, WWW-Authenticate, …
+      for (const [name, value] of Object.entries(err.headers ?? {})) {
+        res.setHeader(name, value);
+      }
     }
 
     if (statusCode >= 500) {

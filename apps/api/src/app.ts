@@ -16,7 +16,9 @@ export function createApp(context: AppContext): Express {
   const app = express();
 
   app.disable('x-powered-by');
-  app.set('trust proxy', true);
+  // Hop count, not `true`: trusting X-Forwarded-For unconditionally would let any
+  // caller spoof their IP and walk past the per-IP OTP rate limit.
+  app.set('trust proxy', context.config.TRUST_PROXY_HOPS);
   app.set(CONTEXT_KEY, context);
 
   app.use(express.json({ limit: '1mb' }));

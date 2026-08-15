@@ -1,4 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Role } from '@prisma/client';
+import { maskPhone, normalizePhone } from '../src/modules/auth/phone';
 
 /**
  * Idempotent seed — safe to run repeatedly against the same database.
@@ -7,6 +8,10 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 const CITIES = [{ name: 'Jabalpur', state: 'Madhya Pradesh', isActive: true }] as const;
+
+/** Falls back to a number inside the dev fixed-OTP prefix so you can actually sign in. */
+const DEFAULT_ADMIN_PHONE = '+919999900001';
+const ADMIN_ROLES: Role[] = [Role.admin, Role.ops];
 
 async function seedCities(): Promise<void> {
   for (const city of CITIES) {
@@ -20,8 +25,38 @@ async function seedCities(): Promise<void> {
   }
 }
 
+/**
+ * The bootstrap admin. Roles are upserted individually rather than replaced, so
+ * re-running never strips a role an operator granted by hand.
+ */
+async function seedAdminUser(): Promise<void> {
+  const raw = process.env.SEED_ADMIN_PHONE ?? DEFAULT_ADMIN_PHONE;
+  const phone = normalizePhone(raw);
+
+  if (phone === null) {
+    throw new Error(`SEED_ADMIN_PHONE is not a valid Indian mobile number: ${raw}`);
+  }
+
+  const user = await prisma.user.upsert({
+    where: { phone },
+    update: {},
+    create: { phone, name: 'Platform Admin' },
+  });
+
+  for (const role of ADMIN_ROLES) {
+    await prisma.userRole.upsert({
+      where: { userId_role: { userId: user.id, role } },
+      update: {},
+      create: { userId: user.id, role },
+    });
+  }
+
+  console.log(`admin ready: ${maskPhone(phone)} roles=[${ADMIN_ROLES.join(', ')}]`);
+}
+
 async function main(): Promise<void> {
   await seedCities();
+  await seedAdminUser();
 }
 
 main()
