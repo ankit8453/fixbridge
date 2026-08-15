@@ -511,14 +511,15 @@ onboarding checklist.
       "threshold": 80,
       "isListed": true,
       "missing": [],
+      "missingRequired": [],
       "breakdown": [
-        { "item": "baseLocation", "weight": 21, "satisfied": true },
-        { "item": "skills", "weight": 21, "satisfied": true },
-        { "item": "priceCard", "weight": 21, "satisfied": true },
-        { "item": "availability", "weight": 21, "satisfied": true },
-        { "item": "displayName", "weight": 10, "satisfied": true },
-        { "item": "yearsExperience", "weight": 3, "satisfied": true },
-        { "item": "photoDocument", "weight": 3, "satisfied": true }
+        { "item": "baseLocation", "weight": 20, "required": true, "satisfied": true },
+        { "item": "skills", "weight": 20, "required": true, "satisfied": true },
+        { "item": "priceCard", "weight": 20, "required": true, "satisfied": true },
+        { "item": "availability", "weight": 20, "required": true, "satisfied": true },
+        { "item": "displayName", "weight": 10, "required": true, "satisfied": true },
+        { "item": "yearsExperience", "weight": 5, "required": false, "satisfied": true },
+        { "item": "photoDocument", "weight": 5, "required": false, "satisfied": true }
       ]
     },
     "skills": [
@@ -560,21 +561,40 @@ so a client never has to re-fetch to find out whether it just went live.
 `is_listed` decides whether a technician appears in search (Phase 5). It is
 recomputed on **every** write that touches the profile or its children.
 
-| Checklist item             | Weight |
-| -------------------------- | ------ |
-| `baseLocation`             | 21     |
-| `skills` (≥1)              | 21     |
-| `priceCard` (≥1 active)    | 21     |
-| `availability` (≥1 active) | 21     |
-| `displayName`              | 10     |
-| `yearsExperience`          | 3      |
-| `photoDocument`            | 3      |
+Two independent mechanisms, and both must pass:
 
-`isListed = score >= PROVIDER_LISTING_THRESHOLD (default 80) AND user is active`.
+```
+isListed = user is active
+           AND missingRequired is empty        ← the hard gate
+           AND score >= PROVIDER_LISTING_THRESHOLD
+```
 
-The four items weighted 21 are the ones that make a technician _bookable_, and
-each is heavy enough that losing it alone drops the score to 79 and delists the
-profile. Blocking a user delists them regardless of score.
+| Checklist item             | Weight | Required |
+| -------------------------- | ------ | -------- |
+| `baseLocation`             | 20     | ✅       |
+| `skills` (≥1)              | 20     | ✅       |
+| `priceCard` (≥1 active)    | 20     | ✅       |
+| `availability` (≥1 active) | 20     | ✅       |
+| `displayName`              | 10     | ✅       |
+| `yearsExperience`          | 5      | —        |
+| `photoDocument`            | 5      | —        |
+
+**The five required items are a hard gate.** Missing any one delists the profile
+outright, whatever the score says. Without a name there is nothing to show in
+search; without a location nobody can find them; without a skill nobody knows
+what they do; without a price nobody knows the cost; without availability nobody
+can book.
+
+**`score` is a progress indicator, not permission.** Count down
+`missingRequired` to tell a technician what stands between them and going live;
+use `score` for the progress bar.
+
+At the default threshold of 80 the score does not bind on its own — satisfying
+every required item already scores 90. That is intended: the gate is the floor,
+and the threshold is the knob for demanding more later. Raise it past 90 and the
+optional items stop being optional in practice.
+
+Blocking a user delists them regardless of everything above.
 
 ### `PATCH /api/v1/providers/me`
 

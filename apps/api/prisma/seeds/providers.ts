@@ -655,9 +655,9 @@ export async function seedProviders(
       });
     }
 
-    // Score with the same pure function the API uses, so seeded profiles and
+    // Scored with the same pure functions the API uses, so seeded profiles and
     // API-built profiles can never disagree about what "complete" means.
-    const { score } = computeCompleteness({
+    const completeness = computeCompleteness({
       hasDisplayName: true,
       hasBaseLocation: seed.withLocation,
       hasSkill: seed.skills.length > 0,
@@ -667,12 +667,12 @@ export async function seedProviders(
       hasPhotoDocument: seed.withPhoto,
     });
 
-    const isListed = isListable(score, listingThreshold, true);
+    const isListed = isListable(completeness, listingThreshold, true);
     if (isListed) listed += 1;
 
     await prisma.providerProfile.update({
       where: { userId: user.id },
-      data: { completenessScore: score, isListed },
+      data: { completenessScore: completeness.score, isListed },
     });
   }
 

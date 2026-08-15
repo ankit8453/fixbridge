@@ -655,6 +655,72 @@ describe('Phase 3 — technician registration and completeness', () => {
     expect(deactivated.body.profile.isListed).toBe(false);
   });
 
+  /**
+   * The hard gate. A technician with everything except a display name scores 90,
+   * which clears the threshold of 80 — but there is no name to show in search,
+   * so the score must not be allowed to decide on its own.
+   */
+  it('refuses to list a nameless technician even though the score clears the threshold', async (ctx) => {
+    if (!app || !context) return ctx.skip();
+
+    const initial = await signIn(app, PHONES.technician);
+
+    // Register with no display name at all.
+    await request(app)
+      .post('/api/v1/providers/me/register')
+      .set(auth(initial.accessToken))
+      .send({})
+      .expect(201);
+
+    const session = await signIn(app, PHONES.technician);
+    const headers = auth(session.accessToken);
+    const leaf = await context.prisma.category.findFirst({
+      where: { cityId: 1, parentId: { not: null }, isActive: true },
+    });
+
+    await request(app)
+      .patch('/api/v1/providers/me')
+      .set(headers)
+      .send({ yearsExperience: 9, baseLocation: { lat: 23.1618, lng: 79.9492 } })
+      .expect(200);
+    await request(app)
+      .post('/api/v1/providers/me/skills')
+      .set(headers)
+      .send({ categoryId: leaf?.id })
+      .expect(201);
+    await request(app)
+      .post('/api/v1/providers/me/price-cards')
+      .set(headers)
+      .send({ categoryId: leaf?.id, title: 'Visit', priceType: 'fixed', amountPaise: 40000 })
+      .expect(201);
+    const everythingButName = await request(app)
+      .post('/api/v1/providers/me/availability')
+      .set(headers)
+      .send({ dayOfWeek: 1, startTime: '09:00', endTime: '19:00' })
+      .expect(201);
+
+    const completeness = everythingButName.body.profile.completeness;
+
+    expect(completeness.score).toBeGreaterThanOrEqual(completeness.threshold);
+    expect(completeness.missingRequired).toEqual(['displayName']);
+    expect(everythingButName.body.profile.isListed).toBe(false);
+
+    const stored = await context.prisma.providerProfile.findUnique({
+      where: { userId: session.user.id },
+    });
+    expect(stored?.isListed).toBe(false);
+
+    // Adding the name — and nothing else — is what takes them live.
+    const named = await request(app)
+      .patch('/api/v1/providers/me')
+      .set(headers)
+      .send({ displayName: 'Ramesh Vishwakarma' })
+      .expect(200);
+
+    expect(named.body.profile.completeness.missingRequired).toEqual([]);
+    expect(named.body.profile.isListed).toBe(true);
+  });
+
   it('reports the missing checklist items so the app can nag precisely', async (ctx) => {
     if (!app) return ctx.skip();
 
@@ -662,11 +728,21 @@ describe('Phase 3 — technician registration and completeness', () => {
     const response = await request(app).get('/api/v1/providers/me').set(auth(session.accessToken));
 
     expect(response.status).toBe(200);
-    expect(response.body.profile.completeness.threshold).toBe(80);
-    expect(response.body.profile.completeness.missing).toEqual(
+    const completeness = response.body.profile.completeness;
+
+    expect(completeness.threshold).toBe(80);
+    expect(completeness.missing).toEqual(
       expect.arrayContaining(['baseLocation', 'skills', 'priceCard', 'availability']),
     );
-    expect(response.body.profile.completeness.breakdown).toHaveLength(7);
+    // The blocking subset excludes the optional quality items.
+    expect([...completeness.missingRequired].sort()).toEqual([
+      'availability',
+      'baseLocation',
+      'priceCard',
+      'skills',
+    ]);
+    expect(completeness.breakdown).toHaveLength(7);
+    expect(completeness.breakdown.filter((e: { required: boolean }) => e.required)).toHaveLength(5);
   });
 });
 

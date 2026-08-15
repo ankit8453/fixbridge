@@ -207,10 +207,14 @@ export interface ProviderDocumentResponse {
 }
 
 export interface ProviderCompletenessResponse {
+  /** 0–100 progress indicator. Not on its own permission to be listed. */
   score: number;
   threshold: number;
   isListed: boolean;
+  /** Everything still to do, heaviest first. */
   missing: CompletenessItem[];
+  /** The subset of `missing` that is blocking listing. Empty means good to go. */
+  missingRequired: CompletenessItem[];
   breakdown: CompletenessBreakdownEntry[];
 }
 

@@ -60,9 +60,10 @@ async function recomputeListing(
   const aggregate = await repo.loadAggregate(context.prisma, userId);
   if (!aggregate) throw profileNotFound();
 
-  const { score } = computeCompleteness(factsFrom(aggregate));
+  const completeness = computeCompleteness(factsFrom(aggregate));
+  const { score } = completeness;
   const listed = isListable(
-    score,
+    completeness,
     context.config.PROVIDER_LISTING_THRESHOLD,
     aggregate.userIsActive,
   );
@@ -71,7 +72,13 @@ async function recomputeListing(
     await repo.saveListingState(context.prisma, userId, score, listed);
 
     context.logger.info(
-      { userId, score, isListed: listed, previousScore: aggregate.profile.completenessScore },
+      {
+        userId,
+        score,
+        isListed: listed,
+        previousScore: aggregate.profile.completenessScore,
+        missingRequired: completeness.missingRequired,
+      },
       'provider completeness recomputed',
     );
   }
@@ -108,6 +115,8 @@ function toResponse(
       threshold: context.config.PROVIDER_LISTING_THRESHOLD,
       isListed: aggregate.profile.isListed,
       missing: completeness.missing,
+      // What the onboarding screen should actually count down to.
+      missingRequired: completeness.missingRequired,
       breakdown: completeness.breakdown,
     },
     skills: aggregate.skills.map((skill) => ({

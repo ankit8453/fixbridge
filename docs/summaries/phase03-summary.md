@@ -99,18 +99,24 @@ never has to re-fetch to learn whether it just went live.
 
 **Completeness** (`completeness.ts`, pure and exhaustively unit-tested):
 
-| Item                       | Weight |
-| -------------------------- | ------ |
-| `baseLocation`             | 21     |
-| `skills` (≥1)              | 21     |
-| `priceCard` (≥1 active)    | 21     |
-| `availability` (≥1 active) | 21     |
-| `displayName`              | 10     |
-| `yearsExperience`          | 3      |
-| `photoDocument`            | 3      |
+| Item                       | Weight | Required |
+| -------------------------- | ------ | -------- |
+| `baseLocation`             | 20     | yes      |
+| `skills` (≥1)              | 20     | yes      |
+| `priceCard` (≥1 active)    | 20     | yes      |
+| `availability` (≥1 active) | 20     | yes      |
+| `displayName`              | 10     | yes      |
+| `yearsExperience`          | 5      | —        |
+| `photoDocument`            | 5      | —        |
 
-`is_listed = score >= threshold (default 80) AND user is active`, recomputed
-centrally after every write that could change the answer.
+```
+is_listed = user is active
+            AND missingRequired is empty        <- hard gate
+            AND score >= threshold (default 80)
+```
+
+Recomputed centrally after every write that could change the answer. See
+"Completeness: a hard gate, not just a score" below for why it is built this way.
 
 **Availability** (`availability.ts`, pure): minutes-from-midnight, half-open
 intervals so back-to-back shifts are legal, overlap detection per day.
@@ -186,34 +192,54 @@ No new dependencies. Node v20.12.2, Prisma 6.19.3, TypeScript 5.9.3, Express
    empty profile"; allowing a name in the same call saves a round trip and costs
    nothing.
 
-### The completeness-weighting tension — worth reading
+### Completeness: a hard gate, not just a score
 
 The prompt specifies `is_listed = score >= threshold` with a default threshold of
-80, and lists seven checklist items. Those two facts constrain each other more
-than they look:
+80, over seven checklist items. Those two facts constrain each other harder than
+they look.
 
 With weights summing to 100 and a threshold of 80, **an item only gates listing
-if it weighs 21 or more**. Missing a 20-point item leaves 80, which still
-passes. And four items at 21 already consume 84 of the 100 points — so **at most
-four of the seven can individually delist a profile.**
+if it weighs 21 or more** — missing a 20-point item still leaves 80, which
+passes. Four items at 21 already consume 84 of the 100 points, so **at most four
+of the seven could ever individually delist a profile**, and `displayName` could
+not be one of them: a profile missing only a name scored 90 and appeared in
+search.
 
-I gave those four to the items that make a technician _bookable_: location,
-skills, price card, availability. Missing any one scores 79 and delists.
+Contorting the weights to make gating work also made the score dishonest. It
+stopped being a progress indicator and became a gate wearing one's clothes.
 
-**The consequence, stated plainly:** `displayName` is weighted 10, so a profile
-missing only a display name scores 90 and **is listed**. A nameless technician
-could appear in search. There is a test asserting exactly this so the behaviour
-is deliberate and visible rather than a lurking surprise.
+**So the two concerns are now separate**, on Ankit's call:
 
-Two ways to close it, both one-line, both your call:
+- **`REQUIRED_ITEMS` — a hard gate.** Five individually disqualifying items:
+  display name, base location, ≥1 skill, ≥1 active price card, ≥1 active
+  availability window. `missingRequired` must be empty to list, whatever the
+  score says.
+- **`score` + `threshold` — an adjustable quality bar on top.** Freed from gating
+  duty, the weights are round and meaningful again: 20/20/20/20/10/5/5.
 
-- raise `PROVIDER_LISTING_THRESHOLD` to `91`, which makes `displayName` gate too
-  (and also makes `yearsExperience` and `photoDocument` nearly mandatory); or
-- make `displayName` a hard precondition alongside the score, departing from the
-  prompt's formula.
+`isListable` takes the whole `CompletenessResult` rather than a bare score,
+specifically so a caller cannot check the threshold and forget the gate.
 
-I did neither, because both change behaviour the prompt specified. Flag which you
-want and it is a small change.
+**The reseed made the case better than the argument does.** Under the new honest
+weights, the three deliberately-incomplete seeded technicians score exactly
+**80** — which _passes_ the default threshold. Only the hard gate keeps them out
+of search:
+
+```
+ completeness_score | count | all_listed
+--------------------+-------+------------
+                 80 |     3 | f            <- clears the threshold, fails the gate
+                100 |    17 | t
+```
+
+The threshold does not bind at its default, because satisfying every required
+item already scores 90. That is intended and documented: the gate is the floor,
+the threshold is the knob for demanding more later. Raise it past 90 and
+`photoDocument` and `yearsExperience` stop being optional in practice.
+
+Clients get `missingRequired` alongside `missing`, and every breakdown entry
+carries `required: boolean` — so the Phase 13 onboarding screen can say "2 things
+left before you go live" separately from "2 optional improvements".
 
 ---
 
@@ -221,24 +247,22 @@ want and it is a small change.
 
 **Needed from Ankit:**
 
-1. **The `displayName` gap above** — raise the threshold, add a hard gate, or
-   accept it?
-2. **How does someone become a technician in production?** Today `POST
-/me/register` is fully self-serve: any signed-in user can grant themselves the
-   role. That is right for a supply-hungry launch and wrong if you want ops to
-   screen people first. Phase 4 verification gates _trust_, and completeness
-   gates _listing_, but nothing gates _entry_.
-3. **`assistedOnboarding` has no way to be set.** The column exists and defaults
+1. **How does someone become a technician in production?** Today
+   `POST /me/register` is fully self-serve: any signed-in user can grant
+   themselves the role. That is right for a supply-hungry launch and wrong if you
+   want ops to screen people first. Phase 4 verification gates _trust_, and
+   completeness gates _listing_, but nothing gates _entry_.
+2. **`assistedOnboarding` has no way to be set.** The column exists and defaults
    to `false`, but the only writer would be an ops endpoint, which is Phase 11.
    If field agents will be onboarding technicians before then, that endpoint is
    needed sooner.
-4. **The Jabalpur locality coordinates are approximate**, good to a few hundred
+3. **The Jabalpur locality coordinates are approximate**, good to a few hundred
    metres. Fine for development and for relative-distance tests; if Phase 5's
    ranking is to be judged against reality, real surveyed coordinates would help.
-5. **Hindi copy is still mine**, now including all 25 category names. These are
+4. **Hindi copy is still mine**, now including all 25 category names. These are
    the strings a technician in Jabalpur reads first — worth a native review
    before any field test.
-6. **The rate-limit changes I proposed after Phase 2 are still not applied**
+5. **The rate-limit changes I proposed after Phase 2 are still not applied**
    (`OTP_MAX_PER_IP` 5 → 30 for CGNAT, per-phone 3 → 5, 60-second resend
    cooldown). Unchanged and still recommended.
 
