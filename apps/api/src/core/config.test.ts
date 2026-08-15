@@ -5,6 +5,8 @@ const VALID_ENV = {
   DATABASE_URL: 'postgresql://fixbridge:fixbridge@localhost:5432/fixbridge?schema=public',
   REDIS_URL: 'redis://localhost:6379',
   JWT_SECRET: 'config-test-secret-value-at-least-32-chars',
+  S3_ACCESS_KEY_ID: 'test-access-key',
+  S3_SECRET_ACCESS_KEY: 'test-secret-key',
 } satisfies NodeJS.ProcessEnv;
 
 /** A production environment that is otherwise entirely valid. */
@@ -31,8 +33,12 @@ describe('parseConfig', () => {
     expect(config.REFRESH_TOKEN_TTL_DAYS).toBe(30);
     expect(config.OTP_TTL_SECONDS).toBe(300);
     expect(config.OTP_MAX_VERIFY_ATTEMPTS).toBe(5);
-    expect(config.OTP_MAX_PER_PHONE).toBe(3);
-    expect(config.OTP_MAX_PER_IP).toBe(5);
+    // Retuned after the Phase 2 review: CGNAT means a tight per-IP cap locks
+    // out strangers sharing a carrier NAT, and 3 per phone is one mistyped
+    // digit away from a lockout.
+    expect(config.OTP_MAX_PER_PHONE).toBe(5);
+    expect(config.OTP_MAX_PER_IP).toBe(30);
+    expect(config.OTP_RESEND_COOLDOWN_SECONDS).toBe(60);
     expect(config.OTP_RATE_WINDOW_SECONDS).toBe(900);
     expect(config.AUTH_FIXED_OTP).toBeUndefined();
     expect(config.AUTH_FIXED_OTP_PHONE_PREFIX).toBe('+9199999');
@@ -108,6 +114,7 @@ describe('parseConfig', () => {
     expect(message).toMatch(/DATABASE_URL/);
     expect(message).toMatch(/REDIS_URL/);
     expect(message).toMatch(/JWT_SECRET/);
+    expect(message).toMatch(/S3_ACCESS_KEY_ID/);
     expect(message).toMatch(/\.env\.example/);
   });
 });

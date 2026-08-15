@@ -228,6 +228,12 @@ export interface ProviderProfileResponse {
   serviceRadiusKm: number;
   assistedOnboarding: boolean;
   isListed: boolean;
+  /** Trust, as opposed to completeness. Phase 5 search requires both. */
+  verification: {
+    badge: string;
+    badgeSince: string | null;
+    levelsPassed: number[];
+  };
   completeness: ProviderCompletenessResponse;
   skills: ProviderSkillResponse[];
   priceCards: ProviderPriceCardResponse[];

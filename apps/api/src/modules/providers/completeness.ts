@@ -21,6 +21,7 @@ export const COMPLETENESS_ITEMS = [
   'skills',
   'priceCard',
   'availability',
+  'bio',
   'yearsExperience',
   'photoDocument',
 ] as const;
@@ -57,8 +58,9 @@ export const COMPLETENESS_WEIGHTS: Record<CompletenessItem, number> = {
   priceCard: 20,
   availability: 20,
   displayName: 10,
-  yearsExperience: 5,
-  photoDocument: 5,
+  bio: 3,
+  yearsExperience: 3,
+  photoDocument: 4,
 };
 
 /** The facts the score is computed from. Deliberately booleans, not entities. */
@@ -68,6 +70,7 @@ export interface CompletenessFacts {
   hasSkill: boolean;
   hasActivePriceCard: boolean;
   hasActiveAvailability: boolean;
+  hasBio: boolean;
   hasYearsExperience: boolean;
   hasPhotoDocument: boolean;
 }
@@ -99,6 +102,7 @@ const SATISFIED: Record<CompletenessItem, (facts: CompletenessFacts) => boolean>
   skills: (f) => f.hasSkill,
   priceCard: (f) => f.hasActivePriceCard,
   availability: (f) => f.hasActiveAvailability,
+  bio: (f) => f.hasBio,
   yearsExperience: (f) => f.hasYearsExperience,
   photoDocument: (f) => f.hasPhotoDocument,
 };

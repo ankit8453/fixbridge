@@ -3,7 +3,10 @@ import { router as authRouter } from './auth/routes';
 import { router as categoriesRouter } from './categories/routes';
 import { router as customersRouter } from './customers/routes';
 import { router as providersRouter } from './providers/routes';
-import { router as verificationRouter } from './verification/routes';
+import {
+  router as verificationRouter,
+  opsRouter as verificationOpsRouter,
+} from './verification/routes';
 import { router as searchRouter } from './search/routes';
 import { router as bookingsRouter } from './bookings/routes';
 import { router as quotationsRouter } from './quotations/routes';
@@ -31,5 +34,8 @@ export function registerModuleRoutes(app: Express): void {
   app.use(`${API_PREFIX}/payments`, paymentsRouter);
   app.use(`${API_PREFIX}/reviews`, reviewsRouter);
   app.use(`${API_PREFIX}/notifications`, notificationsRouter);
+  // Ops verification lives at the admin path reviewers expect, but the code
+  // stays in the verification module. The admin module itself is Phase 11.
+  app.use(`${API_PREFIX}/admin/verification`, verificationOpsRouter);
   app.use(`${API_PREFIX}/admin`, adminRouter);
 }

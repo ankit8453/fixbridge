@@ -29,6 +29,13 @@
     "documentAdded": "Document added.",
     "documentDeleted": "Document removed."
   },
+  "verification": {
+    "uploadUrlIssued": "Ready to upload.",
+    "documentUploaded": "Document received.",
+    "submitted": "Sent for verification. We will let you know once it is checked.",
+    "infoProvided": "Thank you. Your response has been sent to the team.",
+    "decisionRecorded": "Decision saved."
+  },
   "categories": {
     "electrical": "Electrical",
     "houseWiring": "House wiring & repair",
@@ -70,6 +77,7 @@
       "otpInvalid": "That code is not correct or has expired. Please try again, or request a new code.",
       "otpAttemptsExceeded": "Too many wrong attempts. Please request a new code.",
       "rateLimited": "Too many attempts. Please wait a little and try again.",
+      "otpResendTooSoon": "Please wait a few seconds before asking for another code.",
       "tokenMissing": "Please sign in to continue.",
       "tokenInvalid": "Your session is not valid. Please sign in again.",
       "tokenExpired": "Your session has expired. Please sign in again.",
@@ -99,6 +107,19 @@
       "availabilityEndBeforeStart": "The end time must be after the start time. For work past midnight, add one entry per day.",
       "availabilityInvalid": "Those working hours are not valid.",
       "documentNotFound": "We could not find that document."
+    },
+    "verification": {
+      "documentNotFound": "We could not find that document.",
+      "caseNotFound": "We could not find that verification request.",
+      "uploadMissing": "We have not received your file yet. Please upload it and try again.",
+      "fileTooLarge": "That file is too large. Please upload a smaller one.",
+      "documentsNotReady": "Please upload all the required documents first.",
+      "levelAlreadyOpen": "This check is already in progress.",
+      "invalidTransition": "That action is not possible right now.",
+      "caseClosed": "This check is already finished and cannot be changed.",
+      "notesRequired": "Please add a note explaining this decision.",
+      "unknownLevel": "That verification step does not exist.",
+      "rawIdNumber": "Please send only the last 4 digits of the ID number."
     }
   },
   "common": {

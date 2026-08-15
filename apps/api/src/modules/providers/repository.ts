@@ -7,10 +7,10 @@ import type {
   PrismaClient,
   ProviderAvailabilityTemplate,
   ProviderDocument,
-  ProviderDocumentType,
   ProviderPriceCard,
   ProviderProfile,
   ProviderSkill,
+  ProviderVerificationSummary,
   PriceType,
 } from '@prisma/client';
 import type { GeoPoint } from '../../core/geo';
@@ -28,6 +28,8 @@ export interface ProviderAggregate {
   availability: ProviderAvailabilityTemplate[];
   documents: ProviderDocument[];
   userIsActive: boolean;
+  /** Null until the technician starts verification. Badge is an independent axis. */
+  verification: ProviderVerificationSummary | null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -109,12 +111,13 @@ export async function loadAggregate(
       availability: { orderBy: [{ dayOfWeek: 'asc' }, { startMinute: 'asc' }] },
       documents: { orderBy: { createdAt: 'asc' } },
       user: { select: { status: true } },
+      verification: true,
     },
   });
 
   if (!profile) return null;
 
-  const { skills, priceCards, availability, documents, user, ...rest } = profile;
+  const { skills, priceCards, availability, documents, user, verification, ...rest } = profile;
 
   return {
     profile: rest as ProviderProfile,
@@ -124,6 +127,7 @@ export async function loadAggregate(
     availability,
     documents,
     userIsActive: user.status === 'active',
+    verification,
   };
 }
 
@@ -261,14 +265,11 @@ export async function deleteAvailability(
 /* Documents                                                                  */
 /* -------------------------------------------------------------------------- */
 
-export function createDocument(
-  prisma: PrismaClient,
-  providerId: string,
-  data: { docType: ProviderDocumentType; storageKey: string },
-): Promise<ProviderDocument> {
-  return prisma.providerDocument.create({ data: { providerId, ...data } });
-}
-
+/**
+ * Read-only here. Documents are created and confirmed by the verification
+ * module, which owns the upload flow — a row can only be trusted once the
+ * object behind it is known to exist, and only that flow can establish it.
+ */
 export function listDocuments(
   prisma: PrismaClient,
   providerId: string,
@@ -277,15 +278,6 @@ export function listDocuments(
     where: { providerId },
     orderBy: { createdAt: 'asc' },
   });
-}
-
-export async function deleteDocument(
-  prisma: PrismaClient,
-  providerId: string,
-  id: string,
-): Promise<boolean> {
-  const result = await prisma.providerDocument.deleteMany({ where: { id, providerId } });
-  return result.count > 0;
 }
 
 /* -------------------------------------------------------------------------- */

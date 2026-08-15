@@ -7,7 +7,6 @@ import {
   addSkillSchema,
   categoryIdParamSchema,
   createAvailabilitySchema,
-  createDocumentSchema,
   createPriceCardSchema,
   registerProviderSchema,
   updateAvailabilitySchema,
@@ -188,29 +187,8 @@ router.delete(
   }),
 );
 
-/* ---- documents (metadata only until Phase 4) ---- */
-
-router.post(
-  '/me/documents',
-  handle(async (req, res) => {
-    const input = createDocumentSchema.parse(req.body);
-    const profile = await service.createDocument(
-      getContext(req),
-      getAuthUser(req).id,
-      input,
-      req.t,
-    );
-
-    res.status(201).json({ profile, message: req.t('providers.documentAdded') });
-  }),
-);
-
-router.delete(
-  '/me/documents/:id',
-  handle(async (req, res) => {
-    const { id } = uuidParamSchema.parse(req.params);
-    const profile = await service.deleteDocument(getContext(req), getAuthUser(req).id, id, req.t);
-
-    res.status(200).json({ profile, message: req.t('providers.documentDeleted') });
-  }),
-);
+/*
+ * Documents are uploaded and confirmed through the verification module at
+ * `/api/v1/verification/documents/*`, which holds the pre-signed URL flow. They
+ * are shown read-only on the profile response above.
+ */

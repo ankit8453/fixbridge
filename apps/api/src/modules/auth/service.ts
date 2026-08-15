@@ -135,6 +135,35 @@ async function issueSession(
  * Two independent limits, checked in order: the phone budget first (so hammering
  * one number does not also burn the shared IP budget), then the IP budget.
  */
+/**
+ * A short gap between resends for one phone.
+ *
+ * Checked before the window budgets and using `SET NX` so it is a single atomic
+ * round trip: whoever sets the key wins, everyone else is told how long is left.
+ * Deliberately does *not* consume budget — being 20 seconds early is impatience,
+ * not abuse, and should not cost the user one of their five attempts.
+ */
+async function enforceResendCooldown(context: AppContext, phone: string): Promise<void> {
+  const { config, redis } = context;
+  if (config.OTP_RESEND_COOLDOWN_SECONDS === 0) return;
+
+  const key = otpKeys.cooldown(phone);
+  const acquired = await redis.set(key, '1', 'EX', config.OTP_RESEND_COOLDOWN_SECONDS, 'NX');
+
+  if (acquired === 'OK') return;
+
+  const ttl = await redis.ttl(key);
+
+  throw AppError.tooManyRequests(
+    `OTP was requested for this phone less than ${config.OTP_RESEND_COOLDOWN_SECONDS}s ago`,
+    ttl > 0 ? ttl : config.OTP_RESEND_COOLDOWN_SECONDS,
+    {
+      messageKey: 'errors.auth.otpResendTooSoon',
+      details: { scope: 'cooldown', retryAfterSeconds: ttl > 0 ? ttl : 1 },
+    },
+  );
+}
+
 async function enforceOtpRequestLimits(
   context: AppContext,
   phone: string,
@@ -186,6 +215,7 @@ export async function requestOtp(
   const { context, transport } = deps;
   const { phone } = input;
 
+  await enforceResendCooldown(context, phone);
   await enforceOtpRequestLimits(context, phone, info.ip);
 
   const otp = generateOtp();

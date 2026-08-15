@@ -16,6 +16,7 @@ const COMPLETE: CompletenessFacts = {
   hasSkill: true,
   hasActivePriceCard: true,
   hasActiveAvailability: true,
+  hasBio: true,
   hasYearsExperience: true,
   hasPhotoDocument: true,
 };
@@ -26,6 +27,7 @@ const EMPTY: CompletenessFacts = {
   hasSkill: false,
   hasActivePriceCard: false,
   hasActiveAvailability: false,
+  hasBio: false,
   hasYearsExperience: false,
   hasPhotoDocument: false,
 };
@@ -37,13 +39,14 @@ const FACT_FOR: Record<CompletenessItem, keyof CompletenessFacts> = {
   skills: 'hasSkill',
   priceCard: 'hasActivePriceCard',
   availability: 'hasActiveAvailability',
+  bio: 'hasBio',
   yearsExperience: 'hasYearsExperience',
   photoDocument: 'hasPhotoDocument',
 };
 
 const DEFAULT_THRESHOLD = 80;
 
-const OPTIONAL_ITEMS: CompletenessItem[] = ['yearsExperience', 'photoDocument'];
+const OPTIONAL_ITEMS: CompletenessItem[] = ['bio', 'yearsExperience', 'photoDocument'];
 
 describe('weights', () => {
   it('sum to exactly 100', () => {
@@ -188,6 +191,7 @@ describe('isListable — the hard gate', () => {
   it('lists a profile that has every required item but neither optional one', () => {
     const result = computeCompleteness({
       ...COMPLETE,
+      hasBio: false,
       hasYearsExperience: false,
       hasPhotoDocument: false,
     });
@@ -213,6 +217,7 @@ describe('isListable — the threshold on top of the gate', () => {
   it('does not bind at the default, because the gate already implies 90', () => {
     const gateOnly = computeCompleteness({
       ...COMPLETE,
+      hasBio: false,
       hasYearsExperience: false,
       hasPhotoDocument: false,
     });
@@ -224,6 +229,7 @@ describe('isListable — the threshold on top of the gate', () => {
   it('can be raised to demand the optional quality items too', () => {
     const gateOnly = computeCompleteness({
       ...COMPLETE,
+      hasBio: false,
       hasYearsExperience: false,
       hasPhotoDocument: false,
     });

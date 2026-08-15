@@ -20,8 +20,13 @@ export default defineConfig({
       JWT_SECRET: 'test-only-secret-value-at-least-32-characters-long',
       AUTH_FIXED_OTP: '000000',
       AUTH_FIXED_OTP_PHONE_PREFIX: '+9199999',
-      OTP_MAX_PER_PHONE: '3',
       OTP_RATE_WINDOW_SECONDS: '900',
+      /**
+       * Off by default here: suites sign the same phone in repeatedly, and a
+       * real 60-second gap between requests would make them sleep. The cooldown
+       * has its own dedicated test that switches it back on.
+       */
+      OTP_RESEND_COOLDOWN_SECONDS: '0',
       /**
        * Every supertest request comes from 127.0.0.1, so a realistic per-IP cap
        * would fire during unrelated sign-ins and make suites order-dependent.

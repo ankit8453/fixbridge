@@ -3,6 +3,7 @@ import { maskPhone, normalizePhone } from '../src/modules/auth/phone';
 import { seedCategories } from './seeds/categories';
 import { seedCustomer } from './seeds/customer';
 import { seedProviders } from './seeds/providers';
+import { seedVerification } from './seeds/verification';
 
 /**
  * Idempotent seed — safe to run repeatedly against the same database.
@@ -63,15 +64,67 @@ async function seedAdminUser(cityId: number): Promise<void> {
   console.log(`admin ready: ${maskPhone(phone)} roles=[${ADMIN_ROLES.join(', ')}]`);
 }
 
+/**
+ * A reviewer who is *only* ops — no admin role.
+ *
+ * The seeded admin holds both, which would quietly hide a bug where an ops
+ * route accidentally required `admin`. This account is the one the tests and
+ * real reviewers use.
+ */
+async function seedOpsUser(cityId: number): Promise<string> {
+  const raw = process.env.SEED_OPS_PHONE ?? '+919999900002';
+  const phone = normalizePhone(raw);
+
+  if (phone === null) {
+    throw new Error(`SEED_OPS_PHONE is not a valid Indian mobile number: ${raw}`);
+  }
+
+  const user = await prisma.user.upsert({
+    where: { phone },
+    update: {},
+    create: { phone, name: 'Verification Ops', defaultCityId: cityId },
+  });
+
+  await prisma.userRole.upsert({
+    where: { userId_role: { userId: user.id, role: Role.ops } },
+    update: {},
+    create: { userId: user.id, role: Role.ops },
+  });
+
+  console.log(`ops ready: ${maskPhone(phone)} roles=[ops]`);
+
+  return user.id;
+}
+
+/** Makes sure the private KYC bucket exists, so a fresh clone can upload. */
+async function ensureStorageBucket(): Promise<void> {
+  try {
+    const { parseConfig } = await import('../src/core/config');
+    const { createS3StorageService } = await import('../src/core/storage');
+    const { createLogger } = await import('../src/core/logger');
+
+    const config = parseConfig();
+    await createS3StorageService(config, createLogger(config)).ensureBucket();
+
+    console.log(`storage ready: bucket ${config.S3_BUCKET}`);
+  } catch (error) {
+    // Not fatal: the rest of the seed is still worth having.
+    console.warn('storage bucket check skipped:', error instanceof Error ? error.message : error);
+  }
+}
+
 async function main(): Promise<void> {
   const cityId = await seedCities();
   const listingThreshold = Number(process.env.PROVIDER_LISTING_THRESHOLD ?? 80);
 
   await seedAdminUser(cityId);
+  const opsUserId = await seedOpsUser(cityId);
 
   const categoryIdBySlug = await seedCategories(prisma, cityId);
   await seedProviders(prisma, cityId, categoryIdBySlug, listingThreshold);
+  await seedVerification(prisma, opsUserId);
   await seedCustomer(prisma, cityId);
+  await ensureStorageBucket();
 }
 
 main()

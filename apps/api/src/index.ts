@@ -8,6 +8,15 @@ function bootstrap(): void {
   const context = createContext(config);
   const app = createApp(context);
 
+  /**
+   * Create the KYC bucket if it is missing, but do not block the boot on it.
+   * A storage outage should surface when someone tries to upload, not stop the
+   * whole API — every other endpoint is unaffected by it.
+   */
+  void context.storage.ensureBucket().catch((error: unknown) => {
+    context.logger.error({ err: error }, 'storage: bucket check failed at startup');
+  });
+
   const server = app.listen(config.PORT, () => {
     context.logger.info(
       { port: config.PORT, env: config.NODE_ENV, version: context.version },

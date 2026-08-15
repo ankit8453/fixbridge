@@ -643,6 +643,10 @@ export async function seedProviders(
     if (seed.withPhoto) {
       const id = deterministicUuid(`document:${seed.phone}:photo`);
 
+      // Seeded documents are marked uploaded without an object behind them:
+      // these are fixtures for local development, not real KYC material. The
+      // ops case-detail endpoint will still issue a signed URL, which simply
+      // 404s at storage — correct, and better than pretending otherwise.
       await prisma.providerDocument.upsert({
         where: { id },
         update: {},
@@ -651,6 +655,10 @@ export async function seedProviders(
           providerId: user.id,
           docType: 'photo',
           storageKey: `seed/providers/${user.id}/photo.jpg`,
+          status: 'uploaded',
+          contentType: 'image/jpeg',
+          sizeBytes: 128_000,
+          uploadedAt: new Date(),
         },
       });
     }
@@ -663,6 +671,7 @@ export async function seedProviders(
       hasSkill: seed.skills.length > 0,
       hasActivePriceCard: seed.priceCards.length > 0,
       hasActiveAvailability: AVAILABILITY_PATTERNS[seed.availability].length > 0,
+      hasBio: false,
       hasYearsExperience: seed.yearsExperience !== null,
       hasPhotoDocument: seed.withPhoto,
     });

@@ -1,8 +1,8 @@
 # API reference
 
-Updated every phase. Live so far: `auth` (Phase 2), and `categories`,
-`customers` and `providers` (Phase 3). The remaining `/api/v1/*` routers are
-mounted but empty until their phase.
+Updated every phase. Live so far: `auth` (Phase 2), `categories`, `customers`
+and `providers` (Phase 3), and `verification` (Phase 4). The remaining
+`/api/v1/*` routers are mounted but empty until their phase.
 
 **Base URL (local):** `http://localhost:3000`
 **API prefix for domain modules:** `/api/v1`
@@ -93,7 +93,14 @@ sends it via the configured transport. **The OTP is never in the response** — 
 development it is written to the API log (`devOtp`); real WhatsApp delivery
 arrives in Phase 10.
 
-Rate limited: **3 per phone / 15 min** and **5 per IP / 15 min**.
+Rate limited: **5 per phone / 15 min**, **30 per IP / 15 min**, and a
+**60-second cooldown** between requests for the same phone.
+
+> The per-IP cap is deliberately loose. Indian mobile carriers put large numbers
+> of subscribers behind one public IP (CGNAT), so a tight cap locks out
+> strangers. The per-phone cap does the real work, and the cooldown absorbs the
+> common case — an impatient user tapping resend while the carrier sits on the
+> first message.
 
 ```bash
 curl -X POST http://localhost:3000/api/v1/auth/otp/request \
@@ -112,10 +119,10 @@ curl -X POST http://localhost:3000/api/v1/auth/otp/request \
 }
 ```
 
-| Status | Code               | When                                                                      |
-| ------ | ------------------ | ------------------------------------------------------------------------- |
-| `400`  | `VALIDATION_ERROR` | `phone` is not a valid Indian mobile number                               |
-| `429`  | `RATE_LIMITED`     | Per-phone or per-IP budget exhausted. `details.scope` is `phone` or `ip`. |
+| Status | Code               | When                                                                                  |
+| ------ | ------------------ | ------------------------------------------------------------------------------------- |
+| `400`  | `VALIDATION_ERROR` | `phone` is not a valid Indian mobile number                                           |
+| `429`  | `RATE_LIMITED`     | Budget exhausted, or resent too soon. `details.scope` is `phone`, `ip` or `cooldown`. |
 
 ```json
 {
@@ -204,12 +211,13 @@ curl http://localhost:3000/api/v1/auth/me \
 }
 ```
 
-| Status | Code                 | When                                                                      |
-| ------ | -------------------- | ------------------------------------------------------------------------- |
-| `401`  | `AUTH_TOKEN_MISSING` | No `Authorization: Bearer …` header                                       |
-| `401`  | `AUTH_TOKEN_EXPIRED` | Signature is good but the token has expired — **refresh and retry**       |
-| `401`  | `AUTH_TOKEN_INVALID` | Malformed, tampered, wrong issuer, or wrong signature — **sign in again** |
-| `403`  | `ACCOUNT_BLOCKED`    | Account blocked since the token was issued                                |
+| Status | Code                   | When                                                                         |
+| ------ | ---------------------- | ---------------------------------------------------------------------------- |
+| `401`  | `AUTH_TOKEN_MISSING`   | No `Authorization: Bearer …` header                                          |
+| `401`  | `AUTH_SESSION_REVOKED` | The account was blocked — the token stops working immediately, not at expiry |
+| `401`  | `AUTH_TOKEN_EXPIRED`   | Signature is good but the token has expired — **refresh and retry**          |
+| `401`  | `AUTH_TOKEN_INVALID`   | Malformed, tampered, wrong issuer, or wrong signature — **sign in again**    |
+| `403`  | `ACCOUNT_BLOCKED`      | Account blocked since the token was issued                                   |
 
 Expired and invalid are separate codes precisely so a client knows which of those
 two things to do.
@@ -690,6 +698,275 @@ document is meant to exist and where it will live.
 
 ---
 
+## Verification — `/api/v1/verification` and `/api/v1/admin/verification`
+
+The trust half of the product. Design rationale, the state machine and the
+append-only guarantee live in [verification.md](verification.md); this is the
+wire contract.
+
+Four independent levels: **0** identity · **1** background · **2** skill ·
+**3** references. Passing all four earns the badge `VERIFIED`.
+
+> **Never send a full identity number.** Only the last 4 digits are accepted, and
+> any field that looks like a complete one is rejected outright.
+
+### Documents
+
+The API never handles file bytes. Ask for a URL, upload straight to storage,
+then confirm.
+
+#### `POST /api/v1/verification/documents/upload-url`
+
+Role `technician`.
+
+```bash
+curl -X POST http://localhost:3000/api/v1/verification/documents/upload-url \
+  -H "Authorization: Bearer $ACCESS" -H 'Content-Type: application/json' \
+  -d '{"docType":"id_proof","contentType":"image/png","sizeBytes":10240}'
+```
+
+`docType`: `id_proof` · `certificate` · `photo` · `other`.
+`contentType`: `image/jpeg` · `image/png` · `image/webp` · `application/pdf`.
+
+**`201 Created`**
+
+```json
+{
+  "document": {
+    "id": "…",
+    "docType": "id_proof",
+    "status": "awaiting_upload",
+    "contentType": "image/png",
+    "sizeBytes": 10240,
+    "uploadedAt": null,
+    "createdAt": "…"
+  },
+  "upload": {
+    "url": "http://localhost:9000/fixbridge-kyc/kyc/…?X-Amz-Signature=…",
+    "requiredHeaders": { "Content-Type": "image/png", "Content-Length": "10240" },
+    "expiresInSeconds": 300
+  },
+  "message": "Ready to upload."
+}
+```
+
+> `sizeBytes` is **signed into the URL**, so storage rejects a body of any other
+> size. Send `requiredHeaders` verbatim on the PUT or the signature will not
+> match. A pre-signed PUT cannot express "at most N bytes" — see
+> [verification.md](verification.md#documents-and-object-storage).
+
+| Status | When                                                                              |
+| ------ | --------------------------------------------------------------------------------- |
+| `400`  | Unsupported content type, or `sizeBytes` above `STORAGE_MAX_UPLOAD_BYTES` (10 MB) |
+| `403`  | Caller is not a technician                                                        |
+
+#### `POST /api/v1/verification/documents/:documentId/confirm`
+
+Verifies the object really exists and records its **real** size.
+
+**`200 OK`** → the document with `status: "uploaded"` and an `uploadedAt`.
+Idempotent. `409 UPLOAD_NOT_FOUND` if nothing was uploaded.
+
+#### `GET /api/v1/verification/documents`
+
+Own documents only.
+
+#### `GET /api/v1/verification/documents/:documentId/download-url`
+
+**`200 OK`** → `{ "url": "…", "expiresInSeconds": 300 }`. Expires for real.
+
+### Submitting a level
+
+#### `POST /api/v1/verification/levels/:level/submit`
+
+Role `technician`. The body is validated by that level's own schema.
+
+| Level | Body                                                                                                 |
+| ----- | ---------------------------------------------------------------------------------------------------- |
+| `0`   | `{ idType, idLast4, idProofDocumentId, selfieDocumentId }`                                           |
+| `1`   | `{ consent: true }`                                                                                  |
+| `2`   | `{ certificateDocumentId }` **or** `{ tradeTest: true, notes }` **or** `{ fieldAudit: true, notes }` |
+| `3`   | `{ references: [{ name, phone, relationship }, { … }] }` — exactly 2, distinct                       |
+
+`idType`: `aadhaar` · `pan` · `dl` · `voter`. `idLast4` is exactly 4 digits.
+`relationship`: `past_employer` · `shop_owner` · `senior_technician` · `other`.
+
+```bash
+curl -X POST http://localhost:3000/api/v1/verification/levels/0/submit \
+  -H "Authorization: Bearer $ACCESS" -H 'Content-Type: application/json' \
+  -d '{"idType":"aadhaar","idLast4":"4321",
+       "idProofDocumentId":"…","selfieDocumentId":"…"}'
+```
+
+**`201 Created`** → the new case with its `submitted` event.
+
+| Status | Code                        | When                                                                      |
+| ------ | --------------------------- | ------------------------------------------------------------------------- |
+| `400`  | `VALIDATION_ERROR`          | Body fails the level's schema                                             |
+| `400`  | `BAD_REQUEST`               | Documents missing or not uploaded, or a field looks like a full ID number |
+| `409`  | `VERIFICATION_ALREADY_OPEN` | That level already has a live case                                        |
+
+Levels are independent — 0 and 2 can be open at once. Retrying a **failed** level
+opens a new case; the old one stays closed forever.
+
+### `GET /api/v1/verification/cases`
+
+Own cases plus the badge summary.
+
+```json
+{
+  "cases": [
+    {
+      "id": "…",
+      "level": 0,
+      "levelName": "identity",
+      "status": "needs_info",
+      "openedAt": "…",
+      "closedAt": null,
+      "events": [
+        {
+          "id": "…",
+          "eventType": "submitted",
+          "actorType": "provider",
+          "notes": null,
+          "payload": { "idType": "aadhaar", "idLast4": "4321" },
+          "createdAt": "…"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "badge": "NONE",
+    "badgeSince": null,
+    "levelsPassed": [1, 2],
+    "levelsRemaining": [0, 3]
+  }
+}
+```
+
+> **`notes` is always `null` in a provider's view.** Ops notes are internal.
+> Reference phone numbers are masked here too (`+9198123*****`) — ops see them in
+> full because they have to ring them.
+
+`status`: `submitted` · `in_review` · `needs_info` · `passed` · `failed`.
+
+### `GET /api/v1/verification/cases/:caseId`
+
+One case. `404` for a case belonging to someone else — identical to a missing one.
+
+### `POST /api/v1/verification/cases/:caseId/info`
+
+Answers an ops request. Only valid from `needs_info`; moves the case back to
+`in_review`.
+
+```bash
+curl -X POST http://localhost:3000/api/v1/verification/cases/$CASE/info \
+  -H "Authorization: Bearer $ACCESS" -H 'Content-Type: application/json' \
+  -d '{"notes":"Re-uploaded in daylight.","documentIds":["…"]}'
+```
+
+`409 VERIFICATION_INVALID_TRANSITION` from any other state.
+
+---
+
+### Ops — `/api/v1/admin/verification`
+
+Roles `ops` or `admin`. Technicians and customers get `403`.
+
+#### `GET /api/v1/admin/verification/queue`
+
+Paginated, **oldest first** — a queue sorted newest-first starves whoever has
+waited longest.
+
+| Query               | Default         | Meaning             |
+| ------------------- | --------------- | ------------------- |
+| `status`            | open cases only | Exact status filter |
+| `level`             | all             | `0`–`3`             |
+| `cityId`            | all             | Provider's city     |
+| `page` / `pageSize` | `1` / `20`      | Max page size 100   |
+
+```json
+{
+  "cases": [
+    {
+      "caseId": "…",
+      "providerId": "…",
+      "providerName": "Ramesh Vishwakarma",
+      "cityId": 1,
+      "level": 0,
+      "status": "submitted",
+      "openedAt": "…"
+    }
+  ],
+  "page": 1,
+  "pageSize": 20,
+  "total": 37
+}
+```
+
+#### `GET /api/v1/admin/verification/cases/:caseId`
+
+Full detail: the case with **unredacted** events and notes, the provider, the
+badge summary, and every uploaded document with a **5-minute signed URL**.
+
+> **Opening this writes a `kyc_access_logs` row** naming the reviewer and the
+> documents whose URLs were issued. Ops reads are reconstructable, not just ops
+> decisions.
+
+#### `POST /api/v1/admin/verification/cases/:caseId/review`
+
+Moves `submitted → in_review`. Records who picked it up.
+
+#### `POST /api/v1/admin/verification/cases/:caseId/decide`
+
+```bash
+curl -X POST http://localhost:3000/api/v1/admin/verification/cases/$CASE/decide \
+  -H "Authorization: Bearer $OPS" -H 'Content-Type: application/json' \
+  -d '{"decision":"request_info","notes":"The selfie is too dark to compare."}'
+```
+
+| `decision`     | Notes        | Result                                                   |
+| -------------- | ------------ | -------------------------------------------------------- |
+| `pass`         | optional     | Terminal. Badge recomputed.                              |
+| `fail`         | **required** | Terminal. Badge recomputed — **downgrades immediately**. |
+| `request_info` | **required** | → `needs_info`                                           |
+
+**`200 OK`** returns the case and, for terminal decisions, the recomputed summary:
+
+```json
+{
+  "case": { "…": "…" },
+  "summary": { "badge": "NONE", "badgeSince": null, "levelsPassed": [0, 2, 3] },
+  "message": "Decision saved."
+}
+```
+
+| Status | Code                              | When                                |
+| ------ | --------------------------------- | ----------------------------------- |
+| `400`  | `VALIDATION_ERROR`                | `fail`/`request_info` without notes |
+| `409`  | `VERIFICATION_INVALID_TRANSITION` | Case already decided                |
+
+### Badges
+
+`NONE` · `VERIFIED` · `SILVER` · `GOLD`. Only `VERIFIED` is attainable today —
+`SILVER` and `GOLD` are Phase 9 trust bands.
+
+A badge is **derived** from the levels currently passed, so a failed re-check
+withdraws it with no separate revoke step. `badgeSince` marks when the current
+badge was earned; it clears on loss and restarts if re-earned.
+
+The badge also appears on `GET /api/v1/providers/me`:
+
+```json
+{ "verification": { "badge": "VERIFIED", "badgeSince": "…", "levelsPassed": [0, 1, 2, 3] } }
+```
+
+> **Badge and `isListed` are independent.** Completeness decides whether a
+> technician can be _found_; verification decides whether they are _trusted_.
+> Phase 5 search will require both.
+
+---
+
 ## `GET /health`
 
 Liveness + dependency readiness. Actually pings Postgres and Redis on every
@@ -758,7 +1035,6 @@ space is reserved and visible.
 
 | Prefix                  | Phase | Will contain                                         |
 | ----------------------- | ----- | ---------------------------------------------------- |
-| `/api/v1/verification`  | 4     | document checks, badges, trust score                 |
 | `/api/v1/search`        | 5     | PostGIS nearby search, distance/rating/badge ranking |
 | `/api/v1/bookings`      | 6     | slots, booking lifecycle, start/end OTP handshake    |
 | `/api/v1/quotations`    | 7     | itemised quotations, in-app approval                 |

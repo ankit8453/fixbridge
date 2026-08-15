@@ -14,6 +14,8 @@ export const otpKeys = {
   attempts: (phone: string) => `auth:otp:attempts:${phone}`,
   ratePhone: (phone: string) => `auth:otp:rate:phone:${phone}`,
   rateIp: (ip: string) => `auth:otp:rate:ip:${ip}`,
+  /** Presence means "too soon to resend"; the key's TTL is the wait remaining. */
+  cooldown: (phone: string) => `auth:otp:cooldown:${phone}`,
 };
 
 /* -------------------------------------------------------------------------- */

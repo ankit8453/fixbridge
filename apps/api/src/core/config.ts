@@ -69,8 +69,20 @@ const baseConfigSchema = z.object({
   OTP_TTL_SECONDS: z.coerce.number().int().min(60).max(1_800).default(300),
   OTP_MAX_VERIFY_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(5),
   OTP_RATE_WINDOW_SECONDS: z.coerce.number().int().min(60).max(3_600).default(900),
-  OTP_MAX_PER_PHONE: z.coerce.number().int().min(1).max(100).default(3),
-  OTP_MAX_PER_IP: z.coerce.number().int().min(1).max(1_000).default(5),
+  /** Raised from 3: a user who mistypes twice on a slow SMS should not be locked out. */
+  OTP_MAX_PER_PHONE: z.coerce.number().int().min(1).max(100).default(5),
+  /**
+   * Raised from 5 for CGNAT: Indian mobile carriers put large numbers of
+   * subscribers behind one public IP, so a tight per-IP cap locks out strangers.
+   * The per-phone cap does the real work; this is a coarse flood guard.
+   */
+  OTP_MAX_PER_IP: z.coerce.number().int().min(1).max(1_000).default(30),
+  /**
+   * Minimum gap between OTP requests for one phone. Most budget burn is an
+   * impatient user tapping resend while the carrier sits on the first SMS —
+   * this turns a 15-minute lockout into a 40-second wait.
+   */
+  OTP_RESEND_COOLDOWN_SECONDS: z.coerce.number().int().min(0).max(600).default(60),
 
   /**
    * Development/testing shortcut: this OTP always verifies, but only for phones
@@ -100,6 +112,34 @@ const baseConfigSchema = z.object({
   MAX_ADDRESSES_PER_USER: z.coerce.number().int().min(1).max(50).default(5),
   /** Default city for endpoints that accept an optional cityId. Jabalpur = 1. */
   DEFAULT_CITY_ID: z.coerce.number().int().min(1).default(1),
+
+  /* ---- object storage (KYC documents) ---- */
+
+  /** S3-compatible endpoint. MinIO locally; leave unset for real AWS S3. */
+  S3_ENDPOINT: z.string().min(1).optional(),
+  S3_REGION: z.string().min(1).default('us-east-1'),
+  S3_ACCESS_KEY_ID: z.string().min(1),
+  S3_SECRET_ACCESS_KEY: z.string().min(1),
+  /** Private bucket. Nothing in it is ever world-readable. */
+  S3_BUCKET: z.string().min(1).default('fixbridge-kyc'),
+  /** MinIO needs path-style addressing; real S3 prefers virtual-host style. */
+  S3_FORCE_PATH_STYLE: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+
+  /** Pre-signed URLs are deliberately short-lived — DPDP means least exposure. */
+  STORAGE_UPLOAD_URL_TTL_SECONDS: z.coerce.number().int().min(30).max(3_600).default(300),
+  STORAGE_DOWNLOAD_URL_TTL_SECONDS: z.coerce.number().int().min(30).max(3_600).default(300),
+  STORAGE_MAX_UPLOAD_BYTES: z.coerce
+    .number()
+    .int()
+    .min(1_024)
+    .max(100 * 1_024 * 1_024)
+    .default(10 * 1_024 * 1_024),
+
+  /** Phone for the ops-only account created by `npm run seed`. */
+  SEED_OPS_PHONE: z.string().min(1).default('+919999900002'),
 });
 
 /**

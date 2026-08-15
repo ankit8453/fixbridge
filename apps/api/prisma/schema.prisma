@@ -219,10 +219,12 @@ enum ProviderDocumentType {
   @@map("provider_document_type")
 }
 
-/// Only `pending` in Phase 3 — metadata is recorded but nothing reviews it yet.
-/// Phase 4 (verification) adds the reviewed states.
+/// A document row is created when an upload URL is issued and only becomes
+/// `uploaded` once the object is confirmed present in storage. A row stuck at
+/// `awaiting_upload` means the client asked and never followed through.
 enum ProviderDocumentStatus {
-  pending
+  awaiting_upload
+  uploaded
 
   @@map("provider_document_status")
 }
@@ -248,12 +250,14 @@ model ProviderProfile {
   createdAt          DateTime                               @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  user         User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  city         City                          @relation(fields: [cityId], references: [id], onDelete: Restrict)
-  skills       ProviderSkill[]
-  priceCards   ProviderPriceCard[]
-  availability ProviderAvailabilityTemplate[]
-  documents    ProviderDocument[]
+  user              User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  city              City                          @relation(fields: [cityId], references: [id], onDelete: Restrict)
+  skills            ProviderSkill[]
+  priceCards        ProviderPriceCard[]
+  availability      ProviderAvailabilityTemplate[]
+  documents         ProviderDocument[]
+  verificationCases VerificationCase[]
+  verification      ProviderVerificationSummary?
 
   @@index([cityId, isListed])
   @@map("provider_profiles")
@@ -321,18 +325,155 @@ model ProviderAvailabilityTemplate {
   @@map("provider_availability_templates")
 }
 
-/// Metadata only in Phase 3. The file behind `storage_key` is uploaded in
-/// Phase 4; nothing here reads or writes object storage.
+/// Metadata about an object in private storage. The bytes never touch this
+/// process: the client uploads to a pre-signed URL and then confirms, at which
+/// point the API verifies the object exists and records its real size.
 model ProviderDocument {
-  id         String                 @id @default(uuid()) @db.Uuid
-  providerId String                 @map("provider_id") @db.Uuid
-  docType    ProviderDocumentType   @map("doc_type")
-  storageKey String                 @map("storage_key") @db.VarChar(300)
-  status     ProviderDocumentStatus @default(pending)
-  createdAt  DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  id          String                 @id @default(uuid()) @db.Uuid
+  providerId  String                 @map("provider_id") @db.Uuid
+  docType     ProviderDocumentType   @map("doc_type")
+  storageKey  String                 @unique @map("storage_key") @db.VarChar(300)
+  status      ProviderDocumentStatus @default(awaiting_upload)
+  contentType String                 @map("content_type") @db.VarChar(120)
+  /// Declared at request time, replaced with the real size once confirmed.
+  sizeBytes   Int                    @map("size_bytes")
+  uploadedAt  DateTime?              @map("uploaded_at") @db.Timestamptz(3)
+  createdAt   DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
 
   provider ProviderProfile @relation(fields: [providerId], references: [userId], onDelete: Cascade)
 
   @@index([providerId, docType])
+  @@index([providerId, status])
   @@map("provider_documents")
+}
+
+/* -------------------------------------------------------------------------- */
+/* Verification                                                               */
+/* -------------------------------------------------------------------------- */
+
+/// 0 identity · 1 background · 2 skill · 3 references. Levels are independent —
+/// a provider may have level 0 and level 2 open at the same time.
+enum VerificationStatus {
+  submitted
+  in_review
+  needs_info
+  passed
+  failed
+
+  @@map("verification_status")
+}
+
+enum VerificationEventType {
+  submitted
+  moved_to_review
+  info_requested
+  info_provided
+  passed
+  failed
+  adapter_result_received
+
+  @@map("verification_event_type")
+}
+
+enum VerificationActorType {
+  provider
+  ops
+  system
+
+  @@map("verification_actor_type")
+}
+
+/// `SILVER` and `GOLD` are trust-score bands computed in Phase 9. They exist in
+/// the enum now so awarding them later needs no migration; only `VERIFIED` is
+/// attainable today.
+enum Badge {
+  NONE
+  VERIFIED
+  SILVER
+  GOLD
+
+  @@map("badge")
+}
+
+/// One attempt at one level.
+///
+/// `status` is a cached projection of this case's events — the event log is the
+/// truth. A failed case is closed forever; retrying opens a new case, so the
+/// history of what was decided and when is never overwritten.
+model VerificationCase {
+  id         String             @id @default(uuid()) @db.Uuid
+  providerId String             @map("provider_id") @db.Uuid
+  level      Int                @db.SmallInt
+  status     VerificationStatus @default(submitted)
+  openedAt   DateTime           @default(now()) @map("opened_at") @db.Timestamptz(3)
+  closedAt   DateTime?          @map("closed_at") @db.Timestamptz(3)
+  updatedAt  DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  provider ProviderProfile     @relation(fields: [providerId], references: [userId], onDelete: Cascade)
+  events   VerificationEvent[]
+
+  @@index([providerId, level])
+  @@index([status, openedAt])
+  @@map("verification_cases")
+}
+
+/// The append-only core. Every transition, every ops decision, every document
+/// view is a row here and nothing ever edits or removes one — a database trigger
+/// refuses UPDATE and DELETE outright.
+///
+/// `payload` carries the evidence: which documents, the adapter's reference
+/// token, masked identity fields. Never a raw identity number.
+model VerificationEvent {
+  id          String                @id @default(uuid()) @db.Uuid
+  caseId      String                @map("case_id") @db.Uuid
+  eventType   VerificationEventType @map("event_type")
+  actorType   VerificationActorType @map("actor_type")
+  /// Null for `system` events (adapters, automated transitions).
+  actorUserId String?               @map("actor_user_id") @db.Uuid
+  notes       String?               @db.VarChar(2000)
+  payload     Json?                 @db.JsonB
+  createdAt   DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  case VerificationCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId, createdAt])
+  @@map("verification_events")
+}
+
+/// Derived state, recomputed transactionally whenever a case passes or fails.
+/// Kept as its own row rather than columns on the profile so the verification
+/// module owns its own data.
+model ProviderVerificationSummary {
+  providerId   String    @id @map("provider_id") @db.Uuid
+  /// Levels currently passed, e.g. `[0, 1, 3]`. The badge is derived from this.
+  levelsPassed Int[]     @map("levels_passed")
+  badge        Badge     @default(NONE)
+  /// When the current badge was earned. Cleared when it is lost.
+  badgeSince   DateTime? @map("badge_since") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  provider ProviderProfile @relation(fields: [providerId], references: [userId], onDelete: Cascade)
+
+  @@index([badge])
+  @@map("provider_verification_summaries")
+}
+
+/// Every ops read of KYC material, recorded separately from the case timeline.
+///
+/// Kept out of `verification_events` on purpose: a read is not a state
+/// transition, and mixing them would make the case history — the thing an
+/// incident review reads — mostly noise.
+model KycAccessLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  providerId String   @map("provider_id") @db.Uuid
+  actorUserId String  @map("actor_user_id") @db.Uuid
+  caseId     String?  @map("case_id") @db.Uuid
+  /// Document ids whose signed URLs were handed out in this request.
+  documentIds String[] @map("document_ids")
+  action     String   @db.VarChar(60)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([providerId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@map("kyc_access_logs")
 }

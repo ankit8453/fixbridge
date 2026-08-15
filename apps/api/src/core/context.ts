@@ -11,6 +11,8 @@ import { createOtpTransport } from '../modules/auth/transport';
 import type { OtpTransport } from '../modules/auth/transport';
 import { createUserDenylist, type UserDenylist } from '../modules/auth/denylist';
 import { createStubGeoService, type GeoService } from './geo';
+import { createS3StorageService, type StorageService } from './storage';
+import { createDefaultAdapters, type VerificationAdapters } from '../modules/verification/adapters';
 
 /**
  * Everything long-lived the app needs, built once at boot and hung off the
@@ -29,6 +31,10 @@ export interface AppContext {
   userDenylist: UserDenylist;
   /** Address text to coordinates. Stubbed until a real provider is wired in. */
   geo: GeoService;
+  /** Private object storage for KYC documents. The API never handles the bytes. */
+  storage: StorageService;
+  /** Third-party KYC vendors. Manual (ops-decided) until one is contracted. */
+  adapters: VerificationAdapters;
 }
 
 export const CONTEXT_KEY = 'appContext';
@@ -46,6 +52,8 @@ export function createContext(config: AppConfig = loadConfig()): AppContext {
     otpTransport: createOtpTransport(logger, config.NODE_ENV),
     userDenylist: createUserDenylist(redis, config, logger),
     geo: createStubGeoService(),
+    storage: createS3StorageService(config, logger),
+    adapters: createDefaultAdapters(),
   };
 }
 

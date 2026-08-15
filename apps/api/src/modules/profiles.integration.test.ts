@@ -741,7 +741,7 @@ describe('Phase 3 — technician registration and completeness', () => {
       'priceCard',
       'skills',
     ]);
-    expect(completeness.breakdown).toHaveLength(7);
+    expect(completeness.breakdown).toHaveLength(8);
     expect(completeness.breakdown.filter((e: { required: boolean }) => e.required)).toHaveLength(5);
   });
 });

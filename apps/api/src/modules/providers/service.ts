@@ -8,7 +8,6 @@ import * as repo from './repository';
 import type {
   AddSkillInput,
   CreateAvailabilityInput,
-  CreateDocumentInput,
   CreatePriceCardInput,
   ProviderProfileResponse,
   RegisterProviderInput,
@@ -40,6 +39,7 @@ export function factsFrom(aggregate: repo.ProviderAggregate): CompletenessFacts 
     hasSkill: aggregate.skills.length > 0,
     hasActivePriceCard: aggregate.priceCards.some((card) => card.isActive),
     hasActiveAvailability: aggregate.availability.some((window) => window.isActive),
+    hasBio: (aggregate.profile.bio ?? '').trim().length > 0,
     hasYearsExperience: aggregate.profile.yearsExperience !== null,
     hasPhotoDocument: aggregate.documents.some((doc) => doc.docType === 'photo'),
   };
@@ -110,6 +110,16 @@ function toResponse(
     serviceRadiusKm: aggregate.profile.serviceRadiusKm,
     assistedOnboarding: aggregate.profile.assistedOnboarding,
     isListed: aggregate.profile.isListed,
+    /**
+     * Badge and `isListed` are independent axes. Completeness decides whether a
+     * profile is findable; verification decides whether it is trusted. Phase 5
+     * search requires both.
+     */
+    verification: {
+      badge: aggregate.verification?.badge ?? 'NONE',
+      badgeSince: aggregate.verification?.badgeSince?.toISOString() ?? null,
+      levelsPassed: aggregate.verification?.levelsPassed ?? [],
+    },
     completeness: {
       score: completeness.score,
       threshold: context.config.PROVIDER_LISTING_THRESHOLD,
@@ -494,41 +504,11 @@ export async function deleteAvailability(
   return respond(context, userId, t);
 }
 
-/* -------------------------------------------------------------------------- */
-/* Documents (metadata only — Phase 4 uploads the files)                      */
-/* -------------------------------------------------------------------------- */
-
-export async function createDocument(
-  context: AppContext,
-  userId: string,
-  input: CreateDocumentInput,
-  t: Translator,
-): Promise<ProviderProfileResponse> {
-  const profile = await repo.findProfile(context.prisma, userId);
-  if (!profile) throw profileNotFound();
-
-  await repo.createDocument(context.prisma, userId, input);
-
-  return respond(context, userId, t);
-}
-
-export async function deleteDocument(
-  context: AppContext,
-  userId: string,
-  id: string,
-  t: Translator,
-): Promise<ProviderProfileResponse> {
-  const deleted = await repo.deleteDocument(context.prisma, userId, id);
-
-  if (!deleted) {
-    throw notFound(
-      'PROVIDER_DOCUMENT_NOT_FOUND',
-      'errors.providers.documentNotFound',
-      `Document ${id} not found for this provider`,
-    );
-  }
-
-  return respond(context, userId, t);
-}
+/*
+ * Documents are managed by the verification module (`/api/v1/verification/
+ * documents/*`), which owns the pre-signed upload flow. They appear read-only on
+ * the profile response; there is deliberately no way to declare one here,
+ * because a document row that no confirmed object backs is worse than none.
+ */
 
 export { recomputeListing };
