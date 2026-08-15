@@ -8,6 +8,58 @@
     "loggedIn": "आप सफलतापूर्वक लॉगिन हो गए हैं।",
     "loggedOut": "आप लॉगआउट हो गए हैं।"
   },
+  "customers": {
+    "profileUpdated": "आपकी जानकारी सेव हो गई है।",
+    "addressCreated": "पता सेव हो गया।",
+    "addressUpdated": "पता अपडेट हो गया।",
+    "addressDeleted": "पता हटा दिया गया।",
+    "defaultAddressSet": "मुख्य पता बदल दिया गया।"
+  },
+  "providers": {
+    "registered": "आप कारीगर के रूप में जुड़ गए हैं। काम पाने के लिए अपनी प्रोफ़ाइल पूरी करें।",
+    "profileUpdated": "आपकी प्रोफ़ाइल सेव हो गई है।",
+    "skillAdded": "काम आपकी प्रोफ़ाइल में जुड़ गया।",
+    "skillRemoved": "काम आपकी प्रोफ़ाइल से हटा दिया गया।",
+    "priceCardCreated": "रेट जुड़ गया।",
+    "priceCardUpdated": "रेट अपडेट हो गया।",
+    "priceCardDeleted": "रेट हटा दिया गया।",
+    "availabilityCreated": "काम का समय जुड़ गया।",
+    "availabilityUpdated": "काम का समय अपडेट हो गया।",
+    "availabilityDeleted": "काम का समय हटा दिया गया।",
+    "documentAdded": "दस्तावेज़ जुड़ गया।",
+    "documentDeleted": "दस्तावेज़ हटा दिया गया।"
+  },
+  "categories": {
+    "electrical": "बिजली का काम",
+    "houseWiring": "घर की वायरिंग और मरम्मत",
+    "inverterUps": "इन्वर्टर और यूपीएस",
+    "fanGeyserMotorInstallation": "पंखा, गीज़र और मोटर लगवाना",
+    "switchboardMcb": "स्विचबोर्ड और एमसीबी",
+    "earthing": "अर्थिंग",
+
+    "motorsGenerators": "मोटर और जनरेटर",
+    "motorRewinding": "मोटर रीवाइंडिंग",
+    "pumpBorewellRepair": "पंप और बोरवेल मरम्मत",
+    "gensetServicing": "जनरेटर सर्विसिंग",
+    "stabilizers": "स्टेबलाइज़र",
+
+    "plumbing": "प्लंबिंग",
+    "leakageRepair": "लीकेज की मरम्मत",
+    "fittingsFixtures": "फिटिंग और नल-टोंटी",
+    "tankCleaning": "टंकी की सफ़ाई",
+    "roService": "आरओ सर्विस",
+
+    "coolingAppliances": "कूलिंग और घरेलू उपकरण",
+    "acServiceGasRefill": "एसी सर्विस और गैस रिफिल",
+    "fridgeRepair": "फ्रिज मरम्मत",
+    "washingMachineRepair": "वॉशिंग मशीन मरम्मत",
+    "microwaveRepair": "माइक्रोवेव मरम्मत",
+
+    "mechanics": "मैकेनिक",
+    "twoWheelerDoorstep": "दोपहिया की घर पर सर्विस",
+    "carBatteryJumpstart": "कार बैटरी और जंपस्टार्ट",
+    "cycleRepair": "साइकिल मरम्मत"
+  },
   "errors": {
     "internal": "हमारी तरफ़ से कुछ गड़बड़ हुई है। कृपया दोबारा कोशिश करें।",
     "notFound": "आप जो ढूँढ रहे हैं, वह हमें नहीं मिला।",
@@ -21,9 +73,32 @@
       "tokenMissing": "आगे बढ़ने के लिए कृपया लॉगिन करें।",
       "tokenInvalid": "आपका सेशन सही नहीं है। कृपया दोबारा लॉगिन करें।",
       "tokenExpired": "आपका सेशन ख़त्म हो गया है। कृपया दोबारा लॉगिन करें।",
+      "sessionRevoked": "आपकी पहुँच रोक दी गई है। कृपया सहायता टीम से संपर्क करें।",
       "refreshInvalid": "आपका सेशन अब मान्य नहीं है। कृपया दोबारा लॉगिन करें।",
       "forbidden": "आपके पास यह काम करने की अनुमति नहीं है।",
       "accountBlocked": "यह खाता रोक दिया गया है। कृपया सहायता टीम से संपर्क करें।"
+    },
+    "categories": {
+      "notFound": "यह सेवा उपलब्ध नहीं है।",
+      "wrongCity": "यह सेवा इस शहर में उपलब्ध नहीं है।",
+      "clusterNotAllowed": "कृपया पूरी श्रेणी नहीं, कोई एक काम चुनें।"
+    },
+    "customers": {
+      "addressNotFound": "यह पता हमें नहीं मिला।",
+      "addressLimitReached": "आप ज़्यादा से ज़्यादा {{limit}} पते सेव कर सकते हैं। पहले कोई एक हटाएँ।",
+      "invalidLocation": "नक़्शे की यह जगह सही नहीं लग रही।"
+    },
+    "providers": {
+      "profileNotFound": "आपकी कारीगर प्रोफ़ाइल अभी नहीं बनी है।",
+      "skillNotFound": "यह काम आपकी प्रोफ़ाइल में नहीं है।",
+      "priceCardNotFound": "यह रेट हमें नहीं मिला।",
+      "priceAmountRequired": "कृपया इस तरह के काम का रेट डालें।",
+      "priceAmountNotAllowed": "देखकर बताने वाले काम का पक्का रेट नहीं डाल सकते।",
+      "availabilityNotFound": "काम का यह समय हमें नहीं मिला।",
+      "availabilityOverlap": "यह समय उस दिन के पहले से जोड़े गए समय से टकरा रहा है।",
+      "availabilityEndBeforeStart": "ख़त्म होने का समय शुरू होने के बाद होना चाहिए। रात 12 बजे के बाद के काम के लिए हर दिन की अलग एंट्री डालें।",
+      "availabilityInvalid": "काम का यह समय सही नहीं है।",
+      "documentNotFound": "यह दस्तावेज़ हमें नहीं मिला।"
     }
   },
   "common": {

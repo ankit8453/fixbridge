@@ -22,35 +22,45 @@ function unauthorized(code: string, messageKey: string, detail: string): AppErro
  * Expired and invalid are separate codes so a client knows whether to refresh
  * silently or force a new sign-in.
  */
-export const authenticate: RequestHandler = (req, _res, next) => {
+async function resolveUser(req: Request): Promise<void> {
   const token = extractBearerToken(req.header('authorization'));
 
   if (token === null) {
-    next(
-      unauthorized(
-        'AUTH_TOKEN_MISSING',
-        'errors.auth.tokenMissing',
-        'Missing or malformed Authorization header',
-      ),
+    throw unauthorized(
+      'AUTH_TOKEN_MISSING',
+      'errors.auth.tokenMissing',
+      'Missing or malformed Authorization header',
     );
-    return;
   }
 
-  const { config } = getContext(req);
-  const result = verifyAccessToken(config, token);
+  const context = getContext(req);
+  const result = verifyAccessToken(context.config, token);
 
   if (result.status === 'expired') {
-    next(
-      unauthorized('AUTH_TOKEN_EXPIRED', 'errors.auth.tokenExpired', 'Access token has expired'),
+    throw unauthorized(
+      'AUTH_TOKEN_EXPIRED',
+      'errors.auth.tokenExpired',
+      'Access token has expired',
     );
-    return;
   }
 
   if (result.status === 'invalid') {
-    next(
-      unauthorized('AUTH_TOKEN_INVALID', 'errors.auth.tokenInvalid', 'Access token is not valid'),
+    throw unauthorized(
+      'AUTH_TOKEN_INVALID',
+      'errors.auth.tokenInvalid',
+      'Access token is not valid',
     );
-    return;
+  }
+
+  // Signature is good — but the account may have been blocked since it was
+  // signed. One Redis EXISTS is the price of not honouring a 15-minute-stale
+  // token; see denylist.ts for the fail-open reasoning.
+  if (await context.userDenylist.has(result.claims.sub)) {
+    throw unauthorized(
+      'AUTH_SESSION_REVOKED',
+      'errors.auth.sessionRevoked',
+      `Access revoked for user ${result.claims.sub}`,
+    );
   }
 
   req.user = {
@@ -58,8 +68,10 @@ export const authenticate: RequestHandler = (req, _res, next) => {
     roles: result.claims.roles,
     deviceId: result.claims.deviceId,
   };
+}
 
-  next();
+export const authenticate: RequestHandler = (req, _res, next) => {
+  resolveUser(req).then(() => next(), next);
 };
 
 /**

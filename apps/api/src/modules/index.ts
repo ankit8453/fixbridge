@@ -1,5 +1,6 @@
 import type { Express } from 'express';
 import { router as authRouter } from './auth/routes';
+import { router as categoriesRouter } from './categories/routes';
 import { router as customersRouter } from './customers/routes';
 import { router as providersRouter } from './providers/routes';
 import { router as verificationRouter } from './verification/routes';
@@ -14,14 +15,13 @@ import { router as adminRouter } from './admin/routes';
 export const API_PREFIX = '/api/v1';
 
 /**
- * Domain modules of the monolith. Every router here is an empty stub in Phase 1 —
- * they are mounted now so the wiring is proved and later phases only add handlers.
- *
- * The phase number in each stub's header comment is firm for auth (2), admin (11)
- * and mobile (12–13); 3–10 are a provisional split — see docs/summaries/phase01-summary.md.
+ * Domain modules of the monolith. Live: auth (Phase 2), categories, customers and
+ * providers (Phase 3). The rest are empty routers, mounted so the wiring is
+ * proved and later phases only add handlers.
  */
 export function registerModuleRoutes(app: Express): void {
   app.use(`${API_PREFIX}/auth`, authRouter);
+  app.use(`${API_PREFIX}/categories`, categoriesRouter);
   app.use(`${API_PREFIX}/customers`, customersRouter);
   app.use(`${API_PREFIX}/providers`, providersRouter);
   app.use(`${API_PREFIX}/verification`, verificationRouter);

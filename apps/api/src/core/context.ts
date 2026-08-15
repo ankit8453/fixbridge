@@ -9,6 +9,8 @@ import { APP_VERSION } from './version';
 import { AppError } from './errors';
 import { createOtpTransport } from '../modules/auth/transport';
 import type { OtpTransport } from '../modules/auth/transport';
+import { createUserDenylist, type UserDenylist } from '../modules/auth/denylist';
+import { createStubGeoService, type GeoService } from './geo';
 
 /**
  * Everything long-lived the app needs, built once at boot and hung off the
@@ -21,22 +23,29 @@ export interface AppContext {
   prisma: PrismaClient;
   redis: Redis;
   version: string;
-  /** How OTPs reach a human. Real SMS/WhatsApp delivery arrives in Phase 10. */
+  /** How OTPs reach a human. Real WhatsApp delivery arrives in Phase 10. */
   otpTransport: OtpTransport;
+  /** Blocked users whose still-valid access tokens must stop working now. */
+  userDenylist: UserDenylist;
+  /** Address text to coordinates. Stubbed until a real provider is wired in. */
+  geo: GeoService;
 }
 
 export const CONTEXT_KEY = 'appContext';
 
 export function createContext(config: AppConfig = loadConfig()): AppContext {
   const logger = createLogger(config);
+  const redis = createRedisClient(config, logger);
 
   return {
     config,
     logger,
     prisma: createPrismaClient(config, logger),
-    redis: createRedisClient(config, logger),
+    redis,
     version: APP_VERSION,
     otpTransport: createOtpTransport(logger, config.NODE_ENV),
+    userDenylist: createUserDenylist(redis, config, logger),
+    geo: createStubGeoService(),
   };
 }
 

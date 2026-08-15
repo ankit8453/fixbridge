@@ -1,5 +1,9 @@
-// Postgres 16 + PostGIS. Extensions are enabled by the first raw-SQL migration;
-// geography/geometry columns arrive with the search phase via raw SQL + $queryRaw.
+// Postgres 16 + PostGIS. Extensions are enabled by the first raw-SQL migration.
+//
+// Prisma cannot model PostGIS types, so geography columns are declared with
+// `Unsupported(...)`: they exist in the schema (and therefore in migrations and
+// the generated SQL) but Prisma Client cannot read or write them. Every read and
+// write of a point goes through raw SQL in a repository. See docs/geo-notes.md.
 
 generator client {
   provider = "prisma-client-js"
@@ -19,7 +23,10 @@ model City {
   isActive  Boolean  @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  users User[]
+  users            User[]
+  categories       Category[]
+  addresses        Address[]
+  providerProfiles ProviderProfile[]
 
   @@unique([name, state])
   @@index([isActive])
@@ -57,9 +64,12 @@ model User {
   createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  defaultCity   City?          @relation(fields: [defaultCityId], references: [id], onDelete: SetNull)
-  roles         UserRole[]
-  refreshTokens RefreshToken[]
+  defaultCity     City?            @relation(fields: [defaultCityId], references: [id], onDelete: SetNull)
+  roles           UserRole[]
+  refreshTokens   RefreshToken[]
+  customerProfile CustomerProfile?
+  providerProfile ProviderProfile?
+  addresses       Address[]
 
   @@index([status])
   @@map("users")
@@ -101,4 +111,228 @@ model RefreshToken {
   @@index([userId, deviceId])
   @@index([expiresAt])
   @@map("refresh_tokens")
+}
+
+/* -------------------------------------------------------------------------- */
+/* Service taxonomy                                                           */
+/* -------------------------------------------------------------------------- */
+
+/// Two levels only: a cluster (`parent_id IS NULL`) and the services under it.
+/// The depth limit is an application invariant — Postgres cannot express
+/// "my parent must have no parent" as a CHECK constraint without a trigger.
+///
+/// `name_key` is an i18n key, never display text: the same row renders as
+/// "Electrical" or "बिजली का काम" depending on Accept-Language.
+model Category {
+  id        Int      @id @default(autoincrement())
+  cityId    Int      @map("city_id")
+  parentId  Int?     @map("parent_id")
+  nameKey   String   @map("name_key") @db.VarChar(120)
+  slug      String   @db.VarChar(120)
+  icon      String?  @db.VarChar(64)
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  city       City                @relation(fields: [cityId], references: [id], onDelete: Restrict)
+  parent     Category?           @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children   Category[]          @relation("CategoryTree")
+  skills     ProviderSkill[]
+  priceCards ProviderPriceCard[]
+
+  @@unique([cityId, slug])
+  @@index([cityId, isActive])
+  @@index([parentId])
+  @@map("categories")
+}
+
+/* -------------------------------------------------------------------------- */
+/* Customers                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/// Created lazily on the first profile write — auth already created the user row.
+model CustomerProfile {
+  userId      String   @id @map("user_id") @db.Uuid
+  displayName String?  @map("display_name") @db.VarChar(120)
+  email       String?  @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("customer_profiles")
+}
+
+enum AddressLabel {
+  home
+  shop
+  other
+
+  @@map("address_label")
+}
+
+/// Landmark-driven, because that is how a tier-2 address actually works:
+/// "behind Gupta Kirana" locates a house that a street name never will.
+///
+/// `location` is NOT NULL and Prisma cannot write it, so every insert and update
+/// of an address goes through raw SQL in the repository.
+model Address {
+  id          String                                @id @default(uuid()) @db.Uuid
+  userId      String                                @map("user_id") @db.Uuid
+  label       AddressLabel                          @default(other)
+  /// Free text shown alongside the label, e.g. "Mummy's house".
+  labelText   String?                               @map("label_text") @db.VarChar(60)
+  addressText String                                @map("address_text") @db.VarChar(500)
+  landmark    String?                               @db.VarChar(200)
+  cityId      Int                                   @map("city_id")
+  location    Unsupported("geography(Point, 4326)")
+  isDefault   Boolean                               @default(false) @map("is_default")
+  createdAt   DateTime                              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime                              @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  city City @relation(fields: [cityId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@map("addresses")
+}
+
+/* -------------------------------------------------------------------------- */
+/* Providers (technicians)                                                    */
+/* -------------------------------------------------------------------------- */
+
+enum PriceType {
+  fixed
+  starting_from
+  inspection_based
+
+  @@map("price_type")
+}
+
+enum ProviderDocumentType {
+  id_proof
+  certificate
+  photo
+  other
+
+  @@map("provider_document_type")
+}
+
+/// Only `pending` in Phase 3 — metadata is recorded but nothing reviews it yet.
+/// Phase 4 (verification) adds the reviewed states.
+enum ProviderDocumentStatus {
+  pending
+
+  @@map("provider_document_status")
+}
+
+/// Keyed by `user_id`: a technician profile is an aspect of a user, not a
+/// separate identity. The same person can hold a customer profile too.
+///
+/// `completeness_score` and `is_listed` are derived, recomputed on every write
+/// that touches the profile or its children. Phase 5 search filters on
+/// `is_listed` and must never see an incomplete profile.
+model ProviderProfile {
+  userId             String                                 @id @map("user_id") @db.Uuid
+  displayName        String?                                @map("display_name") @db.VarChar(120)
+  bio                String?                                @db.VarChar(1000)
+  yearsExperience    Int?                                   @map("years_experience")
+  cityId             Int                                    @map("city_id")
+  baseLocation       Unsupported("geography(Point, 4326)")? @map("base_location")
+  serviceRadiusKm    Int                                    @default(5) @map("service_radius_km")
+  completenessScore  Int                                    @default(0) @map("completeness_score")
+  isListed           Boolean                                @default(false) @map("is_listed")
+  /// True when ops keyed the data in on the technician's behalf.
+  assistedOnboarding Boolean                                @default(false) @map("assisted_onboarding")
+  createdAt          DateTime                               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user         User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  city         City                          @relation(fields: [cityId], references: [id], onDelete: Restrict)
+  skills       ProviderSkill[]
+  priceCards   ProviderPriceCard[]
+  availability ProviderAvailabilityTemplate[]
+  documents    ProviderDocument[]
+
+  @@index([cityId, isListed])
+  @@map("provider_profiles")
+}
+
+/// Leaf categories only — a technician does "motor rewinding", not "Electrical".
+/// Enforced in the service, which is the only place that knows the tree shape.
+model ProviderSkill {
+  providerId     String   @map("provider_id") @db.Uuid
+  categoryId     Int      @map("category_id")
+  experienceNote String?  @map("experience_note") @db.VarChar(300)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  provider ProviderProfile @relation(fields: [providerId], references: [userId], onDelete: Cascade)
+  category Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@id([providerId, categoryId])
+  @@index([categoryId])
+  @@map("provider_skills")
+}
+
+/// `amount_paise` is an integer number of paise and is null exactly when
+/// `price_type` is `inspection_based`. A DB CHECK enforces that pairing.
+model ProviderPriceCard {
+  id          String    @id @default(uuid()) @db.Uuid
+  providerId  String    @map("provider_id") @db.Uuid
+  categoryId  Int       @map("category_id")
+  title       String    @db.VarChar(120)
+  priceType   PriceType @map("price_type")
+  amountPaise Int?      @map("amount_paise")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  provider ProviderProfile @relation(fields: [providerId], references: [userId], onDelete: Cascade)
+  category Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@index([providerId, isActive])
+  @@map("provider_price_cards")
+}
+
+/// A recurring weekly window, e.g. "Tuesday 18:00–22:00". Phase 6 expands these
+/// into concrete bookable slots.
+///
+/// Times are minutes from midnight (0–1440) rather than Postgres `time`: they
+/// compare and add with plain integer arithmetic, carry no timezone semantics,
+/// and Prisma maps them to `number` instead of an epoch-dated `Date`.
+///
+/// v1 limitation: no overnight windows. `end_minute > start_minute` is enforced
+/// by CHECK, so "22:00–02:00" must be entered as two rows on two days.
+model ProviderAvailabilityTemplate {
+  id          String   @id @default(uuid()) @db.Uuid
+  providerId  String   @map("provider_id") @db.Uuid
+  /// 0 = Sunday … 6 = Saturday, matching JavaScript's `Date#getDay`.
+  dayOfWeek   Int      @map("day_of_week") @db.SmallInt
+  startMinute Int      @map("start_minute") @db.SmallInt
+  endMinute   Int      @map("end_minute") @db.SmallInt
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  provider ProviderProfile @relation(fields: [providerId], references: [userId], onDelete: Cascade)
+
+  @@index([providerId, dayOfWeek])
+  @@map("provider_availability_templates")
+}
+
+/// Metadata only in Phase 3. The file behind `storage_key` is uploaded in
+/// Phase 4; nothing here reads or writes object storage.
+model ProviderDocument {
+  id         String                 @id @default(uuid()) @db.Uuid
+  providerId String                 @map("provider_id") @db.Uuid
+  docType    ProviderDocumentType   @map("doc_type")
+  storageKey String                 @map("storage_key") @db.VarChar(300)
+  status     ProviderDocumentStatus @default(pending)
+  createdAt  DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  provider ProviderProfile @relation(fields: [providerId], references: [userId], onDelete: Cascade)
+
+  @@index([providerId, docType])
+  @@map("provider_documents")
 }

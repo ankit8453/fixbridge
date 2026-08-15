@@ -21,8 +21,14 @@ export default defineConfig({
       AUTH_FIXED_OTP: '000000',
       AUTH_FIXED_OTP_PHONE_PREFIX: '+9199999',
       OTP_MAX_PER_PHONE: '3',
-      OTP_MAX_PER_IP: '5',
       OTP_RATE_WINDOW_SECONDS: '900',
+      /**
+       * Every supertest request comes from 127.0.0.1, so a realistic per-IP cap
+       * would fire during unrelated sign-ins and make suites order-dependent.
+       * The per-IP path is covered directly in `core/rate-limit.integration.test.ts`
+       * against real Redis; here it is lifted out of the way.
+       */
+      OTP_MAX_PER_IP: '1000',
     },
     reporters: ['default'],
   },

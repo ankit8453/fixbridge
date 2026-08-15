@@ -16,8 +16,10 @@ import {
   findUserById,
   findUserByPhone,
   revokeAllForDevice,
+  revokeAllForUser,
   revokeRefreshToken,
   rotateRefreshToken,
+  setUserStatus,
   type UserWithRoles,
 } from './repository';
 import { maskPhone } from './phone';
@@ -363,6 +365,51 @@ export async function logout(deps: AuthDeps, input: LogoutInput): Promise<void> 
 
   await revokeRefreshToken(context.prisma, stored.id, nowOf(deps));
   context.logger.info({ userId: stored.userId, deviceId: stored.deviceId }, 'user signed out');
+}
+
+/* -------------------------------------------------------------------------- */
+/* Blocking (internal — the ops endpoint that calls this arrives in Phase 11)  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Blocks a user and cuts them off immediately rather than eventually.
+ *
+ * Three things have to happen together, because each alone leaves a hole:
+ *   1. `status = blocked`  — the durable truth; refresh and `/me` reject on it.
+ *   2. denylist entry      — kills already-issued access tokens, which are
+ *                            stateless and would otherwise work for up to 15 min.
+ *   3. revoke refresh      — so they cannot mint a fresh pair on the way out.
+ */
+export async function blockUser(deps: AuthDeps, userId: string): Promise<AuthUser> {
+  const { context } = deps;
+  const now = nowOf(deps);
+
+  const user = await setUserStatus(context.prisma, userId, 'blocked');
+  const revoked = await revokeAllForUser(context.prisma, userId, now);
+  await context.userDenylist.add(userId);
+
+  context.logger.warn(
+    { userId, revokedRefreshTokens: revoked },
+    'security: user blocked — access tokens denylisted and refresh tokens revoked',
+  );
+
+  return toAuthUser(user);
+}
+
+/**
+ * Restores access. The denylist entry is dropped, but every refresh token was
+ * revoked by the block, so the user signs in again with an OTP — which is the
+ * behaviour we want after a suspension.
+ */
+export async function unblockUser(deps: AuthDeps, userId: string): Promise<AuthUser> {
+  const { context } = deps;
+
+  const user = await setUserStatus(context.prisma, userId, 'active');
+  await context.userDenylist.remove(userId);
+
+  context.logger.info({ userId }, 'user unblocked');
+
+  return toAuthUser(user);
 }
 
 export async function getCurrentUser(deps: AuthDeps, userId: string): Promise<AuthUser> {

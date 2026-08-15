@@ -88,6 +88,18 @@ const baseConfigSchema = z.object({
 
   /** Phone for the admin/ops account created by `npm run seed`. */
   SEED_ADMIN_PHONE: z.string().min(1).default('+919999900001'),
+
+  /* ---- profiles ---- */
+
+  /**
+   * Completeness score a technician must reach before appearing in search.
+   * See `modules/providers/completeness.ts` for the weighting.
+   */
+  PROVIDER_LISTING_THRESHOLD: z.coerce.number().int().min(0).max(100).default(80),
+  /** Saved addresses per customer. Keeps the picker usable and bounds abuse. */
+  MAX_ADDRESSES_PER_USER: z.coerce.number().int().min(1).max(50).default(5),
+  /** Default city for endpoints that accept an optional cityId. Jabalpur = 1. */
+  DEFAULT_CITY_ID: z.coerce.number().int().min(1).default(1),
 });
 
 /**

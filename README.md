@@ -11,7 +11,8 @@ Pradesh**, then the rest of India.
 > value of `APP_NAME`. Every user-facing string comes from `APP_NAME` or an i18n
 > key — never a literal.
 
-**Status:** Phase 2 of 14 complete — scaffold, health, and identity/auth.
+**Status:** Phase 3 of 14 complete — scaffold, health, identity/auth, and
+profiles (categories, customer addresses, technician profiles).
 
 ---
 
@@ -107,16 +108,22 @@ Full endpoint reference: [docs/API.md](docs/API.md).
 Inside `apps/api/src`:
 
 ```
-core/          config, logger, i18n, errors, rate limiting, Prisma/Redis clients,
-               middleware (request-id, locale, authenticate, requireRoles), shutdown
+core/          config, logger, i18n, errors, rate limiting, geocoding,
+               Prisma/Redis clients, middleware (request-id, locale,
+               authenticate, requireRoles), shutdown
 modules/       one folder per domain — routes.ts · service.ts · repository.ts · types.ts
   health/      GET /health
-  auth/        OTP login, JWT + refresh rotation, role guards
+  auth/        OTP login, JWT + refresh rotation, role guards, block/denylist
+  categories/  service taxonomy (cluster → service), i18n names
+  customers/   customer profiles, saved addresses with PostGIS points
+  providers/   technician profiles, skills, price cards, availability, completeness
 types/         Express request augmentation
 ```
 
 Every other domain module is a stub until its phase. `repository.ts` is the only
-file in a module allowed to touch the database.
+file in a module allowed to touch the database — and the only place raw SQL may
+appear. See [docs/geo-notes.md](docs/geo-notes.md) for how PostGIS columns work
+here.
 
 ### Phase plan
 
@@ -124,7 +131,7 @@ file in a module allowed to touch the database.
 | ----- | ---------------------------------------------------------------------- |
 | 1 ✅  | Repo scaffold, config, logging, errors, i18n, `/health`, cities        |
 | 2 ✅  | Identity & auth — OTP login, JWT, refresh rotation, roles              |
-| 3     | Customer profiles, saved addresses, technician profiles, category tree |
+| 3 ✅  | Categories, customer addresses, technician profiles, completeness gate |
 | 4     | Verification — document checks, badges, trust score                    |
 | 5     | Search — PostGIS nearby, distance/rating/badge ranking                 |
 | 6     | Bookings — slots, lifecycle, start/end OTP handshake                   |
@@ -193,6 +200,9 @@ runtime. See [apps/api/.env.example](apps/api/.env.example).
 | `AUTH_FIXED_OTP`              | unset           | Dev-only bypass. **Refused in production.**                                                        |
 | `AUTH_FIXED_OTP_PHONE_PREFIX` | `+9199999`      | Which phones the bypass applies to                                                                 |
 | `SEED_ADMIN_PHONE`            | `+919999900001` | Admin account created by `npm run seed`                                                            |
+| `PROVIDER_LISTING_THRESHOLD`  | `80`            | Completeness score a technician needs to appear in search                                          |
+| `MAX_ADDRESSES_PER_USER`      | `5`             | Saved addresses per customer                                                                       |
+| `DEFAULT_CITY_ID`             | `1`             | City used when a request omits `cityId`                                                            |
 
 > `TRUST_PROXY_HOPS` is a security control, not a formality. Trusting
 > `X-Forwarded-For` when nothing sets it lets any caller spoof their IP and walk
@@ -217,6 +227,13 @@ sensible default — override `POSTGRES_PORT` if 5432 is already taken locally.
 - **Auth failures are deliberately uniform.** A wrong OTP and a phone with no
   pending OTP return byte-identical responses; so do all the refresh rejections.
   Any difference would be an enumeration oracle.
+- **Ownership is enforced in the query, not after it.** `/me` routes filter by
+  the caller's own id, so another user's row returns `404` rather than being
+  found and then refused.
+- **Category names are i18n keys**, never stored display text. A category row
+  holds `categories.houseWiring`; the API renders it per `Accept-Language`.
+- **PostGIS points go through raw SQL in repositories only** — Prisma cannot
+  model `geography`. See [docs/geo-notes.md](docs/geo-notes.md).
 - **Modular monolith.** One Postgres, one Redis. No Kafka, no microservices, no
   Kubernetes — this is pilot traffic in one city.
 

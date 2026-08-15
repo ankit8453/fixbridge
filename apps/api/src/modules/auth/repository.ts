@@ -1,5 +1,5 @@
 // All Prisma access for the auth domain. Nothing else in this module touches the DB.
-import type { Prisma, PrismaClient, RefreshToken, Role, User } from '@prisma/client';
+import type { Prisma, PrismaClient, RefreshToken, Role, User, UserStatus } from '@prisma/client';
 import type { Role as SharedRole } from '@fixbridge/shared';
 
 export type UserWithRoles = User & { roles: { role: Role }[] };
@@ -43,6 +43,32 @@ export function createUserWithRoles(
 
 export function extractRoles(user: UserWithRoles): SharedRole[] {
   return user.roles.map((entry) => entry.role as SharedRole);
+}
+
+export function setUserStatus(
+  prisma: PrismaClient,
+  userId: string,
+  status: UserStatus,
+): Promise<UserWithRoles> {
+  return prisma.user.update({
+    where: { id: userId },
+    data: { status },
+    include: withRoles,
+  });
+}
+
+/** Kills every live refresh token for a user, across all their devices. */
+export async function revokeAllForUser(
+  prisma: PrismaClient,
+  userId: string,
+  now: Date,
+): Promise<number> {
+  const result = await prisma.refreshToken.updateMany({
+    where: { userId, revokedAt: null },
+    data: { revokedAt: now },
+  });
+
+  return result.count;
 }
 
 /* -------------------------------------------------------------------------- */

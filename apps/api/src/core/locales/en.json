@@ -8,6 +8,58 @@
     "loggedIn": "Signed in successfully.",
     "loggedOut": "Signed out successfully."
   },
+  "customers": {
+    "profileUpdated": "Your profile has been saved.",
+    "addressCreated": "Address saved.",
+    "addressUpdated": "Address updated.",
+    "addressDeleted": "Address removed.",
+    "defaultAddressSet": "Default address updated."
+  },
+  "providers": {
+    "registered": "You are set up as a technician. Complete your profile to start getting work.",
+    "profileUpdated": "Your profile has been saved.",
+    "skillAdded": "Service added to your profile.",
+    "skillRemoved": "Service removed from your profile.",
+    "priceCardCreated": "Price added.",
+    "priceCardUpdated": "Price updated.",
+    "priceCardDeleted": "Price removed.",
+    "availabilityCreated": "Working hours added.",
+    "availabilityUpdated": "Working hours updated.",
+    "availabilityDeleted": "Working hours removed.",
+    "documentAdded": "Document added.",
+    "documentDeleted": "Document removed."
+  },
+  "categories": {
+    "electrical": "Electrical",
+    "houseWiring": "House wiring & repair",
+    "inverterUps": "Inverter & UPS",
+    "fanGeyserMotorInstallation": "Fan, geyser & motor installation",
+    "switchboardMcb": "Switchboard & MCB",
+    "earthing": "Earthing",
+
+    "motorsGenerators": "Motors & Generators",
+    "motorRewinding": "Motor rewinding",
+    "pumpBorewellRepair": "Pump & borewell repair",
+    "gensetServicing": "Generator servicing",
+    "stabilizers": "Stabilizers",
+
+    "plumbing": "Plumbing",
+    "leakageRepair": "Leakage repair",
+    "fittingsFixtures": "Fittings & fixtures",
+    "tankCleaning": "Tank cleaning",
+    "roService": "RO service",
+
+    "coolingAppliances": "Cooling & Appliances",
+    "acServiceGasRefill": "AC service & gas refill",
+    "fridgeRepair": "Fridge repair",
+    "washingMachineRepair": "Washing machine repair",
+    "microwaveRepair": "Microwave repair",
+
+    "mechanics": "Mechanics",
+    "twoWheelerDoorstep": "Two-wheeler doorstep service",
+    "carBatteryJumpstart": "Car battery & jumpstart",
+    "cycleRepair": "Cycle repair"
+  },
   "errors": {
     "internal": "Something went wrong at our end. Please try again.",
     "notFound": "We could not find what you were looking for.",
@@ -21,9 +73,32 @@
       "tokenMissing": "Please sign in to continue.",
       "tokenInvalid": "Your session is not valid. Please sign in again.",
       "tokenExpired": "Your session has expired. Please sign in again.",
+      "sessionRevoked": "Your access has been withdrawn. Please contact support.",
       "refreshInvalid": "Your session is no longer valid. Please sign in again.",
       "forbidden": "You do not have permission to do this.",
       "accountBlocked": "This account has been blocked. Please contact support."
+    },
+    "categories": {
+      "notFound": "That service is not available.",
+      "wrongCity": "That service is not offered in this city.",
+      "clusterNotAllowed": "Please pick a specific service, not a whole category."
+    },
+    "customers": {
+      "addressNotFound": "We could not find that address.",
+      "addressLimitReached": "You can save up to {{limit}} addresses. Please remove one first.",
+      "invalidLocation": "Those map coordinates do not look right."
+    },
+    "providers": {
+      "profileNotFound": "You do not have a technician profile yet.",
+      "skillNotFound": "That service is not on your profile.",
+      "priceCardNotFound": "We could not find that price.",
+      "priceAmountRequired": "Please enter a price for this type.",
+      "priceAmountNotAllowed": "Inspection-based work cannot have a fixed price.",
+      "availabilityNotFound": "We could not find those working hours.",
+      "availabilityOverlap": "These hours overlap hours you have already set for that day.",
+      "availabilityEndBeforeStart": "The end time must be after the start time. For work past midnight, add one entry per day.",
+      "availabilityInvalid": "Those working hours are not valid.",
+      "documentNotFound": "We could not find that document."
     }
   },
   "common": {
