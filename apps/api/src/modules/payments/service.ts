@@ -9,8 +9,9 @@ import * as ledger from './ledger';
 import * as repo from './repository';
 import { applyPaymentEvent, PAYMENT_TOPICS, type PaymentStatusName } from './state-machine';
 import type { PaymentView, StartPaymentResponse } from './types';
+import { writeDepsAudit, type AuditableDeps } from '../../core/audit';
 
-export interface PaymentDeps {
+export interface PaymentDeps extends AuditableDeps {
   context: AppContext;
   now?: () => Date;
 }
@@ -679,6 +680,9 @@ export async function settleProviderDues(
   }
 
   const { journalId } = await context.prisma.$transaction(async (tx) => {
+    // The ops audit row, in the same transaction as the decision it records.
+    await writeDepsAudit(tx, deps);
+
     const posted = await ledger.post(tx, {
       journalType: 'dues_settled',
       memo: memo ?? `dues settled ${amountPaise}p`,

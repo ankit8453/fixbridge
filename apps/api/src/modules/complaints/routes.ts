@@ -1,4 +1,5 @@
 import { Router, type Request, type RequestHandler } from 'express';
+import { AUDIT_ACTIONS, auditActor, type AuditEntry } from '../../core/audit';
 import { getContext } from '../../core/context';
 import { authenticate, getAuthUser } from '../../core/middleware/authenticate';
 import { requireRoles } from '../../core/middleware/require-roles';
@@ -19,6 +20,12 @@ const handle =
   };
 
 const deps = (req: Request): service.ComplaintDeps => ({ context: getContext(req) });
+
+/** The same deps carrying the ops decision's audit entry into the service's own transaction. */
+const opsDeps = (req: Request, entry: AuditEntry): service.ComplaintDeps => ({
+  context: getContext(req),
+  audit: { actor: auditActor(req), entry },
+});
 
 const hasOpsRole = (req: Request): boolean => {
   const roles = getAuthUser(req).roles as readonly string[];
@@ -108,9 +115,17 @@ opsRouter.post(
   '/:complaintId/take-up',
   handle(async (req, res) => {
     const { complaintId } = complaintIdParamSchema.parse(req.params);
-    const complaint = await service.decideComplaint(deps(req), getAuthUser(req).id, complaintId, {
-      event: 'take_up',
-    });
+    const complaint = await service.decideComplaint(
+      opsDeps(req, {
+        action: AUDIT_ACTIONS.complaintTakeUp,
+        targetType: 'complaint',
+        targetId: complaintId,
+        payload: {},
+      }),
+      getAuthUser(req).id,
+      complaintId,
+      { event: 'take_up' },
+    );
 
     res.status(200).json({ complaint });
   }),
@@ -126,11 +141,19 @@ opsRouter.post(
     const { complaintId } = complaintIdParamSchema.parse(req.params);
     const input = resolveComplaintSchema.parse(req.body);
 
-    const complaint = await service.decideComplaint(deps(req), getAuthUser(req).id, complaintId, {
-      event: 'resolve',
-      note: input.note,
-      severity: input.severity,
-    });
+    const complaint = await service.decideComplaint(
+      opsDeps(req, {
+        action: AUDIT_ACTIONS.complaintResolve,
+        targetType: 'complaint',
+        targetId: complaintId,
+        // Severity is the substance: it is what the trust engine acts on, and
+        // `severe` suspends somebody.
+        payload: { severity: input.severity, note: input.note },
+      }),
+      getAuthUser(req).id,
+      complaintId,
+      { event: 'resolve', note: input.note, severity: input.severity },
+    );
 
     res.status(200).json({ complaint, message: req.t('complaints.resolved') });
   }),
@@ -143,10 +166,17 @@ opsRouter.post(
     const { complaintId } = complaintIdParamSchema.parse(req.params);
     const input = dismissComplaintSchema.parse(req.body);
 
-    const complaint = await service.decideComplaint(deps(req), getAuthUser(req).id, complaintId, {
-      event: 'dismiss',
-      note: input.note,
-    });
+    const complaint = await service.decideComplaint(
+      opsDeps(req, {
+        action: AUDIT_ACTIONS.complaintDismiss,
+        targetType: 'complaint',
+        targetId: complaintId,
+        payload: { note: input.note },
+      }),
+      getAuthUser(req).id,
+      complaintId,
+      { event: 'dismiss', note: input.note },
+    );
 
     res.status(200).json({ complaint, message: req.t('complaints.dismissed') });
   }),

@@ -259,6 +259,14 @@
       "notesRequired": "Please add a note explaining this decision.",
       "unknownLevel": "That verification step does not exist.",
       "rawIdNumber": "Please send only the last 4 digits of the ID number."
+    },
+    "admin": {
+      "alreadyApproved": "That technician is already approved.",
+      "bookingNotLocked": "That booking is not locked.",
+      "notCancellable": "A booking in this state cannot be cancelled."
+    },
+    "common": {
+      "notFound": "That item was not found."
     }
   },
   "common": {

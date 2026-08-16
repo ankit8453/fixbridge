@@ -16,7 +16,7 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ['**/*.{ts,mts,js,mjs}'],
+    files: ['**/*.{ts,tsx,mts,js,mjs}'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
@@ -45,8 +45,27 @@ export default tseslint.config(
     },
   },
   {
+    /**
+     * The admin console runs in a browser, not in Node.
+     *
+     * Without this it would inherit the Node globals above and nothing else, so
+     * `window`, `localStorage` and `fetch` would be undefined identifiers. JSX
+     * is enabled here rather than repo-wide because the API must never start
+     * accepting it by accident.
+     */
+    files: ['apps/admin/**/*.{ts,tsx}'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+      },
+      parserOptions: {
+        ecmaFeatures: { jsx: true },
+      },
+    },
+  },
+  {
     // Tests may reach for looser typing when building fixtures/doubles.
-    files: ['**/*.test.ts'],
+    files: ['**/*.test.ts', '**/*.test.tsx'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
     },

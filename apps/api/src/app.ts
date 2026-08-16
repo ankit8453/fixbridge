@@ -1,5 +1,6 @@
 import express, { type Express } from 'express';
 import { CONTEXT_KEY, type AppContext } from './core/context';
+import { createAdminCors } from './core/middleware/admin-cors';
 import { createRequestIdMiddleware } from './core/middleware/request-id';
 import { localeMiddleware } from './core/middleware/locale';
 import { requestLogger } from './core/middleware/request-logger';
@@ -42,6 +43,13 @@ export function createApp(context: AppContext): Express {
   app.use(createRequestIdMiddleware(context.logger));
   app.use(localeMiddleware);
   app.use(requestLogger);
+
+  /**
+   * The ops console is a separate origin, so its requests need CORS headers —
+   * including on `/api/v1/auth`, because signing in happens before anything
+   * under `/admin` is reachable.
+   */
+  app.use(createAdminCors(context.config));
 
   app.use('/health', healthRouter);
   registerModuleRoutes(app);

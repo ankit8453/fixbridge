@@ -6,6 +6,7 @@ import * as ledger from './ledger';
 import * as repo from './repository';
 import { PAYMENT_TOPICS } from './state-machine';
 import type { PayoutBatchView, PayoutView, WalletResponse } from './types';
+import { writeDepsAudit, type AuditableDeps } from '../../core/audit';
 
 /**
  * Paying technicians what they are owed.
@@ -22,7 +23,7 @@ import type { PayoutBatchView, PayoutView, WalletResponse } from './types';
  * exactly where they are.
  */
 
-export interface PayoutDeps {
+export interface PayoutDeps extends AuditableDeps {
   context: AppContext;
   now?: () => Date;
 }
@@ -103,6 +104,9 @@ export async function buildPayoutBatch(
   const totalPaise = payable.reduce((sum, row) => sum + row.amountPaise, 0);
 
   const batch = await context.prisma.$transaction(async (tx) => {
+    // The ops audit row, in the same transaction as the decision it records.
+    await writeDepsAudit(tx, deps);
+
     // Header first, lines second — the totals trigger is deferred precisely so
     // this order works and the two are checked against each other at commit.
     const created = await tx.payoutBatch.create({
@@ -172,6 +176,9 @@ export async function markPayoutPaid(
   const at = nowOf(deps);
 
   const updated = await context.prisma.$transaction(async (tx) => {
+    // The ops audit row, in the same transaction as the decision it records.
+    await writeDepsAudit(tx, deps);
+
     // Guarded on `pending`, so two ops tabs cannot pay the same technician twice.
     const moved = await tx.payout.updateMany({
       where: { id: payoutId, status: 'pending' },
@@ -226,20 +233,26 @@ export async function markPayoutFailed(
 ): Promise<PayoutView> {
   const { context } = deps;
 
-  const moved = await context.prisma.payout.updateMany({
-    where: { id: payoutId, status: 'pending' },
-    data: { status: 'failed', failureNote: note },
+  const payout = await context.prisma.$transaction(async (tx) => {
+    // The ops audit row, in the same transaction as the decision it records.
+    await writeDepsAudit(tx, deps);
+
+    const moved = await tx.payout.updateMany({
+      where: { id: payoutId, status: 'pending' },
+      data: { status: 'failed', failureNote: note },
+    });
+
+    if (moved.count === 0) {
+      throw new AppError(409, 'PAYOUT_NOT_PENDING', 'That payout is not pending', {
+        messageKey: 'errors.payments.payoutNotPending',
+      });
+    }
+
+    // Nothing is posted: a failed transfer means the money never left, so the
+    // technician's balance is already correct and will roll into the next batch.
+    return tx.payout.findUnique({ where: { id: payoutId } });
   });
 
-  if (moved.count === 0) {
-    throw new AppError(409, 'PAYOUT_NOT_PENDING', 'That payout is not pending', {
-      messageKey: 'errors.payments.payoutNotPending',
-    });
-  }
-
-  // Nothing is posted: a failed transfer means the money never left, so the
-  // technician's balance is already correct and will roll into the next batch.
-  const payout = await context.prisma.payout.findUnique({ where: { id: payoutId } });
   return toPayoutView(payout as NonNullable<typeof payout>);
 }
 
@@ -247,19 +260,24 @@ export async function markPayoutFailed(
 export async function completeBatch(deps: PayoutDeps, batchId: string): Promise<PayoutBatchView> {
   const { context } = deps;
 
-  const pending = await context.prisma.payout.count({ where: { batchId, status: 'pending' } });
+  const batch = await context.prisma.$transaction(async (tx) => {
+    // The ops audit row, in the same transaction as the decision it records.
+    await writeDepsAudit(tx, deps);
 
-  if (pending > 0) {
-    throw new AppError(409, 'PAYOUT_BATCH_INCOMPLETE', `${pending} payouts are still pending`, {
-      messageKey: 'errors.payments.batchIncomplete',
-      details: { pending },
+    const pending = await tx.payout.count({ where: { batchId, status: 'pending' } });
+
+    if (pending > 0) {
+      throw new AppError(409, 'PAYOUT_BATCH_INCOMPLETE', `${pending} payouts are still pending`, {
+        messageKey: 'errors.payments.batchIncomplete',
+        details: { pending },
+      });
+    }
+
+    return tx.payoutBatch.update({
+      where: { id: batchId },
+      data: { status: 'completed', completedAt: nowOf(deps) },
+      include: { payouts: true },
     });
-  }
-
-  const batch = await context.prisma.payoutBatch.update({
-    where: { id: batchId },
-    data: { status: 'completed', completedAt: nowOf(deps) },
-    include: { payouts: true },
   });
 
   return toBatchView(batch);

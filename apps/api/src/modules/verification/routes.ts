@@ -1,4 +1,5 @@
 import { Router, type Request, type RequestHandler } from 'express';
+import { AUDIT_ACTIONS, auditActor, type AuditEntry } from '../../core/audit';
 import { getContext } from '../../core/context';
 import { authenticate, getAuthUser } from '../../core/middleware/authenticate';
 import { requireRoles } from '../../core/middleware/require-roles';
@@ -22,6 +23,18 @@ const handle =
   };
 
 const deps = (req: Request): service.VerificationDeps => ({ context: getContext(req) });
+
+/**
+ * The same deps carrying the ops decision's audit entry.
+ *
+ * It travels down to `repo.appendEvent`, which owns the transaction the case
+ * event and the status projection are written in — so a decision that rolls back
+ * leaves no record claiming it was taken.
+ */
+const opsDeps = (req: Request, entry: AuditEntry): service.VerificationDeps => ({
+  context: getContext(req),
+  audit: { actor: auditActor(req), entry },
+});
 
 /* -------------------------------------------------------------------------- */
 /* Provider-facing — /api/v1/verification                                     */
@@ -172,7 +185,17 @@ opsRouter.post(
   '/cases/:caseId/review',
   handle(async (req, res) => {
     const { caseId } = caseIdParamSchema.parse(req.params);
-    const record = await service.moveToReview(deps(req), getAuthUser(req).id, caseId);
+
+    const record = await service.moveToReview(
+      opsDeps(req, {
+        action: AUDIT_ACTIONS.verificationReview,
+        targetType: 'verification_case',
+        targetId: caseId,
+        payload: {},
+      }),
+      getAuthUser(req).id,
+      caseId,
+    );
 
     res.status(200).json({ case: record });
   }),
@@ -183,7 +206,24 @@ opsRouter.post(
   handle(async (req, res) => {
     const { caseId } = caseIdParamSchema.parse(req.params);
     const input = decideSchema.parse(req.body);
-    const result = await service.decide(deps(req), getAuthUser(req).id, caseId, input);
+
+    const result = await service.decide(
+      opsDeps(req, {
+        action: AUDIT_ACTIONS.verificationDecide,
+        targetType: 'verification_case',
+        targetId: caseId,
+        /**
+         * The decision and the note, verbatim.
+         *
+         * This is the audit row somebody will read when a technician says they
+         * were failed unfairly, and "outcome: fail" on its own answers nothing.
+         */
+        payload: { decision: input.decision, notes: input.notes ?? null },
+      }),
+      getAuthUser(req).id,
+      caseId,
+      input,
+    );
 
     res.status(200).json({ ...result, message: req.t('verification.decisionRecorded') });
   }),

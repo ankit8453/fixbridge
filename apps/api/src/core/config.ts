@@ -369,6 +369,19 @@ const baseConfigSchema = z.object({
     .default(5 * 60_000),
   /** Inbox page size ceiling. */
   NOTIFICATION_PAGE_SIZE: z.coerce.number().int().min(1).max(100).default(20),
+
+  /* ---- admin console ---- */
+
+  /**
+   * Where the ops console is served from, and the only origin allowed to call
+   * `/api/v1/admin` from a browser.
+   *
+   * A convenience, not a security boundary — CORS is enforced by the browser and
+   * anybody with curl ignores it entirely. The real guard is the `ops`/`admin`
+   * role check on every admin route, which is applied once at the top of each
+   * router so a new endpoint cannot miss it.
+   */
+  ADMIN_ORIGIN: z.string().min(1).default('http://localhost:5173'),
 });
 
 /**

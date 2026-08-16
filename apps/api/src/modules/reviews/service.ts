@@ -11,6 +11,7 @@ import {
   type PublicReviewView,
   type ReviewView,
 } from './types';
+import { writeDepsAudit, type AuditableDeps } from '../../core/audit';
 
 /**
  * Reviews.
@@ -32,7 +33,7 @@ import {
  * argument with somebody who can rate them back.
  */
 
-export interface ReviewDeps {
+export interface ReviewDeps extends AuditableDeps {
   context: AppContext;
   now?: () => Date;
 }
@@ -311,6 +312,9 @@ export async function setReviewHidden(
   }
 
   const updated = await context.prisma.$transaction(async (tx) => {
+    // The ops audit row, in the same transaction as the decision it records.
+    await writeDepsAudit(tx, deps);
+
     const moved = await tx.review.update({
       where: { id: reviewId },
       data: { status: hidden ? 'hidden' : 'published' },

@@ -17,6 +17,7 @@ import type {
   ComplaintView,
   RaiseComplaintInput,
 } from './types';
+import { writeDepsAudit, type AuditableDeps } from '../../core/audit';
 
 /**
  * Complaints.
@@ -28,7 +29,7 @@ import type {
  * the technician remembers stop matching.
  */
 
-export interface ComplaintDeps {
+export interface ComplaintDeps extends AuditableDeps {
   context: AppContext;
   now?: () => Date;
 }
@@ -233,6 +234,9 @@ export async function decideComplaint(
   const isFinal = outcome.status === 'resolved' || outcome.status === 'dismissed';
 
   const updated = await context.prisma.$transaction(async (tx) => {
+    // The ops audit row, in the same transaction as the decision it records.
+    await writeDepsAudit(tx, deps);
+
     const moved = await tx.complaint.update({
       where: { id: complaintId },
       data: {

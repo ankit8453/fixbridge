@@ -18,6 +18,7 @@ import {
   type TrustWeights,
 } from './score';
 import { TRUST_TOPICS } from './topics';
+import { writeDepsAudit, type AuditableDeps } from '../../core/audit';
 
 /**
  * The trust engine.
@@ -33,7 +34,7 @@ import { TRUST_TOPICS } from './topics';
  * finds out for months.
  */
 
-export interface TrustDeps {
+export interface TrustDeps extends AuditableDeps {
   context: AppContext;
   now?: () => Date;
 }
@@ -182,6 +183,9 @@ export async function recomputeProviderTrust(
     : null;
 
   await context.prisma.$transaction(async (tx) => {
+    // The ops audit row, in the same transaction as the decision it records.
+    await writeDepsAudit(tx, deps);
+
     await repo.saveStats(tx, providerId, {
       avgStars: source.avgStars,
       reviewCount: source.reviewCount,
@@ -287,6 +291,9 @@ export async function suspendNow(
   const until = new Date(at.getTime() + days * 24 * 60 * 60 * 1000);
 
   await context.prisma.$transaction(async (tx) => {
+    // The ops audit row, in the same transaction as the decision it records.
+    await writeDepsAudit(tx, deps);
+
     await repo.applySuspension(tx, providerId, until, reason, at);
 
     await enqueueOutbox(tx, {
@@ -326,6 +333,9 @@ export async function liftSuspension(deps: TrustDeps, providerId: string): Promi
   await repo.liftSuspension(context.prisma, providerId);
 
   await context.prisma.$transaction(async (tx) => {
+    // The ops audit row, in the same transaction as the decision it records.
+    await writeDepsAudit(tx, deps);
+
     await enqueueOutbox(tx, {
       topic: TRUST_TOPICS.providerReinstated,
       aggregateType: 'provider',

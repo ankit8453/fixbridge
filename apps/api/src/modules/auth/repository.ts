@@ -46,7 +46,7 @@ export function extractRoles(user: UserWithRoles): SharedRole[] {
 }
 
 export function setUserStatus(
-  prisma: PrismaClient,
+  prisma: PrismaClient | Prisma.TransactionClient,
   userId: string,
   status: UserStatus,
 ): Promise<UserWithRoles> {
@@ -59,7 +59,7 @@ export function setUserStatus(
 
 /** Kills every live refresh token for a user, across all their devices. */
 export async function revokeAllForUser(
-  prisma: PrismaClient,
+  prisma: PrismaClient | Prisma.TransactionClient,
   userId: string,
   now: Date,
 ): Promise<number> {

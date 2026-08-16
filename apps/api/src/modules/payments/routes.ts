@@ -1,4 +1,5 @@
 import { Router, type Request, type RequestHandler } from 'express';
+import { AUDIT_ACTIONS, auditActor, type AuditEntry } from '../../core/audit';
 import { getContext } from '../../core/context';
 import { AppError } from '../../core/errors';
 import { authenticate, getAuthUser } from '../../core/middleware/authenticate';
@@ -10,6 +11,7 @@ import * as service from './service';
 import { PAYMENT_TOPICS } from './state-machine';
 import * as repo from './repository';
 import {
+  batchIdParamSchema,
   cashCollectedSchema,
   checkoutCallbackSchema,
   failPayoutSchema,
@@ -28,6 +30,17 @@ const handle =
   };
 
 const deps = (req: Request): service.PaymentDeps => ({ context: getContext(req) });
+
+/**
+ * The same deps, carrying the ops decision's audit entry.
+ *
+ * The services below already open exactly the right transaction; the entry rides
+ * into it so the record and the money move together or not at all.
+ */
+const opsDeps = (req: Request, entry: AuditEntry): service.PaymentDeps => ({
+  context: getContext(req),
+  audit: { actor: auditActor(req), entry },
+});
 
 /* -------------------------------------------------------------------------- */
 /* /api/v1/payments                                                           */
@@ -65,18 +78,14 @@ router.post(
   }),
 );
 
-/** Ops only this phase. A customer cannot refund themselves. */
-router.post(
-  '/:paymentId/refund',
-  requireRoles('ops', 'admin'),
-  handle(async (req, res) => {
-    const { paymentId } = paymentIdParamSchema.parse(req.params);
-    const input = refundSchema.parse(req.body);
-    const refund = await refunds.requestRefund(deps(req), paymentId, input);
-
-    res.status(202).json({ refund, message: req.t('payments.refundRequested') });
-  }),
-);
+/**
+ * Refunds moved to `/api/v1/admin/payments/:paymentId/refund` in Phase 11.
+ *
+ * It was always an ops-only action guarded by a role check, but it sat outside
+ * the `/api/v1/admin` prefix — which is the prefix the audit-coverage test
+ * enumerates. A money mutation escaping that net is exactly the hole the test
+ * exists to close, so the route went where the net is.
+ */
 
 /* -------------------------------------------------------------------------- */
 /* Mounted under /api/v1/bookings/:bookingId                                  */
@@ -171,12 +180,64 @@ export const opsRouter = Router();
 
 opsRouter.use(authenticate, requireRoles('ops', 'admin'));
 
+opsRouter.post(
+  '/:paymentId/refund',
+  handle(async (req, res) => {
+    const { paymentId } = paymentIdParamSchema.parse(req.params);
+    const input = refundSchema.parse(req.body);
+
+    const refund = await refunds.requestRefund(
+      opsDeps(req, {
+        action: AUDIT_ACTIONS.paymentRefund,
+        targetType: 'payment',
+        targetId: paymentId,
+        // The substance: how much, and why. A refund with no stated reason is
+        // the one an auditor will ask about first.
+        payload: { amountPaise: input.amountPaise ?? null, reason: input.reason ?? null },
+      }),
+      paymentId,
+      input,
+    );
+
+    res.status(202).json({ refund, message: req.t('payments.refundRequested') });
+  }),
+);
+
 /** Drafts a batch from everybody's current balance. Also runs as a daily job. */
 opsRouter.post(
   '/payout-batches',
   handle(async (req, res) => {
-    const result = await payouts.buildPayoutBatch(deps(req), getAuthUser(req).id);
+    const result = await payouts.buildPayoutBatch(
+      opsDeps(req, {
+        action: AUDIT_ACTIONS.payoutBatchCreate,
+        targetType: 'payout_batch',
+        targetId: null,
+        payload: {},
+      }),
+      getAuthUser(req).id,
+    );
+
     res.status(result.batchId ? 201 : 200).json(result);
+  }),
+);
+
+/** Closes a reviewed batch. Everything in it has been paid or failed by hand. */
+opsRouter.post(
+  '/payout-batches/:batchId/close',
+  handle(async (req, res) => {
+    const { batchId } = batchIdParamSchema.parse(req.params);
+
+    const batch = await payouts.completeBatch(
+      opsDeps(req, {
+        action: AUDIT_ACTIONS.payoutBatchClose,
+        targetType: 'payout_batch',
+        targetId: batchId,
+        payload: {},
+      }),
+      batchId,
+    );
+
+    res.status(200).json({ batch });
   }),
 );
 
@@ -205,7 +266,19 @@ opsRouter.post(
   handle(async (req, res) => {
     const { payoutId } = payoutIdParamSchema.parse(req.params);
     const input = markPaidSchema.parse(req.body);
-    const payout = await payouts.markPayoutPaid(deps(req), payoutId, input.utrRef);
+
+    const payout = await payouts.markPayoutPaid(
+      opsDeps(req, {
+        action: AUDIT_ACTIONS.payoutMarkPaid,
+        targetType: 'payout',
+        targetId: payoutId,
+        // The UTR is the substance: it is the number a technician quotes at
+        // their bank when they say the money never arrived.
+        payload: { utrRef: input.utrRef },
+      }),
+      payoutId,
+      input.utrRef,
+    );
 
     res.status(200).json({ payout, message: req.t('payments.payoutPaid') });
   }),
@@ -216,7 +289,17 @@ opsRouter.post(
   handle(async (req, res) => {
     const { payoutId } = payoutIdParamSchema.parse(req.params);
     const input = failPayoutSchema.parse(req.body);
-    const payout = await payouts.markPayoutFailed(deps(req), payoutId, input.note);
+
+    const payout = await payouts.markPayoutFailed(
+      opsDeps(req, {
+        action: AUDIT_ACTIONS.payoutMarkFailed,
+        targetType: 'payout',
+        targetId: payoutId,
+        payload: { note: input.note },
+      }),
+      payoutId,
+      input.note,
+    );
 
     res.status(200).json({ payout });
   }),
@@ -227,8 +310,14 @@ opsRouter.post(
   '/dues/settle',
   handle(async (req, res) => {
     const input = settleDuesSchema.parse(req.body);
+
     const result = await service.settleProviderDues(
-      deps(req),
+      opsDeps(req, {
+        action: AUDIT_ACTIONS.duesSettle,
+        targetType: 'provider',
+        targetId: input.providerId,
+        payload: { amountPaise: input.amountPaise, memo: input.memo ?? null },
+      }),
       input.providerId,
       input.amountPaise,
       input.memo ?? null,

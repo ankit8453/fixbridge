@@ -34,8 +34,9 @@ import type {
   VerificationCaseResponse,
   VerificationSummaryResponse,
 } from './types';
+import type { AuditableDeps } from '../../core/audit';
 
-export interface VerificationDeps {
+export interface VerificationDeps extends AuditableDeps {
   context: AppContext;
   now?: () => Date;
 }
@@ -454,7 +455,9 @@ async function transition(
   const now = nowOf(deps);
   const closedAt = isTerminal(result.status) ? now : null;
 
-  return repo.appendEvent(context.prisma, { caseId, ...event }, result.status, closedAt);
+  // `deps` carries the ops audit entry when a human made this transition; the
+  // repository writes it inside the same transaction as the event.
+  return repo.appendEvent(context.prisma, { caseId, ...event }, result.status, closedAt, deps);
 }
 
 export async function provideInfo(

@@ -1,4 +1,5 @@
 import { Router, type Request, type RequestHandler } from 'express';
+import { AUDIT_ACTIONS, auditActor, type AuditEntry } from '../../core/audit';
 import { getContext } from '../../core/context';
 import { AppError } from '../../core/errors';
 import { authenticate, getAuthUser } from '../../core/middleware/authenticate';
@@ -23,7 +24,11 @@ const handle =
     fn(req, res).catch(next);
   };
 
-const deps = (req: Request): TrustDeps => ({ context: getContext(req) });
+/** Ops mutations all carry an audit entry, so there is no un-audited variant. */
+const opsDeps = (req: Request, entry: AuditEntry): TrustDeps => ({
+  context: getContext(req),
+  audit: { actor: auditActor(req), entry },
+});
 
 /* -------------------------------------------------------------------------- */
 /* /api/v1/providers/me/trust                                                 */
@@ -176,6 +181,15 @@ const suspendSchema = z
 
 const providerIdSchema = z.object({ providerId: z.string().uuid() });
 
+/**
+ * Lifting a suspension needs a reason too.
+ *
+ * Symmetry with suspending, and for the same reason: "ops let them back on"
+ * with no note is not an answer anybody can give six months later when the same
+ * technician is in trouble again.
+ */
+const reinstateSchema = z.object({ reason: z.string().trim().min(3).max(300) }).strict();
+
 export const opsRouter = Router();
 
 opsRouter.use(authenticate, requireRoles('ops', 'admin'));
@@ -187,7 +201,14 @@ opsRouter.post(
     const input = suspendSchema.parse(req.body);
 
     const until = await suspendNow(
-      deps(req),
+      opsDeps(req, {
+        action: AUDIT_ACTIONS.providerSuspend,
+        targetType: 'provider',
+        targetId: input.providerId,
+        // The reason is mandatory in the schema and it is the whole substance:
+        // a suspension nobody wrote a reason for is one nobody can defend.
+        payload: { reason: input.reason, days: input.days ?? null },
+      }),
       input.providerId,
       'ops_manual',
       'trust.suspension.opsManual',
@@ -202,7 +223,17 @@ opsRouter.post(
   '/:providerId/reinstate',
   handle(async (req, res) => {
     const { providerId } = providerIdSchema.parse(req.params);
-    await liftSuspension(deps(req), providerId);
+    const input = reinstateSchema.parse(req.body ?? {});
+
+    await liftSuspension(
+      opsDeps(req, {
+        action: AUDIT_ACTIONS.providerReinstate,
+        targetType: 'provider',
+        targetId: providerId,
+        payload: { reason: input.reason },
+      }),
+      providerId,
+    );
 
     res.status(200).json({ providerId, suspendedUntil: null });
   }),
@@ -214,10 +245,16 @@ opsRouter.post(
   handle(async (req, res) => {
     const { providerId } = providerIdSchema.parse(req.params);
 
-    const result = await recomputeProviderTrust(deps(req), providerId, {
-      topic: 'ops.recompute',
-      aggregateId: null,
-    });
+    const result = await recomputeProviderTrust(
+      opsDeps(req, {
+        action: AUDIT_ACTIONS.providerRecompute,
+        targetType: 'provider',
+        targetId: providerId,
+        payload: {},
+      }),
+      providerId,
+      { topic: 'ops.recompute', aggregateId: null },
+    );
 
     if (!result) {
       throw new AppError(404, 'PROVIDER_NOT_FOUND', `No technician ${providerId}`, {

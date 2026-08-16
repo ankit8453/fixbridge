@@ -6,6 +6,7 @@ import {
   type Role,
   type UserStatus,
 } from '@fixbridge/shared';
+import { writeDepsAudit, type AuditableDeps } from '../../core/audit';
 import { AppError } from '../../core/errors';
 import { consumeRateLimit } from '../../core/rate-limit';
 import type { AppContext } from '../../core/context';
@@ -52,7 +53,7 @@ import type {
 const DEVICE_INFO_MAX_LENGTH = 512;
 
 /** Everything the auth service needs, so it never reaches for globals. */
-export interface AuthDeps {
+export interface AuthDeps extends AuditableDeps {
   context: AppContext;
   transport: OtpTransport;
   /** Injectable for deterministic tests. */
@@ -444,8 +445,23 @@ export async function blockUser(deps: AuthDeps, userId: string): Promise<AuthUse
   const { context } = deps;
   const now = nowOf(deps);
 
-  const user = await setUserStatus(context.prisma, userId, 'blocked');
-  const revoked = await revokeAllForUser(context.prisma, userId, now);
+  /**
+   * The two durable writes and the audit row move together.
+   *
+   * The denylist entry is Redis and stays outside — it cannot join a Postgres
+   * transaction, and it is deliberately applied *after* the commit: a denylist
+   * entry for a block that rolled back would lock somebody out of an account
+   * nobody decided to close.
+   */
+  const { user, revoked } = await context.prisma.$transaction(async (tx) => {
+    await writeDepsAudit(tx, deps);
+
+    const blocked = await setUserStatus(tx, userId, 'blocked');
+    const count = await revokeAllForUser(tx, userId, now);
+
+    return { user: blocked, revoked: count };
+  });
+
   await context.userDenylist.add(userId);
 
   context.logger.warn(
@@ -464,7 +480,11 @@ export async function blockUser(deps: AuthDeps, userId: string): Promise<AuthUse
 export async function unblockUser(deps: AuthDeps, userId: string): Promise<AuthUser> {
   const { context } = deps;
 
-  const user = await setUserStatus(context.prisma, userId, 'active');
+  const user = await context.prisma.$transaction(async (tx) => {
+    await writeDepsAudit(tx, deps);
+    return setUserStatus(tx, userId, 'active');
+  });
+
   await context.userDenylist.remove(userId);
 
   context.logger.info({ userId }, 'user unblocked');

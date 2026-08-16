@@ -6,6 +6,7 @@ import { seedCustomer } from './seeds/customer';
 import { seedCommissionConfig } from './seeds/commission';
 import { seedFeeConfig } from './seeds/fees';
 import { seedNotifications } from './seeds/notifications';
+import { seedOpsQueues } from './seeds/ops-queues';
 import { seedPayments } from './seeds/payments';
 import { seedProviders } from './seeds/providers';
 import { seedSynonyms } from './seeds/synonyms';
@@ -145,6 +146,9 @@ async function main(): Promise<void> {
   // Genuinely last: a notification is about something that already happened, so
   // every other seed has to have happened first — including the suspension.
   await seedNotifications(prisma);
+  // Scenery for the ops console: a couple of genuinely stuck rows, so the
+  // queues are not all zero on a fresh clone.
+  await seedOpsQueues(prisma);
   await ensureStorageBucket();
 }
 

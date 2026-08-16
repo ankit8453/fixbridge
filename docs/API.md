@@ -1951,12 +1951,170 @@ Content-Language: hi
 
 ---
 
-## Mounted but empty (later phases)
+## Admin — the ops console API
 
-These prefixes resolve to registered routers with no handlers yet, so any path
-under them returns the standard `404 NOT_FOUND` envelope. Listed here so the URL
-space is reserved and visible.
+Everything under `/api/v1/admin` requires a Bearer token whose user holds `ops`
+or `admin`. The guard is applied **once** at the top of each router rather than
+per route, so an endpoint cannot be added un-guarded by forgetting a line, and a
+test asserts a customer gets `403` on every path.
 
-| Prefix          | Phase | Will contain      |
-| --------------- | ----- | ----------------- |
-| `/api/v1/admin` | 11    | admin console API |
+The ops runbook — how to actually verify a technician, resolve a complaint, run a
+payout batch — is [admin-guide.md](admin-guide.md). This section is the API only.
+
+### Every mutation is audited
+
+`POST`, `PATCH` and `DELETE` under `/api/v1/admin` write an `audit_logs` row **in
+the same transaction as the mutation**. If the decision rolls back, so does the
+record of it.
+
+`core/audit.ts` holds `AUDITED_ADMIN_ROUTES`, a registry of every admin mutation
+and the action it records. A test walks the real Express router stack and
+compares the two **in both directions**: a new mutation with no entry fails CI,
+and an entry whose route was renamed fails too. There is no way to ship an
+un-audited ops action.
+
+Mutations all take a **mandatory `reason` or `note`** (min 3 chars). It is not
+ceremony — it is the only thing that will exist when somebody asks why.
+
+### Overview
+
+| Route                       | Returns                                                          |
+| --------------------------- | ---------------------------------------------------------------- |
+| `GET /api/v1/admin/summary` | Queue depths, today's bookings by status, GMV/revenue/dues tiles |
+
+Queue depths cover verification, complaints, review reports, parked
+outbox/webhooks/deliveries, held deliveries, pending batches, OTP-locked
+bookings, suspended technicians and pending entry approvals. Money comes straight
+from the ledger views — there is no cached revenue number anywhere in this system.
+
+### Users
+
+| Route                                      | Notes                                                                                         |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| `GET /api/v1/admin/users`                  | `q` (phone fragment or name), `role`, `status`, paginated                                     |
+| `GET /api/v1/admin/users/:userId`          | Roles, status, linked profiles, counts                                                        |
+| `POST /api/v1/admin/users/:userId/block`   | `{ reason }` — cuts them off **now**: denylists live access tokens and revokes refresh tokens |
+| `POST /api/v1/admin/users/:userId/unblock` | `{ reason }`                                                                                  |
+
+### Providers
+
+| Route                                                    | Notes                                                              |
+| -------------------------------------------------------- | ------------------------------------------------------------------ |
+| `GET /api/v1/admin/providers`                            | `q`, `city_id`, `badge`, `listed`, `suspended`, `pending_approval` |
+| `GET /api/v1/admin/providers/:providerId`                | The aggregate the provider page is built from                      |
+| `POST /api/v1/admin/providers/:providerId/approve-entry` | `{ note }` — only meaningful where the city flag is on             |
+
+The aggregate carries a `visibility` object answering the five gates
+**separately** — `listed`, `accountActive`, `verified`, `notSuspended`,
+`entryApproved`. "Why am I not getting work" is one question with five possible
+answers, and conflating them is how ops end up guessing.
+
+It also carries completeness, the verification summary, the trust breakdown,
+wallet balance and dues, price cards, skills, recent cases and recent bookings —
+one request, because six sequential spinners is not an answer to somebody on the
+phone.
+
+### Bookings
+
+| Route                                               | Notes                                                                                      |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `GET /api/v1/admin/bookings`                        | `q` accepts a **booking id or either party's phone fragment**, plus `status`, `from`, `to` |
+| `GET /api/v1/admin/bookings/:bookingId/timeline`    | The dispute screen's data                                                                  |
+| `POST /api/v1/admin/bookings/:bookingId/otp-unlock` | `{ note, kind }` — `409` if not locked                                                     |
+| `POST /api/v1/admin/bookings/:bookingId/cancel`     | `{ reason }` — **pre-arrival only**                                                        |
+
+The timeline merges booking events, quotations, payments, refunds, reviews,
+complaints **and the notifications each side was sent**. "Nobody informed me" is
+the second thing every dispute turns on, and the delivery rows are the only place
+that is answerable from.
+
+**OTP unlock** resolves the `otp_locked` state Phase 6 introduced and never gave
+an exit. Five wrong codes at a door locks the handshake deliberately — the point
+is that a specific person is at a specific door, so the system will not quietly
+reissue. The codes themselves are **not** regenerated; only the attempt counter
+is cleared, so the slip the customer is holding still works.
+
+**Ops-cancel is not a bypass.** It obeys the same state machine a customer's
+cancel does and is refused once the technician has arrived, because at that point
+work has begun and money may be owed.
+
+### Money
+
+Read-only here; the mutations live on the payments ops router.
+
+| Route                                          | Notes                                       |
+| ---------------------------------------------- | ------------------------------------------- |
+| `GET /api/v1/admin/ledger/journals`            | `journal_type`, `booking_id`, `provider_id` |
+| `GET /api/v1/admin/ledger/journals/:journalId` | Its entries, which always balance           |
+| `GET /api/v1/admin/ledger/position`            | The platform's own position                 |
+| `GET /api/v1/admin/payout-batches`             | Paginated list                              |
+
+Mutations, all audited:
+
+| Route                                                       | Notes                                                          |
+| ----------------------------------------------------------- | -------------------------------------------------------------- |
+| `POST /api/v1/admin/payments/payout-batches`                | Drafts a batch from current balances                           |
+| `POST /api/v1/admin/payments/payout-batches/:batchId/close` | `409` while any line is still pending                          |
+| `POST /api/v1/admin/payments/payouts/:payoutId/paid`        | `{ utrRef }` — the number a technician takes to their own bank |
+| `POST /api/v1/admin/payments/payouts/:payoutId/failed`      | `{ note }` — rolls into the next batch                         |
+| `POST /api/v1/admin/payments/dues/settle`                   | `{ providerId, amountPaise, memo }`                            |
+| `POST /api/v1/admin/payments/:paymentId/refund`             | `{ amountPaise?, reason? }`                                    |
+
+> **The refund route moved in Phase 11**, from `/api/v1/payments/:id/refund` to
+> `/api/v1/admin/payments/:id/refund`. It was always ops-only behind a role
+> check, but it sat outside the prefix the audit-coverage test enumerates — a
+> money mutation escaping that net is exactly the hole the test exists to close.
+
+### Queues
+
+Three parked lists, each with retry and discard.
+
+| Route                                                      | Notes                                          |
+| ---------------------------------------------------------- | ---------------------------------------------- |
+| `GET /api/v1/admin/queues/outbox`                          | Events whose retry budget is spent             |
+| `POST /api/v1/admin/queues/outbox/:outboxId/retry`         | Resets attempts — every consumer is idempotent |
+| `POST /api/v1/admin/queues/outbox/:outboxId/discard`       | `{ reason }`                                   |
+| `GET /api/v1/admin/queues/webhooks`                        | Gateway events that failed to apply            |
+| `POST /api/v1/admin/queues/webhooks/:webhookId/reprocess`  | Re-publishes; never applies inline             |
+| `POST /api/v1/admin/queues/webhooks/:webhookId/discard`    | `{ reason }`                                   |
+| `GET /api/v1/admin/queues/deliveries`                      | Notifications a vendor refused                 |
+| `POST /api/v1/admin/queues/deliveries/:deliveryId/retry`   | Resets attempts and sends                      |
+| `POST /api/v1/admin/queues/deliveries/:deliveryId/discard` | `{ reason }`                                   |
+
+**Discard never deletes.** The row is marked processed with the reason recorded —
+it is the evidence that something was published and never delivered, and deleting
+it would erase both the fact and the decision.
+
+### Reviews, complaints, verification
+
+Already documented in their own sections. Phase 11 adds
+`GET /api/v1/admin/reviews/reports` — flagged reviews that are still published,
+oldest first. Once a review is hidden the report has been acted on and leaves the
+queue, so ops never judge the same thing twice.
+
+### Cities
+
+| Route                                | Notes                                  |
+| ------------------------------------ | -------------------------------------- |
+| `GET /api/v1/admin/cities`           |                                        |
+| `PATCH /api/v1/admin/cities/:cityId` | `{ requireEntryApproval?, isActive? }` |
+
+`requireEntryApproval` is **off everywhere**, including Jabalpur. The pilot cannot
+afford a human in the path of every signup, and completeness plus verification
+already keep an unverified profile out of search. With it off the pending-approval
+queue is simply empty — which is why the feature costs nothing until the first
+city where we do not know the trades personally.
+
+### Audit log
+
+| Route                          | Notes                                                               |
+| ------------------------------ | ------------------------------------------------------------------- |
+| `GET /api/v1/admin/audit-logs` | `actor_user_id`, `action`, `target_type`, `target_id`, `from`, `to` |
+
+Read-only, and there is deliberately **no endpoint that writes one directly**. An
+audit row only ever comes into existence alongside the thing it describes; a
+"create audit entry" endpoint would make the whole table deniable.
+
+The table is append-only by database trigger. The single permitted `UPDATE` is
+nulling `actor_user_id` for DPDP erasure — the action survives, the link to the
+human does not, exactly as with the ledger.

@@ -1280,7 +1280,7 @@ describe('Phase 8 — payments, ledger and payouts', () => {
       // Give back ₹50.
       const refundAmount = 5_000;
       const requested = await request(app)
-        .post(`/api/v1/payments/${paymentId}/refund`)
+        .post(`/api/v1/admin/payments/${paymentId}/refund`)
         .set(auth(ops.accessToken))
         .send({ amountPaise: refundAmount, reason: 'Part of the job was redone' })
         .expect(202);
@@ -1325,7 +1325,7 @@ describe('Phase 8 — payments, ledger and payouts', () => {
 
       // No amount means "everything still refundable".
       const requested = await request(app)
-        .post(`/api/v1/payments/${paymentId}/refund`)
+        .post(`/api/v1/admin/payments/${paymentId}/refund`)
         .set(auth(ops.accessToken))
         .send({})
         .expect(202);
@@ -1360,7 +1360,7 @@ describe('Phase 8 — payments, ledger and payouts', () => {
       const ops = await signIn(app, PHONES.ops, 'device-pay-ops');
 
       const response = await request(app)
-        .post(`/api/v1/payments/${paymentId}/refund`)
+        .post(`/api/v1/admin/payments/${paymentId}/refund`)
         .set(auth(ops.accessToken))
         .send({ amountPaise: payablePaise + 1 });
 
@@ -1382,7 +1382,7 @@ describe('Phase 8 — payments, ledger and payouts', () => {
 
       // We never held that money. Refunding it would mean paying out our own.
       const response = await request(app)
-        .post(`/api/v1/payments/${cash.body.payment.id}/refund`)
+        .post(`/api/v1/admin/payments/${cash.body.payment.id}/refund`)
         .set(auth(ops.accessToken))
         .send({});
 
@@ -1397,7 +1397,7 @@ describe('Phase 8 — payments, ledger and payouts', () => {
       const { paymentId } = await payOnline(bookingId, customer);
 
       await request(app)
-        .post(`/api/v1/payments/${paymentId}/refund`)
+        .post(`/api/v1/admin/payments/${paymentId}/refund`)
         .set(auth(customer.accessToken))
         .send({})
         .expect(403);

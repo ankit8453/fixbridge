@@ -1,3 +1,4 @@
+import { writeDepsAudit } from '../../core/audit';
 import type { AppContext } from '../../core/context';
 import { AppError } from '../../core/errors';
 import { enqueueOutbox } from '../../core/outbox';
@@ -103,14 +104,28 @@ export async function requestRefund(
     notes: { paymentId },
   });
 
-  const refund = await context.prisma.refund.create({
-    data: {
-      paymentId,
-      amountPaise,
-      gatewayRefundId: issued.refundId,
-      status: 'created',
-      reason: input.reason ?? null,
-    },
+  /**
+   * The refund row and its audit row together.
+   *
+   * The gateway call above is already committed to at this point — it is
+   * somebody else's system and cannot be rolled back — so the transaction here
+   * covers what we still own: the record that a refund exists, and the record of
+   * who decided it. If the second fails the first must not survive, because a
+   * refund nobody is accountable for is exactly the thing this table exists to
+   * make impossible.
+   */
+  const refund = await context.prisma.$transaction(async (tx) => {
+    await writeDepsAudit(tx, deps);
+
+    return tx.refund.create({
+      data: {
+        paymentId,
+        amountPaise,
+        gatewayRefundId: issued.refundId,
+        status: 'created',
+        reason: input.reason ?? null,
+      },
+    });
   });
 
   context.logger.info(

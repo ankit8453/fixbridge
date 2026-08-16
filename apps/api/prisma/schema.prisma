@@ -21,6 +21,15 @@ model City {
   name      String   @db.VarChar(120)
   state     String   @db.VarChar(120)
   isActive  Boolean  @default(true) @map("is_active")
+  /// Whether a technician needs an ops decision before they can be listed at
+  /// all, on top of the automatic completeness and verification gates.
+  ///
+  /// Off for Jabalpur: the pilot cannot afford a human in the path of every
+  /// signup, and the existing gates already keep an unverified profile out of
+  /// search. It exists per-city because the first city where we do not know the
+  /// trades personally is exactly where somebody will want to turn it on, and
+  /// discovering then that it needs a migration is the wrong time.
+  requireEntryApproval Boolean @default(false) @map("require_entry_approval")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   users            User[]
@@ -100,6 +109,7 @@ model User {
 
   notifications        Notification[]
   notificationDeliveries NotificationDelivery[]
+  auditLogs            AuditLog[]
 
   @@index([status])
   @@map("users")
@@ -320,6 +330,18 @@ model ProviderProfile {
   suspendedUntil   DateTime?         @map("suspended_until") @db.Timestamptz(3)
   suspendedAt      DateTime?         @map("suspended_at") @db.Timestamptz(3)
   suspensionReason SuspensionReason? @map("suspension_reason")
+
+  /**
+   * Ops let this technician onto the platform at all.
+   *
+   * Only consulted where `cities.require_entry_approval` is on, which is nowhere
+   * today. Null then simply means "never needed": the automatic gates —
+   * completeness and verification — already decide who appears in search, and a
+   * human in the path of every signup is a cost the pilot cannot carry.
+   */
+  entryApprovedAt   DateTime? @map("entry_approved_at") @db.Timestamptz(3)
+  entryApprovedById String?   @map("entry_approved_by") @db.Uuid
+
   createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -1466,6 +1488,68 @@ model KycAccessLog {
   @@index([providerId, createdAt])
   @@index([actorUserId, createdAt])
   @@map("kyc_access_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Audit log
+// ---------------------------------------------------------------------------
+
+/// Who did what, to whom, and what the decision actually said.
+///
+/// The backbone of the ops console. This product routes verification, complaints,
+/// suspensions, refunds and payouts through **human judgment** — that was a
+/// frozen decision, and it is the right one for a market that runs on trust. The
+/// cost of it is that every one of those decisions is a person's opinion about
+/// somebody else's livelihood, and an opinion nobody wrote down is one nobody can
+/// be answerable for.
+///
+/// So: append-only, written **in the same transaction as the mutation it
+/// describes**, and enumerated by a test that fails CI if a new admin mutation
+/// arrives without one.
+///
+/// ## Why `action` is a string and not a Postgres enum
+///
+/// Every new ops capability would otherwise need a migration to name itself, and
+/// a migration is exactly the wrong amount of friction for adding an audit
+/// action — the pressure would be to reuse a near-enough existing one, which is
+/// how audit logs stop being readable. The closed set lives in TypeScript
+/// (`AUDIT_ACTIONS`), where it is still exhaustive and still typo-proof.
+model AuditLog {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Nullable, and `ON DELETE SET NULL`.
+  ///
+  /// Same reasoning as the ledger: DPDP erasure must be able to remove a person
+  /// without erasing the record that a decision was made. The action survives;
+  /// the link to the human does not.
+  actorUserId String? @map("actor_user_id") @db.Uuid
+
+  action String @db.VarChar(80)
+
+  targetType String  @map("target_type") @db.VarChar(40)
+  /// Deliberately not a UUID column: a target may be a payout batch, a city id,
+  /// or a phone number, and forcing them all into one type would mean inventing
+  /// surrogate ids for the sake of the audit table.
+  targetId   String? @map("target_id") @db.VarChar(120)
+
+  /// The substance of the decision — before/after, the note, the amount. An
+  /// audit row that records only "somebody clicked fail" is not evidence.
+  payload Json @db.JsonB
+
+  ip        String? @db.VarChar(64)
+  /// Ties the row back to the request log, so an incident review can read the
+  /// whole HTTP exchange around a decision.
+  requestId String? @map("request_id") @db.VarChar(140)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt(sort: Desc)])
+  @@index([actorUserId, createdAt])
+  @@index([action, createdAt])
+  @@index([targetType, targetId])
+  @@map("audit_logs")
 }
 
 // ---------------------------------------------------------------------------

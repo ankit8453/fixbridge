@@ -785,6 +785,7 @@ describe('Phase 10 — notifications', () => {
       await request(app as Express)
         .post(`/api/v1/admin/trust/${fixture.technicianId}/reinstate`)
         .set(auth(ops.accessToken))
+        .send({ reason: 'Spoke to them; the cancellations were a family emergency.' })
         .expect(200);
 
       await drainOutbox();

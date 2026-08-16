@@ -12,6 +12,7 @@ import type {
   VerificationEventType,
   VerificationStatus,
 } from '@prisma/client';
+import { writeDepsAudit, type AuditableDeps } from '../../core/audit';
 
 export type CaseWithEvents = VerificationCase & { events: VerificationEvent[] };
 
@@ -179,8 +180,19 @@ export async function appendEvent(
   event: EventInput,
   nextStatus: VerificationStatus,
   closedAt: Date | null,
+  /**
+   * The ops decision's audit row, written inside this same transaction.
+   *
+   * It arrives here rather than at the service because this is where the
+   * transaction is, and "in the same transaction as the mutation" is the whole
+   * promise — a decision that rolled back must not leave a record saying it was
+   * taken. Absent for the technician-driven events, which have no ops actor.
+   */
+  audit?: AuditableDeps,
 ): Promise<CaseWithEvents> {
   return prisma.$transaction(async (tx) => {
+    if (audit) await writeDepsAudit(tx, audit);
+
     await tx.verificationEvent.create({
       data: {
         caseId: event.caseId,

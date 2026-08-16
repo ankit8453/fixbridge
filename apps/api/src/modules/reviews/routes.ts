@@ -1,4 +1,5 @@
 import { Router, type Request, type RequestHandler } from 'express';
+import { AUDIT_ACTIONS, auditActor, type AuditEntry } from '../../core/audit';
 import { getContext } from '../../core/context';
 import { authenticate, getAuthUser } from '../../core/middleware/authenticate';
 import { requireRoles } from '../../core/middleware/require-roles';
@@ -20,6 +21,12 @@ const handle =
   };
 
 const deps = (req: Request): service.ReviewDeps => ({ context: getContext(req) });
+
+/** The same deps carrying the ops audit entry into the service's own transaction. */
+const opsDeps = (req: Request, entry: AuditEntry): service.ReviewDeps => ({
+  context: getContext(req),
+  audit: { actor: auditActor(req), entry },
+});
 
 /* -------------------------------------------------------------------------- */
 /* /api/v1/reviews                                                            */
@@ -61,6 +68,57 @@ export const opsRouter = Router();
 opsRouter.use(authenticate, requireRoles('ops', 'admin'));
 
 /**
+ * The report queue: reviews somebody has flagged and ops have not yet judged.
+ *
+ * Oldest first, and only reports against reviews that are still **published** —
+ * once a review is hidden the report has been acted on, and leaving it in the
+ * queue would have ops deciding the same thing twice.
+ */
+opsRouter.get(
+  '/reports',
+  handle(async (req, res) => {
+    const query = listReviewsQuerySchema.parse(req.query);
+    const prisma = getContext(req).prisma;
+
+    const where = { review: { status: 'published' as const } };
+
+    const [rows, total] = await Promise.all([
+      prisma.reviewReport.findMany({
+        where,
+        orderBy: { createdAt: 'asc' },
+        skip: (query.page - 1) * query.page_size,
+        take: query.page_size,
+        include: {
+          reporter: { select: { id: true, name: true } },
+          review: {
+            select: {
+              id: true,
+              bookingId: true,
+              stars: true,
+              tags: true,
+              text: true,
+              status: true,
+              direction: true,
+              createdAt: true,
+              subjectUserId: true,
+              author: { select: { id: true, name: true } },
+            },
+          },
+        },
+      }),
+      prisma.reviewReport.count({ where }),
+    ]);
+
+    res.status(200).json({
+      reports: rows,
+      page: query.page,
+      pageSize: query.page_size,
+      total,
+    });
+  }),
+);
+
+/**
  * Hides or restores a review.
  *
  * Hiding excludes it from every aggregate on the next recompute — which the
@@ -70,7 +128,16 @@ opsRouter.post(
   '/:reviewId/hide',
   handle(async (req, res) => {
     const { reviewId } = reviewIdParamSchema.parse(req.params);
-    const review = await service.setReviewHidden(deps(req), reviewId, true);
+    const review = await service.setReviewHidden(
+      opsDeps(req, {
+        action: AUDIT_ACTIONS.reviewHide,
+        targetType: 'review',
+        targetId: reviewId,
+        payload: { hidden: true },
+      }),
+      reviewId,
+      true,
+    );
 
     res.status(200).json({ review, message: req.t('reviews.hidden') });
   }),
@@ -80,7 +147,16 @@ opsRouter.post(
   '/:reviewId/unhide',
   handle(async (req, res) => {
     const { reviewId } = reviewIdParamSchema.parse(req.params);
-    const review = await service.setReviewHidden(deps(req), reviewId, false);
+    const review = await service.setReviewHidden(
+      opsDeps(req, {
+        action: AUDIT_ACTIONS.reviewUnhide,
+        targetType: 'review',
+        targetId: reviewId,
+        payload: { hidden: false },
+      }),
+      reviewId,
+      false,
+    );
 
     res.status(200).json({ review });
   }),

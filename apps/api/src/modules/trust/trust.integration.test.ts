@@ -1411,6 +1411,7 @@ describe('Phase 9 — reviews, complaints and trust', () => {
       await request(app)
         .post(`/api/v1/admin/trust/${fixture.technicianId}/reinstate`)
         .set(auth(ops.accessToken))
+        .send({ reason: 'Spoke to them; the cancellations were a family emergency.' })
         .expect(200);
 
       const profile = await context.prisma.providerProfile.findUnique({
@@ -1647,6 +1648,7 @@ describe('Phase 9 — reviews, complaints and trust', () => {
       await request(app)
         .post(`/api/v1/admin/trust/${fixture.technicianId}/reinstate`)
         .set(auth(ops.accessToken))
+        .send({ reason: 'Spoke to them; the cancellations were a family emergency.' })
         .expect(200);
 
       const back = await searchCards();
