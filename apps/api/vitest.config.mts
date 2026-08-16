@@ -49,6 +49,22 @@ export default defineConfig({
        * against real Redis; here it is lifted out of the way.
        */
       OTP_MAX_PER_IP: '1000',
+
+      /**
+       * The suite always runs on the fake gateway, whatever `.env` says.
+       *
+       * A developer who has pointed their local `.env` at real Razorpay test
+       * keys — which is exactly what `docs/money.md` tells them to do for a
+       * smoke test — must not thereby make `npm test` reach across the
+       * internet. Tests that depend on a third party's staging environment are
+       * tests people learn to ignore, and these are the money tests.
+       *
+       * The secrets below are the fake's own signing inputs, not credentials.
+       */
+      PAYMENT_GATEWAY: 'fake',
+      RAZORPAY_KEY_ID: 'rzp_test_fake_key',
+      RAZORPAY_KEY_SECRET: 'fake-key-secret',
+      RAZORPAY_WEBHOOK_SECRET: 'fake-webhook-secret',
     },
     reporters: ['default'],
   },

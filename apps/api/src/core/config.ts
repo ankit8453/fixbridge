@@ -255,6 +255,51 @@ const baseConfigSchema = z.object({
   PAYOUT_MINIMUM_PAISE: z.coerce.number().int().min(0).default(10_000),
   /** Wallet history depth. */
   WALLET_LEDGER_PAGE_SIZE: z.coerce.number().int().min(1).max(200).default(50),
+
+  /* ---- reviews & trust ---- */
+
+  /**
+   * How long after settlement a review may be written.
+   *
+   * Long enough that somebody who was out that week can still say something,
+   * short enough that the memory is real. A rating written six weeks later is
+   * mostly about how the last conversation went.
+   */
+  REVIEW_WINDOW_DAYS: z.coerce.number().int().min(1).max(90).default(7),
+  /** How long after a booking ends a complaint may be raised. */
+  COMPLAINT_WINDOW_DAYS: z.coerce.number().int().min(1).max(180).default(14),
+
+  /**
+   * Trust score weights. Reordering what matters must never need a code change,
+   * so every weight lives here and the scorer reads them from its input.
+   */
+  TRUST_WEIGHT_RATING: z.coerce.number().min(0).max(100).default(35),
+  TRUST_WEIGHT_ACCEPTANCE: z.coerce.number().min(0).max(100).default(20),
+  TRUST_WEIGHT_RELIABILITY: z.coerce.number().min(0).max(100).default(20),
+  TRUST_WEIGHT_COMPLAINTS: z.coerce.number().min(0).max(100).default(15),
+  TRUST_WEIGHT_RECENCY: z.coerce.number().min(0).max(100).default(10),
+  /** A review's influence halves after this many days. */
+  TRUST_RATING_HALF_LIFE_DAYS: z.coerce.number().int().min(1).max(3_650).default(90),
+  /** "Recently active" halves after this many days idle. */
+  TRUST_RECENCY_HALF_LIFE_DAYS: z.coerce.number().int().min(1).max(3_650).default(90),
+  /** Weighted complaint load at which that component hits zero. */
+  TRUST_COMPLAINT_ZERO_AT: z.coerce.number().min(1).max(100).default(6),
+
+  /* ---- badge bands ---- */
+
+  BADGE_SILVER_MIN_SCORE: z.coerce.number().int().min(0).max(100).default(70),
+  BADGE_SILVER_MIN_JOBS: z.coerce.number().int().min(0).default(10),
+  BADGE_GOLD_MIN_SCORE: z.coerce.number().int().min(0).max(100).default(85),
+  BADGE_GOLD_MIN_JOBS: z.coerce.number().int().min(0).default(30),
+
+  /* ---- auto-suspension ---- */
+
+  SUSPEND_TRUST_BELOW: z.coerce.number().int().min(0).max(100).default(30),
+  SUSPEND_TRUST_MIN_JOBS: z.coerce.number().int().min(1).default(10),
+  SUSPEND_CANCELLATION_COUNT: z.coerce.number().int().min(1).default(3),
+  SUSPEND_CANCELLATION_WINDOW_DAYS: z.coerce.number().int().min(1).max(90).default(7),
+  /** How long an automatic suspension lasts before it lapses on its own. */
+  SUSPEND_DURATION_DAYS: z.coerce.number().int().min(1).max(365).default(7),
 });
 
 /**

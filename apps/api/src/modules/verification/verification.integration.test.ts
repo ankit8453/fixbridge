@@ -1036,11 +1036,21 @@ describe('Phase 4 — ops decisions', () => {
 });
 
 describe('Phase 4 — seeded distribution', () => {
-  it('has 12 VERIFIED technicians', async (ctx) => {
+  /**
+   * Counted across all three verified bands.
+   *
+   * From Phase 9 the badge column carries a *band* — `SILVER` and `GOLD` are
+   * `VERIFIED` plus a trust record, not something else. Counting only the exact
+   * string would say a technician lost their verification by earning a better
+   * badge, which is the opposite of what happened.
+   */
+  const VERIFIED_BANDS = ['VERIFIED', 'SILVER', 'GOLD'] as const;
+
+  it('has 12 verified technicians across the bands', async (ctx) => {
     if (!context) return ctx.skip();
 
     const verified = await context.prisma.providerVerificationSummary.count({
-      where: { badge: 'VERIFIED' },
+      where: { badge: { in: [...VERIFIED_BANDS] } },
     });
 
     expect(verified).toBe(12);
@@ -1052,7 +1062,7 @@ describe('Phase 4 — seeded distribution', () => {
     // 17 listed but only 12 verified — Phase 5 search must require both.
     const listed = await context.prisma.providerProfile.count({ where: { isListed: true } });
     const verified = await context.prisma.providerVerificationSummary.count({
-      where: { badge: 'VERIFIED' },
+      where: { badge: { in: [...VERIFIED_BANDS] } },
     });
 
     expect(listed).toBe(17);

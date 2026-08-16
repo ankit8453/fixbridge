@@ -10,8 +10,9 @@ import type { Badge } from '../verification/badge';
  *      no other module knows they exist.
  *   2. **Signals that do not exist yet are still in the type.** Declaring them
  *      with documented neutral defaults means a later phase adds data, not a new
- *      scoring interface — which is exactly how acceptance rate landed in Phase
- *      6 without this file changing. Trust score is still waiting on Phase 9.
+ *      scoring interface. Both signals that were once placeholders — acceptance
+ *      rate in Phase 6, trust score in Phase 9 — went live without this file
+ *      changing at all, which is the whole argument for the pattern.
  *
  * Every component is normalised to 0..1 before weighting, so a weight is
  * directly readable as "how much this matters relative to the others".
@@ -26,7 +27,7 @@ export interface RankInput {
   yearsExperience: number | null;
   /** 0–100, from the Phase 3 completeness scorer. */
   completenessScore: number;
-  /** 0–1. Phase 9. Null until then. */
+  /** 0–1 (the 0–100 score divided by 100). Null until they have any history. */
   trustScore: number | null;
   /** 0–1, share of requests accepted. Null below the small-sample floor. */
   acceptanceRate: number | null;

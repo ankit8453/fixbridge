@@ -8,6 +8,7 @@ import { seedFeeConfig } from './seeds/fees';
 import { seedPayments } from './seeds/payments';
 import { seedProviders } from './seeds/providers';
 import { seedSynonyms } from './seeds/synonyms';
+import { seedTrust } from './seeds/trust';
 import { seedVerification } from './seeds/verification';
 
 /**
@@ -138,6 +139,8 @@ async function main(): Promise<void> {
   await seedBookings(prisma, cityId);
   // Last of all: money hangs off bookings that already have a frozen payable.
   await seedPayments(prisma, cityId);
+  // Last of all: reviews and trust are computed from settled, paid work.
+  await seedTrust(prisma);
   await ensureStorageBucket();
 }
 

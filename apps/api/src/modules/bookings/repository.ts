@@ -414,14 +414,50 @@ export async function saveProviderStats(
 /**
  * Erasure path for bookings, mirroring the verification one.
  *
- * `booking_events` refuses DELETE, so teardown and DPDP erasure both have to
- * announce themselves with the session flag.
+ * `booking_events`, `reviews` and `trust_score_snapshots` all refuse DELETE, so
+ * teardown and DPDP erasure both have to announce themselves with the session
+ * flag.
+ *
+ * Reviews and complaints are erased here rather than left to cascade, for two
+ * reasons: they are **personal data** — somebody's account of what happened to
+ * them, and their name attached to it — so an erasure request must actually
+ * remove them; and the append-only triggers would otherwise refuse the cascade
+ * and make erasing a technician impossible. Ledger rows are the deliberate
+ * exception: money is not personal data, and only its link to the person is cut.
  */
 export async function purgeBookingData(prisma: PrismaClient, userIds: string[]): Promise<void> {
   if (userIds.length === 0) return;
 
   await prisma.$transaction(async (tx) => {
     await tx.$executeRawUnsafe(`SET LOCAL "fixbridge.allow_kyc_purge" = 'on'`);
+
+    // Reviews first: a review report references one, and both cascade from the
+    // user, which would trip the append-only trigger.
+    await tx.$executeRaw`
+      DELETE FROM review_reports
+      WHERE reporter_user_id = ANY(${userIds}::uuid[])
+         OR review_id IN (
+           SELECT id FROM reviews
+           WHERE author_user_id = ANY(${userIds}::uuid[])
+              OR subject_user_id = ANY(${userIds}::uuid[])
+         )
+    `;
+
+    await tx.$executeRaw`
+      DELETE FROM reviews
+      WHERE author_user_id = ANY(${userIds}::uuid[])
+         OR subject_user_id = ANY(${userIds}::uuid[])
+    `;
+
+    await tx.$executeRaw`
+      DELETE FROM complaints
+      WHERE raised_by_user_id = ANY(${userIds}::uuid[])
+         OR against_user_id = ANY(${userIds}::uuid[])
+    `;
+
+    await tx.$executeRaw`
+      DELETE FROM trust_score_snapshots WHERE provider_id = ANY(${userIds}::uuid[])
+    `;
     // Slots reference bookings; release them before the bookings disappear.
     await tx.$executeRaw`
       UPDATE slots SET status = 'open', booking_id = NULL

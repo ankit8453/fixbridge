@@ -7,6 +7,8 @@ import { enforceSearchRateLimit } from '../search/service';
 import { bookingQuotationRouter } from '../quotations/routes';
 import { declineWorkSchema } from '../quotations/types';
 import { bookingPaymentRouter } from '../payments/routes';
+import { bookingReviewRouter } from '../reviews/routes';
+import { bookingComplaintRouter } from '../complaints/routes';
 import * as service from './service';
 import * as slots from './slots-service';
 import {
@@ -37,6 +39,8 @@ router.use(authenticate);
 // booking, mounted before the `/:bookingId` routes so the more specific path wins.
 router.use('/:bookingId/quotations', bookingQuotationRouter);
 router.use('/:bookingId/payments', bookingPaymentRouter);
+router.use('/:bookingId/reviews', bookingReviewRouter);
+router.use('/:bookingId/complaints', bookingComplaintRouter);
 
 /* ---- customer ---- */
 

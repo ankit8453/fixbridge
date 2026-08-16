@@ -52,6 +52,44 @@
     "approvedQuotation": "Agreed estimate",
     "priceCard": "Listed price"
   },
+  "reviews": {
+    "thanks": "Thank you. Your rating helps other people choose.",
+    "reported": "Thank you. Our team will look at this review.",
+    "hidden": "Review hidden. Ratings have been recalculated."
+  },
+  "complaints": {
+    "raised": "Complaint registered. Our team will look into it.",
+    "resolved": "Complaint resolved.",
+    "dismissed": "Complaint closed with no action."
+  },
+  "trust": {
+    "component": {
+      "rating": "Customer ratings",
+      "acceptance": "Jobs accepted",
+      "reliability": "Jobs finished",
+      "complaints": "Complaint record",
+      "recency": "Recent activity"
+    },
+    "reason": {
+      "rating": "Based on what customers rated you, with recent jobs counting for more.",
+      "noRatings": "No customer ratings yet.",
+      "acceptance": "How often you accept the jobs sent to you.",
+      "noAcceptance": "Not enough requests yet to measure this.",
+      "reliability": "Of the jobs you accepted, how many you finished.",
+      "noJobs": "No accepted jobs yet.",
+      "complaints": "Complaints upheld against you reduce this.",
+      "noComplaints": "No complaints upheld against you.",
+      "recency": "How recently you finished a paid job.",
+      "noActivity": "No finished jobs yet."
+    },
+    "suspension": {
+      "lowTrust": "Your score has been below the required level over several jobs.",
+      "repeatCancellation": "You cancelled too many accepted jobs in a short period.",
+      "severeComplaint": "A serious complaint against you was upheld.",
+      "safetyPending": "A safety complaint has been reported. Our team is reviewing it.",
+      "opsManual": "Your account has been paused by our team. Please contact support."
+    }
+  },
   "payments": {
     "orderReady": "Ready to pay.",
     "confirming": "Payment received. We are confirming it with the bank.",
@@ -154,6 +192,24 @@
       "otpInvalid": "That code is not correct. Please check with the customer.",
       "otpLocked": "Too many wrong codes. Please contact support to continue.",
       "windowTooWide": "Please ask for a shorter date range."
+    },
+    "reviews": {
+      "notFound": "We could not find that review.",
+      "notCompleted": "You can rate a job once it is finished.",
+      "notPaid": "You can rate a job once it has been paid for.",
+      "windowClosed": "The time to rate this job has passed.",
+      "alreadyExists": "You have already rated this job.",
+      "badTags": "Some of those options do not apply here."
+    },
+    "complaints": {
+      "notFound": "We could not find that complaint.",
+      "tooEarly": "You can raise a complaint once the technician has reached you.",
+      "windowClosed": "The time to raise a complaint on this job has passed.",
+      "alreadyDecided": "This complaint has already been decided.",
+      "invalidTransition": "That is not possible for this complaint right now."
+    },
+    "trust": {
+      "notSuspended": "That technician is not suspended."
     },
     "payments": {
       "notFound": "We could not find that payment.",

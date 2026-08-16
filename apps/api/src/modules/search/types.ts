@@ -106,7 +106,12 @@ export interface SearchAvailabilityWindow {
 export interface SearchResultCard {
   providerId: string;
   displayName: string | null;
+  /** `VERIFIED`, or a `SILVER`/`GOLD` band earned on trust. Phase 9. */
   badge: Badge;
+  /** Null until somebody has rated them — never a fabricated default. */
+  rating: { average: number; count: number } | null;
+  /** Jobs done and paid for. The number a customer actually weighs. */
+  jobsCompleted: number;
   yearsExperience: number | null;
   /** Rounded to 0.1 km — precise enough to choose by, too coarse to triangulate. */
   distanceKm: number;

@@ -7,21 +7,30 @@ works here, [verification.md](verification.md) for what a badge means.
 
 ## The gates come first
 
-Before any ranking, distance or text matching, a provider must pass three
+Before any ranking, distance or text matching, a provider must pass four
 filters. There is **no query parameter, config value or role that relaxes them**:
 
 ```sql
 pp.is_listed = true                              -- profile completeness (Phase 3)
 AND u.status = 'active'                          -- account in good standing
 AND pvs.badge IN ('VERIFIED', 'SILVER', 'GOLD')  -- verification (Phase 4)
+AND (pp.suspended_until IS NULL
+     OR pp.suspended_until <= NOW())             -- not suspended (Phase 9)
 ```
 
 This is where the marketplace's promise actually lives. Everything else in this
 document is about ordering the survivors.
 
-The seeded dataset exists to prove it: 20 technicians, 17 listed, 12 verified. A
-test asserts search returns exactly those 12 and that the other 8 never appear
-under any combination of parameters.
+The suspension check is **lazy** — compared against the clock rather than cleared
+by a job — so a suspension ends the moment it ends. Nothing to schedule, nothing
+to miss, and no window in which somebody stays unlisted because a cron did not
+run. See [trust.md](trust.md#suspension).
+
+The seeded dataset exists to prove it: 20 technicians, 17 listed, 12 verified,
+one of them suspended. A test derives the eligible set from the database and
+asserts search returns exactly it — and a second test names the suspended
+technician specifically, to prove their absence is the suspension rather than
+something incidental.
 
 ---
 
@@ -148,8 +157,7 @@ code change.
 
 ### Missing signals default to the midpoint
 
-`trustScore` (Phase 9) and any provider without enough booking history default to
-**0.5**.
+Any provider without enough history for a given signal defaults to **0.5**.
 
 The midpoint is deliberate. Zero would push everyone down equally, making the
 weight meaningless; one would make everyone look perfect until real data arrived
@@ -157,10 +165,12 @@ and then drop everyone's score at once. The midpoint means a technician with a
 0.8 acceptance rate and one with no record yet sit near each other rather than at
 opposite ends of the list.
 
-Phase 6 proved the design out: acceptance rate went from a documented `null` to a
-real number without this file's scorer changing at all — the phase added data,
-not a new scoring interface. `RankInput` still carries `trustScore` for Phase 9
-to fill the same way.
+**Both placeholder signals are now real, and neither needed this file to change.**
+Acceptance rate went live in Phase 6, trust score in Phase 9; each phase added
+data rather than a new scoring interface. `trustScore` arrives as the 0–100 score
+divided by 100, and stays null until a technician has any history at all — which
+is what keeps a newcomer at the midpoint rather than at the bottom. The formula
+behind it is in [trust.md](trust.md).
 
 ### Ranking runs in TypeScript, not SQL
 
@@ -252,9 +262,14 @@ of, and they should not need an engineer.
 `GET /api/v1/categories` now includes `providerCount` per category, so the app
 can grey out categories that would return nothing.
 
-The count applies **the same three gates search does**, so a category showing
+The count applies **the same four gates search does**, so a category showing
 "3 available" cannot return zero results. A cluster's count is the sum of its
 services.
+
+One caveat, accepted rather than engineered away: the cache means a **freshly
+suspended** technician lingers in a count for up to five minutes after they have
+already vanished from search. The count is a browsing hint; the search itself is
+always correct.
 
 Cached in Redis for 5 minutes with **no invalidation**. That is a deliberate
 trade: the number is a browsing hint, not a promise, and a provider appearing

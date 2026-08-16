@@ -151,10 +151,15 @@ export async function searchProviders(
       badge: row.badge,
       yearsExperience: row.yearsExperience,
       completenessScore: row.completenessScore,
-      // Trust score is Phase 9; neutral until then. Acceptance rate is real from
-      // Phase 6, but stays null below the small-sample floor so a technician with
-      // three jobs is not ranked on noise.
-      trustScore: null,
+      /**
+       * Both real from Phase 9.
+       *
+       * `trustScore` is 0–100 in the database and 0–1 to the scorer. It stays
+       * null until a technician has any history at all, which is what keeps a
+       * newcomer at the neutral default rather than at the bottom — the same
+       * reasoning the acceptance rate's small-sample floor already followed.
+       */
+      trustScore: row.trustScore === null ? null : row.trustScore / 100,
       acceptanceRate: row.acceptanceRate,
       priceBandPosition: positions[index] ?? null,
     };
@@ -198,6 +203,10 @@ export async function searchProviders(
       slug: skill.slug,
       name: t(skill.nameKey),
     })),
+    // Phase 9: what other customers thought, and how much work they have done.
+    // Nulls stay null — "no rating yet" is honest, and a fabricated 0 or 5 is not.
+    rating: row.avgStars === null ? null : { average: row.avgStars, count: row.reviewCount ?? 0 },
+    jobsCompleted: row.settledJobsCount ?? 0,
     startingPrice:
       row.startingPricePaise === null
         ? null

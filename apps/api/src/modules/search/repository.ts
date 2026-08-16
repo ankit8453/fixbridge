@@ -30,6 +30,11 @@ export interface ProviderCandidateRow {
   distanceMetres: number;
   /** From `provider_stats`. Null below the small-sample floor — see bookings/stats. */
   acceptanceRate: number | null;
+  /** 0–100, or null until there is any history. Phase 9. */
+  trustScore: number | null;
+  avgStars: number | null;
+  reviewCount: number | null;
+  settledJobsCount: number | null;
   startingPricePaise: number | null;
   skills: { categoryId: number; slug: string; nameKey: string }[] | null;
   nextWindow: { dayOfWeek: number; startMinute: number; endMinute: number } | null;
@@ -44,9 +49,10 @@ export interface ProviderCandidateRow {
  * match count — is a correlated subquery here instead. That trades a slightly
  * denser statement for the absence of an N+1 across a public endpoint.
  *
- * The three gates are non-negotiable and have no config to bypass them:
- * `is_listed` (profile completeness), `badge` (verification), and the user being
- * active. A provider missing any one is invisible to search, full stop.
+ * The four gates are non-negotiable and have no config to bypass them:
+ * `is_listed` (profile completeness), `badge` (verification), the user being
+ * active, and not being suspended (Phase 9). A provider missing any one is
+ * invisible to search, full stop.
  */
 export async function searchProviders(
   prisma: PrismaClient,
@@ -81,8 +87,13 @@ export async function searchProviders(
         -- LEFT JOIN, and the rate is nullable even when the row exists: a
         -- provider with no stats row and one below the sample floor mean the
         -- same thing to the scorer, and both must fall back to neutral rather
-        -- than dropping out of the result set.
+        -- than dropping out of the result set. The same is true of every Phase 9
+        -- column below — a technician nobody has rated yet is unrated, not bad.
         pst.acceptance_rate   AS "acceptanceRate",
+        pst.trust_score       AS "trustScore",
+        pst.avg_stars         AS "avgStars",
+        pst.review_count      AS "reviewCount",
+        pst.settled_jobs_count AS "settledJobsCount",
         ST_Distance(pp.base_location, c.point) AS "distanceMetres"
       FROM provider_profiles pp
       JOIN users u ON u.id = pp.user_id
@@ -93,6 +104,15 @@ export async function searchProviders(
         AND pp.is_listed = true
         AND u.status = 'active'
         AND pvs.badge IN ('VERIFIED', 'SILVER', 'GOLD')
+        /**
+         * The fourth gate, added in Phase 9: nobody suspended.
+         *
+         * Checked **lazily** against the clock rather than by a job that clears
+         * the column, so a suspension ends the moment it ends. There is nothing
+         * to schedule, nothing to miss, and no window in which somebody is
+         * unlisted because a cron did not run.
+         */
+        AND (pp.suspended_until IS NULL OR pp.suspended_until <= NOW())
         AND pp.base_location IS NOT NULL
         -- The radius belongs to the provider: they said how far they travel.
         AND ST_DWithin(pp.base_location, c.point, pp.service_radius_km * 1000)
@@ -329,6 +349,11 @@ export function countSearchableProvidersByCategory(
       AND pp.is_listed = true
       AND u.status = 'active'
       AND pvs.badge IN ('VERIFIED', 'SILVER', 'GOLD')
+      -- The same four gates the search itself applies, or a category would
+      -- promise technicians the search cannot deliver. The five-minute cache
+      -- still means a freshly-suspended one lingers in the count for a few
+      -- minutes; that is accepted, and documented in docs/search.md.
+      AND (pp.suspended_until IS NULL OR pp.suspended_until <= NOW())
     GROUP BY ps.category_id
   `;
 }

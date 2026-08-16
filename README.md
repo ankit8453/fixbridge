@@ -11,11 +11,12 @@ Pradesh**, then the rest of India.
 > value of `APP_NAME`. Every user-facing string comes from `APP_NAME` or an i18n
 > key — never a literal.
 
-**Status:** Phase 8 of 14 complete — scaffold, health, identity/auth, profiles,
+**Status:** Phase 9 of 14 complete — scaffold, health, identity/auth, profiles,
 the verification engine, geo-search with Hinglish resolution, the booking engine
 with slots and a physical start/end handshake, itemised quotations that agree the
-price in writing before the work proceeds, and a double-entry ledger collecting
-that price over UPI or cash.
+price in writing before the work proceeds, a double-entry ledger collecting that
+price over UPI or cash, and an explainable trust score driving badges, ranking
+and suspension.
 
 ---
 
@@ -125,6 +126,9 @@ modules/         one folder per domain — routes.ts · service.ts · repository
   bookings/      slots, booking state machine, handshake OTPs, expiry, stats
   quotations/    itemised versioned quotes, visit-fee config, payable computation
   payments/      double-entry ledger, gateway adapter, webhooks, refunds, payouts
+  reviews/       two-way reviews, public aggregates, moderation
+  complaints/    disputes, ops queue, the synchronous safety path
+  trust/         the trust score, badge bands, suspension rules
 types/           Express request augmentation
 ```
 
@@ -132,13 +136,15 @@ Every other domain module is a stub until its phase. `repository.ts` is the only
 file in a module allowed to touch the database — and the only place raw SQL may
 appear.
 
-Five design notes worth reading before touching those areas:
+Six design notes worth reading before touching those areas:
 [docs/geo-notes.md](docs/geo-notes.md) for PostGIS columns with Prisma,
 [docs/verification.md](docs/verification.md) for the append-only KYC model,
 [docs/search.md](docs/search.md) for the ranking formula and query plan, and
 [docs/bookings.md](docs/bookings.md) for the double-booking constraint, the
 booking state machine and the quotation lifecycle, and
-[docs/money.md](docs/money.md) for the ledger, webhook idempotency and payouts.
+[docs/money.md](docs/money.md) for the ledger, webhook idempotency and payouts,
+and [docs/trust.md](docs/trust.md) for the trust formula, badge bands and
+suspension.
 
 ### Phase plan
 
@@ -152,7 +158,7 @@ booking state machine and the quotation lifecycle, and
 | 6 ✅  | Bookings — slots, lifecycle, start/end OTP handshake, outbox           |
 | 7 ✅  | Quotations — itemised, versioned, in-app approval, frozen payable      |
 | 8 ✅  | Payments — double-entry ledger, UPI + cash rails, payouts              |
-| 9     | Reviews — two-way ratings                                              |
+| 9 ✅  | Reviews, complaints & the trust engine — badges, auto-suspension       |
 | 10    | Notifications — WhatsApp Business API / push adapters                  |
 | 11    | Admin console                                                          |
 | 12–13 | Mobile apps                                                            |
@@ -194,62 +200,74 @@ All configuration is environment variables, validated with Zod at startup —
 a bad or missing value fails the boot with a message naming the field, never at
 runtime. See [apps/api/.env.example](apps/api/.env.example).
 
-| Variable                           | Default         | Notes                                                                                              |
-| ---------------------------------- | --------------- | -------------------------------------------------------------------------------------------------- |
-| `APP_NAME`                         | `fixbridge`     | The only place a name lives.                                                                       |
-| `NODE_ENV`                         | `development`   | `development` \| `test` \| `production`                                                            |
-| `PORT`                             | `3000`          |                                                                                                    |
-| `LOG_LEVEL`                        | `info`          | pino level, or `silent`                                                                            |
-| `DATABASE_URL`                     | —               | **required**, `postgres:`/`postgresql:`                                                            |
-| `REDIS_URL`                        | —               | **required**, `redis:`/`rediss:`                                                                   |
-| `SHUTDOWN_TIMEOUT_MS`              | `10000`         | Grace period before a forced exit                                                                  |
-| `TRUST_PROXY_HOPS`                 | `0`             | Proxy hops to trust for `X-Forwarded-For`                                                          |
-| `JWT_SECRET`                       | —               | **required**, at least 32 chars. Rejected in production if left at the `.env.example` placeholder. |
-| `JWT_ACCESS_TTL_SECONDS`           | `900`           | Access token lifetime                                                                              |
-| `REFRESH_TOKEN_TTL_DAYS`           | `30`            | Refresh token lifetime                                                                             |
-| `OTP_TTL_SECONDS`                  | `300`           | How long a code stays valid                                                                        |
-| `OTP_MAX_VERIFY_ATTEMPTS`          | `5`             | Wrong guesses before the code is destroyed                                                         |
-| `OTP_RATE_WINDOW_SECONDS`          | `900`           | Rate-limit window                                                                                  |
-| `OTP_MAX_PER_PHONE`                | `3`             | OTP requests per phone per window                                                                  |
-| `OTP_MAX_PER_IP`                   | `5`             | OTP requests per IP per window                                                                     |
-| `AUTH_FIXED_OTP`                   | unset           | Dev-only bypass. **Refused in production.**                                                        |
-| `AUTH_FIXED_OTP_PHONE_PREFIX`      | `+9199999`      | Which phones the bypass applies to                                                                 |
-| `SEED_ADMIN_PHONE`                 | `+919999900001` | Admin account created by `npm run seed`                                                            |
-| `PROVIDER_LISTING_THRESHOLD`       | `80`            | Completeness score a technician needs to appear in search                                          |
-| `MAX_ADDRESSES_PER_USER`           | `5`             | Saved addresses per customer                                                                       |
-| `DEFAULT_CITY_ID`                  | `1`             | City used when a request omits `cityId`                                                            |
-| `OTP_RESEND_COOLDOWN_SECONDS`      | `60`            | Minimum gap between OTP requests for one phone                                                     |
-| `S3_ENDPOINT`                      | unset           | S3-compatible endpoint. MinIO locally; omit for real AWS S3.                                       |
-| `S3_ACCESS_KEY_ID`                 | —               | **required**                                                                                       |
-| `S3_SECRET_ACCESS_KEY`             | —               | **required**                                                                                       |
-| `S3_BUCKET`                        | `fixbridge-kyc` | Private bucket for KYC documents. Never world-readable.                                            |
-| `S3_FORCE_PATH_STYLE`              | `true`          | MinIO needs path-style; real S3 prefers virtual-host style                                         |
-| `STORAGE_UPLOAD_URL_TTL_SECONDS`   | `300`           | Pre-signed PUT lifetime                                                                            |
-| `STORAGE_DOWNLOAD_URL_TTL_SECONDS` | `300`           | Pre-signed GET lifetime                                                                            |
-| `STORAGE_MAX_UPLOAD_BYTES`         | `10485760`      | 10 MB. Signed into the URL, so storage enforces it.                                                |
-| `SEED_OPS_PHONE`                   | `+919999900002` | Ops-only reviewer account created by `npm run seed`                                                |
-| `SLOT_HORIZON_DAYS`                | `14`            | How far ahead slots are materialised                                                               |
-| `SLOT_INCREMENT_MINUTES`           | `60`            | Slot length. A shorter template window produces nothing.                                           |
-| `BOOKING_REQUEST_TTL_MINUTES`      | `15`            | Unanswered requests expire and release their slot                                                  |
-| `BOOKING_VISIT_FEE_PAISE`          | `4900`          | Snapshotted onto each booking. Stored, never charged — Phase 8.                                    |
-| `BOOKING_OTP_LENGTH`               | `4`             | Handshake code length. Spoken aloud, in person.                                                    |
-| `BOOKING_OTP_MAX_ATTEMPTS`         | `5`             | Then the booking locks, and stays locked                                                           |
-| `OUTBOX_POLL_INTERVAL_MS`          | `2000`          | Dispatcher poll interval                                                                           |
-| `OUTBOX_BATCH_SIZE`                | `50`            | Events claimed per pass                                                                            |
-| `OUTBOX_MAX_ATTEMPTS`              | `8`             | Then the event is parked, not dropped                                                              |
-| `OUTBOX_BACKOFF_BASE_SECONDS`      | `5`             | Retry N waits `base × 2^(N−1)`, capped                                                             |
-| `OUTBOX_BACKOFF_MAX_SECONDS`       | `3600`          | Backoff ceiling                                                                                    |
-| `JOBS_ENABLED`                     | `true`          | In-process background jobs. Off in tests.                                                          |
-| `BOOKING_EXPIRY_JOB_INTERVAL_MS`   | `60000`         | How often stale requests are swept                                                                 |
-| `SLOT_HORIZON_JOB_INTERVAL_MS`     | `21600000`      | How often the horizon is extended. Also runs once at boot.                                         |
-| `PAYMENT_GATEWAY`                  | `fake`          | `fake` \| `razorpay`. **Refused in production.**                                                   |
-| `RAZORPAY_KEY_ID`                  | unset           | Required when the gateway is `razorpay`. Never logged.                                             |
-| `RAZORPAY_KEY_SECRET`              | unset           | Required. Signs checkout callbacks.                                                                |
-| `RAZORPAY_WEBHOOK_SECRET`          | unset           | Required. Signs webhook bodies.                                                                    |
-| `COMMISSION_DEFAULT_BPS`           | `1200`          | 12%. Last rung of the service → cluster → city → global chain.                                     |
-| `COLLECT_FEE_AT_BOOKING`           | `false`         | Upfront visit fee. Built and tested; off for the pilot.                                            |
-| `PAYOUT_MINIMUM_PAISE`             | `10000`         | ₹100. Below this a payout rolls into the next batch.                                               |
-| `WALLET_LEDGER_PAGE_SIZE`          | `50`            | Ledger lines returned by the wallet endpoint                                                       |
+| Variable                            | Default         | Notes                                                                                              |
+| ----------------------------------- | --------------- | -------------------------------------------------------------------------------------------------- |
+| `APP_NAME`                          | `fixbridge`     | The only place a name lives.                                                                       |
+| `NODE_ENV`                          | `development`   | `development` \| `test` \| `production`                                                            |
+| `PORT`                              | `3000`          |                                                                                                    |
+| `LOG_LEVEL`                         | `info`          | pino level, or `silent`                                                                            |
+| `DATABASE_URL`                      | —               | **required**, `postgres:`/`postgresql:`                                                            |
+| `REDIS_URL`                         | —               | **required**, `redis:`/`rediss:`                                                                   |
+| `SHUTDOWN_TIMEOUT_MS`               | `10000`         | Grace period before a forced exit                                                                  |
+| `TRUST_PROXY_HOPS`                  | `0`             | Proxy hops to trust for `X-Forwarded-For`                                                          |
+| `JWT_SECRET`                        | —               | **required**, at least 32 chars. Rejected in production if left at the `.env.example` placeholder. |
+| `JWT_ACCESS_TTL_SECONDS`            | `900`           | Access token lifetime                                                                              |
+| `REFRESH_TOKEN_TTL_DAYS`            | `30`            | Refresh token lifetime                                                                             |
+| `OTP_TTL_SECONDS`                   | `300`           | How long a code stays valid                                                                        |
+| `OTP_MAX_VERIFY_ATTEMPTS`           | `5`             | Wrong guesses before the code is destroyed                                                         |
+| `OTP_RATE_WINDOW_SECONDS`           | `900`           | Rate-limit window                                                                                  |
+| `OTP_MAX_PER_PHONE`                 | `3`             | OTP requests per phone per window                                                                  |
+| `OTP_MAX_PER_IP`                    | `5`             | OTP requests per IP per window                                                                     |
+| `AUTH_FIXED_OTP`                    | unset           | Dev-only bypass. **Refused in production.**                                                        |
+| `AUTH_FIXED_OTP_PHONE_PREFIX`       | `+9199999`      | Which phones the bypass applies to                                                                 |
+| `SEED_ADMIN_PHONE`                  | `+919999900001` | Admin account created by `npm run seed`                                                            |
+| `PROVIDER_LISTING_THRESHOLD`        | `80`            | Completeness score a technician needs to appear in search                                          |
+| `MAX_ADDRESSES_PER_USER`            | `5`             | Saved addresses per customer                                                                       |
+| `DEFAULT_CITY_ID`                   | `1`             | City used when a request omits `cityId`                                                            |
+| `OTP_RESEND_COOLDOWN_SECONDS`       | `60`            | Minimum gap between OTP requests for one phone                                                     |
+| `S3_ENDPOINT`                       | unset           | S3-compatible endpoint. MinIO locally; omit for real AWS S3.                                       |
+| `S3_ACCESS_KEY_ID`                  | —               | **required**                                                                                       |
+| `S3_SECRET_ACCESS_KEY`              | —               | **required**                                                                                       |
+| `S3_BUCKET`                         | `fixbridge-kyc` | Private bucket for KYC documents. Never world-readable.                                            |
+| `S3_FORCE_PATH_STYLE`               | `true`          | MinIO needs path-style; real S3 prefers virtual-host style                                         |
+| `STORAGE_UPLOAD_URL_TTL_SECONDS`    | `300`           | Pre-signed PUT lifetime                                                                            |
+| `STORAGE_DOWNLOAD_URL_TTL_SECONDS`  | `300`           | Pre-signed GET lifetime                                                                            |
+| `STORAGE_MAX_UPLOAD_BYTES`          | `10485760`      | 10 MB. Signed into the URL, so storage enforces it.                                                |
+| `SEED_OPS_PHONE`                    | `+919999900002` | Ops-only reviewer account created by `npm run seed`                                                |
+| `SLOT_HORIZON_DAYS`                 | `14`            | How far ahead slots are materialised                                                               |
+| `SLOT_INCREMENT_MINUTES`            | `60`            | Slot length. A shorter template window produces nothing.                                           |
+| `BOOKING_REQUEST_TTL_MINUTES`       | `15`            | Unanswered requests expire and release their slot                                                  |
+| `BOOKING_VISIT_FEE_PAISE`           | `4900`          | Snapshotted onto each booking. Stored, never charged — Phase 8.                                    |
+| `BOOKING_OTP_LENGTH`                | `4`             | Handshake code length. Spoken aloud, in person.                                                    |
+| `BOOKING_OTP_MAX_ATTEMPTS`          | `5`             | Then the booking locks, and stays locked                                                           |
+| `OUTBOX_POLL_INTERVAL_MS`           | `2000`          | Dispatcher poll interval                                                                           |
+| `OUTBOX_BATCH_SIZE`                 | `50`            | Events claimed per pass                                                                            |
+| `OUTBOX_MAX_ATTEMPTS`               | `8`             | Then the event is parked, not dropped                                                              |
+| `OUTBOX_BACKOFF_BASE_SECONDS`       | `5`             | Retry N waits `base × 2^(N−1)`, capped                                                             |
+| `OUTBOX_BACKOFF_MAX_SECONDS`        | `3600`          | Backoff ceiling                                                                                    |
+| `JOBS_ENABLED`                      | `true`          | In-process background jobs. Off in tests.                                                          |
+| `BOOKING_EXPIRY_JOB_INTERVAL_MS`    | `60000`         | How often stale requests are swept                                                                 |
+| `SLOT_HORIZON_JOB_INTERVAL_MS`      | `21600000`      | How often the horizon is extended. Also runs once at boot.                                         |
+| `PAYMENT_GATEWAY`                   | `fake`          | `fake` \| `razorpay`. **Refused in production.**                                                   |
+| `RAZORPAY_KEY_ID`                   | unset           | Required when the gateway is `razorpay`. Never logged.                                             |
+| `RAZORPAY_KEY_SECRET`               | unset           | Required. Signs checkout callbacks.                                                                |
+| `RAZORPAY_WEBHOOK_SECRET`           | unset           | Required. Signs webhook bodies.                                                                    |
+| `COMMISSION_DEFAULT_BPS`            | `1200`          | 12%. Last rung of the service → cluster → city → global chain.                                     |
+| `COLLECT_FEE_AT_BOOKING`            | `false`         | Upfront visit fee. Built and tested; off for the pilot.                                            |
+| `PAYOUT_MINIMUM_PAISE`              | `10000`         | ₹100. Below this a payout rolls into the next batch.                                               |
+| `WALLET_LEDGER_PAGE_SIZE`           | `50`            | Ledger lines returned by the wallet endpoint                                                       |
+| `REVIEW_WINDOW_DAYS`                | `7`             | How long after payment a job can be rated                                                          |
+| `COMPLAINT_WINDOW_DAYS`             | `14`            | How long after a job ends a complaint can be raised                                                |
+| `TRUST_WEIGHT_*`                    | 35/20/20/15/10  | Rating · acceptance · reliability · complaints · recency. Tunable without a deploy.                |
+| `TRUST_RATING_HALF_LIFE_DAYS`       | `90`            | A review's influence halves after this                                                             |
+| `TRUST_RECENCY_HALF_LIFE_DAYS`      | `90`            | "Recently active" halves after this many idle days                                                 |
+| `TRUST_COMPLAINT_ZERO_AT`           | `6`             | Weighted complaint load at which that component hits zero                                          |
+| `BADGE_SILVER_MIN_SCORE` / `_JOBS`  | `70` / `10`     | SILVER needs both                                                                                  |
+| `BADGE_GOLD_MIN_SCORE` / `_JOBS`    | `85` / `30`     | GOLD needs both                                                                                    |
+| `SUSPEND_TRUST_BELOW` / `_MIN_JOBS` | `30` / `10`     | Low-trust suspension, only with enough jobs to mean it                                             |
+| `SUSPEND_CANCELLATION_COUNT`        | `3`             | Provider cancellations inside the window                                                           |
+| `SUSPEND_CANCELLATION_WINDOW_DAYS`  | `7`             | …the window                                                                                        |
+| `SUSPEND_DURATION_DAYS`             | `7`             | How long an automatic suspension lasts before it lapses                                            |
 
 > `TRUST_PROXY_HOPS` is a security control, not a formality. Trusting
 > `X-Forwarded-For` when nothing sets it lets any caller spoof their IP and walk
@@ -311,6 +329,16 @@ sensible default — override `POSTGRES_PORT` if 5432 is already taken locally.
 - **The gateway webhook is the only source of payment truth.** A browser callback
   may optimistically show success; it never records it. See
   [docs/money.md](docs/money.md).
+- **Reviews are gated on money.** A rating can only be written for a job that was
+  done _and paid for_, which removes the whole class of fake reviews. Customer →
+  provider reviews are public; provider → customer reviews are internal in v1 and
+  appear in no public response.
+- **The trust score must be explainable.** Every component reports its raw value,
+  weight and contribution, and `GET /providers/me/trust` returns the lot — because
+  "why is my score 62?" is a question about somebody's livelihood. Weights are
+  config. See [docs/trust.md](docs/trust.md).
+- **Suspension is a separate axis from verification**, and reversible. A badge
+  says who somebody is; suspension says how they have behaved lately.
 - **Domain events are written in the same transaction as the state change** — a
   transactional outbox, not a broker call. Delivery is at-least-once, so **every
   consumer must be idempotent**.

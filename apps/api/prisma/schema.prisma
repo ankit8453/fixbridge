@@ -66,14 +66,20 @@ model User {
   createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  defaultCity     City?            @relation(fields: [defaultCityId], references: [id], onDelete: SetNull)
-  roles           UserRole[]
-  refreshTokens   RefreshToken[]
-  customerProfile CustomerProfile?
-  providerProfile ProviderProfile?
-  addresses       Address[]
-  bookings        Booking[]        @relation("CustomerBookings")
-  quotations      Quotation[]
+  defaultCity        City?            @relation(fields: [defaultCityId], references: [id], onDelete: SetNull)
+  roles              UserRole[]
+  refreshTokens      RefreshToken[]
+  customerProfile    CustomerProfile?
+  providerProfile    ProviderProfile?
+  addresses          Address[]
+  bookings           Booking[]        @relation("CustomerBookings")
+  quotations         Quotation[]
+  reviewsWritten     Review[]         @relation("ReviewsWritten")
+  reviewsReceived    Review[]         @relation("ReviewsReceived")
+  reviewReports      ReviewReport[]
+  complaintsRaised   Complaint[]      @relation("ComplaintsRaised")
+  complaintsAgainst  Complaint[]      @relation("ComplaintsAgainst")
+  complaintsResolved Complaint[]      @relation("ComplaintsResolved")
 
   @@index([status])
   @@map("users")
@@ -280,8 +286,22 @@ model ProviderProfile {
   isListed           Boolean                                @default(false) @map("is_listed")
   /// True when ops keyed the data in on the technician's behalf.
   assistedOnboarding Boolean                                @default(false) @map("assisted_onboarding")
-  createdAt          DateTime                               @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt          DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  /**
+   * Suspension — a separate axis from verification, and reversible.
+   * A suspended technician is hidden from search but keeps their badge: the
+   * badge says who they are and the ladder that proved it, suspension says how
+   * they have behaved lately. Conflating the two would mean a technician who
+   * served a suspension had to re-upload their Aadhaar.
+   * Expiry is checked **lazily** in the search predicate (`suspended_until <=
+   * now()`) rather than by a job, so a suspension ends the moment it ends with
+   * nothing to schedule and nothing to go wrong at 2am.
+   */
+  suspendedUntil   DateTime?         @map("suspended_until") @db.Timestamptz(3)
+  suspendedAt      DateTime?         @map("suspended_at") @db.Timestamptz(3)
+  suspensionReason SuspensionReason? @map("suspension_reason")
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   user              User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
   city              City                           @relation(fields: [cityId], references: [id], onDelete: Restrict)
@@ -295,9 +315,28 @@ model ProviderProfile {
   bookings          Booking[]
   stats             ProviderStats?
   payouts           Payout[]
+  trustSnapshots    TrustScoreSnapshot[]
 
   @@index([cityId, isListed])
+  @@index([suspendedUntil])
   @@map("provider_profiles")
+}
+
+/// Why a technician is suspended. Recorded so ops and the technician are told
+/// the same thing, and so Phase 11 can list suspensions by cause.
+enum SuspensionReason {
+  /// Trust score fell below the floor with enough jobs to mean it.
+  auto_low_trust
+  /// Repeated provider-side cancellations inside the rolling window.
+  auto_repeat_cancellation
+  /// A complaint was resolved as severe.
+  complaint_severe
+  /// A safety complaint was raised. Immediate, pending an ops decision.
+  safety_pending_review
+  /// Ops acting directly. Phase 11.
+  ops_manual
+
+  @@map("suspension_reason")
 }
 
 /// Leaf categories only — a technician does "motor rewinding", not "Electrical".
@@ -589,6 +628,13 @@ enum BookingEventType {
   quote_rejected
   /// The customer ended the job rather than accept a price. This one does move.
   work_declined
+  /// Complaints. Recorded on the booking because its timeline is the single
+  /// narrative of what happened — a dispute read six months later should not
+  /// need two tables joined by hand. None of these move the booking.
+  complaint_opened
+  complaint_in_review
+  complaint_resolved
+  complaint_dismissed
 
   @@map("booking_event_type")
 }
@@ -656,6 +702,8 @@ model Booking {
   quotations Quotation[]
   payments   Payment[]
   journals   LedgerJournal[]
+  reviews    Review[]
+  complaints Complaint[]
 
   @@index([customerId, createdAt])
   @@index([providerId, createdAt])
@@ -790,6 +838,192 @@ model QuotationItem {
 
   @@index([quotationId])
   @@map("quotation_items")
+}
+
+// ---------------------------------------------------------------------------
+// Reviews, complaints & trust
+// ---------------------------------------------------------------------------
+
+/// Who is rating whom.
+///
+/// The two directions are **not** symmetric in visibility, and that asymmetry is
+/// a product decision, not an oversight — see the note on `Review`.
+enum ReviewDirection {
+  customer_to_provider
+  provider_to_customer
+
+  @@map("review_direction")
+}
+
+enum ReviewStatus {
+  published
+  /// Moderated away by ops. Excluded from every aggregate on recompute.
+  hidden
+
+  @@map("review_status")
+}
+
+/// A rating, tied to a job that was actually done and actually paid for.
+///
+/// ## Asymmetric visibility
+///
+/// **customer → provider** reviews are public. They power ranking, the profile
+/// page and the trust score.
+///
+/// **provider → customer** reviews are internal in v1: ops can see them, they
+/// feed future risk signals, and they are **never shown publicly** — not on a
+/// profile, not in an API response, not to the customer they describe. A
+/// technician needs somewhere to record "this address was not safe to enter"
+/// without it becoming a public argument with a customer who can rate them back.
+/// There is a test that fails if one ever leaks.
+model Review {
+  id        String          @id @default(uuid()) @db.Uuid
+  bookingId String          @map("booking_id") @db.Uuid
+  direction ReviewDirection
+
+  authorUserId  String @map("author_user_id") @db.Uuid
+  subjectUserId String @map("subject_user_id") @db.Uuid
+
+  stars Int
+  /// From a fixed list per direction — free-text tagging turns into a mess and
+  /// cannot be aggregated. Validated in the service, not by the database.
+  tags  String[]
+  text  String?  @db.VarChar(500)
+
+  status    ReviewStatus @default(published)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// Set when ops moderate. The row is otherwise append-only.
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  booking Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  author  User           @relation("ReviewsWritten", fields: [authorUserId], references: [id], onDelete: Cascade)
+  subject User           @relation("ReviewsReceived", fields: [subjectUserId], references: [id], onDelete: Cascade)
+  reports ReviewReport[]
+
+  @@unique([bookingId, direction])
+  @@index([subjectUserId, status, createdAt])
+  @@map("reviews")
+}
+
+/// Somebody flagged a review. Phase 11 gives ops a queue; this phase just
+/// records the flag, because a report nobody wrote down is a report nobody acts
+/// on.
+model ReviewReport {
+  id             String   @id @default(uuid()) @db.Uuid
+  reviewId       String   @map("review_id") @db.Uuid
+  reporterUserId String   @map("reporter_user_id") @db.Uuid
+  reason         String   @db.VarChar(300)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  review   Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  reporter User   @relation(fields: [reporterUserId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, reporterUserId])
+  @@index([reviewId])
+  @@map("review_reports")
+}
+
+enum ComplaintCategory {
+  overcharge
+  no_show
+  quality
+  behavior
+  cash_dispute
+  /// Handled differently from every other category — see the note on `Complaint`.
+  safety
+  other
+
+  @@map("complaint_category")
+}
+
+enum ComplaintStatus {
+  open
+  in_review
+  resolved
+  dismissed
+
+  @@map("complaint_status")
+}
+
+/// How bad it turned out to be, decided by ops when they resolve it.
+///
+/// Only set on `resolved`. A dismissed complaint has no severity because it had
+/// no substance, and counting it would punish a technician for being accused.
+enum ComplaintSeverity {
+  minor
+  major
+  severe
+
+  @@map("complaint_severity")
+}
+
+/// Something went wrong on a job, raised by either party.
+///
+/// A `safety` complaint is the one category that does not wait: it suspends the
+/// technician **synchronously**, before the response is written, pending an ops
+/// decision. Every other signal in this system is eventually consistent through
+/// the outbox, which is right for money and wrong for somebody being unsafe in a
+/// stranger's home.
+model Complaint {
+  id        String @id @default(uuid()) @db.Uuid
+  bookingId String @map("booking_id") @db.Uuid
+
+  raisedByUserId String @map("raised_by_user_id") @db.Uuid
+  againstUserId  String @map("against_user_id") @db.Uuid
+
+  category    ComplaintCategory
+  description String            @db.VarChar(1000)
+
+  status               ComplaintStatus    @default(open)
+  resolutionNote       String?            @map("resolution_note") @db.VarChar(1000)
+  severityOnResolution ComplaintSeverity? @map("severity_on_resolution")
+  resolvedByUserId     String?            @map("resolved_by_user_id") @db.Uuid
+
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(3)
+
+  booking    Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  raisedBy   User    @relation("ComplaintsRaised", fields: [raisedByUserId], references: [id], onDelete: Cascade)
+  against    User    @relation("ComplaintsAgainst", fields: [againstUserId], references: [id], onDelete: Cascade)
+  resolvedBy User?   @relation("ComplaintsResolved", fields: [resolvedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([againstUserId, status])
+  @@index([status, createdAt])
+  @@index([bookingId])
+  @@map("complaints")
+}
+
+/// Every trust-score recomputation, kept forever.
+///
+/// The whole point is **explainability**. A technician asking "why is my score
+/// 62?" gets a component-by-component answer out of `components`, and ops can
+/// see what it was last week and what changed it. A score you cannot explain is
+/// a score a technician cannot argue with, which in this market means a score
+/// they will simply stop trusting.
+///
+/// Append-only. A recompute writes a new row; it never edits the last one.
+model TrustScoreSnapshot {
+  id         String @id @default(uuid()) @db.Uuid
+  providerId String @map("provider_id") @db.Uuid
+
+  /// 0–100. Null is not stored here — a snapshot only exists once there is
+  /// something to score.
+  score      Int
+  /// Every input: raw value, normalised value, weight, contribution.
+  components Json @db.JsonB
+
+  badgeBandAfter     Badge   @map("badge_band_after")
+  /// What caused this recompute, so a jump can be traced to an event.
+  triggerTopic       String  @map("trigger_topic") @db.VarChar(120)
+  triggerAggregateId String? @map("trigger_aggregate_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  provider ProviderProfile @relation(fields: [providerId], references: [userId], onDelete: Cascade)
+
+  @@index([providerId, createdAt])
+  @@map("trust_score_snapshots")
 }
 
 // ---------------------------------------------------------------------------
@@ -1161,6 +1395,33 @@ model ProviderStats {
   acceptanceRate           Float?   @map("acceptance_rate")
   windowDays               Int      @default(30) @map("window_days")
   updatedAt                DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  /**
+   * ---- Phase 9: reviews and trust ----
+   */
+
+  /// Mean stars over **published** customer→provider reviews, one decimal.
+  /// Null until somebody has actually rated them.
+  avgStars    Float? @map("avg_stars")
+  reviewCount Int    @default(0) @map("review_count")
+  /// `{ punctual: 4, polite: 2, … }`. Frequencies, for the profile page.
+  tagCounts   Json?  @map("tag_counts") @db.JsonB
+
+  /// Jobs that reached WORK_DONE **and** were paid for. The denominator badge
+  /// bands and suspension rules are written against.
+  settledJobsCount Int       @default(0) @map("settled_jobs_count")
+  lastSettledAt    DateTime? @map("last_settled_at") @db.Timestamptz(3)
+
+  /// Complaints resolved against them, by severity. Dismissed ones count for
+  /// nothing — an accusation that did not stand up is not a record.
+  complaintsMinorCount  Int @default(0) @map("complaints_minor_count")
+  complaintsMajorCount  Int @default(0) @map("complaints_major_count")
+  complaintsSevereCount Int @default(0) @map("complaints_severe_count")
+
+  /// 0–100, or null until there is anything to score. Never 0 for "no data" —
+  /// the ranking's neutral default is what an unknown technician deserves.
+  trustScore        Int?      @map("trust_score")
+  trustScoreUpdated DateTime? @map("trust_score_updated") @db.Timestamptz(3)
 
   provider ProviderProfile @relation(fields: [providerId], references: [userId], onDelete: Cascade)
 

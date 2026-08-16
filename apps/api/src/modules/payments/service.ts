@@ -96,6 +96,16 @@ interface BillableBooking {
 }
 
 /**
+ * Statuses in which an **upfront visit fee** may be collected.
+ *
+ * Only before anybody sets off. Once the technician has arrived, the visit is
+ * part of the job and the fee belongs in the final bill — collecting it twice
+ * from two different endpoints is exactly the sort of thing nobody notices until
+ * a customer does.
+ */
+const UPFRONT_FEE_STATUSES: readonly BookingStatus[] = ['REQUESTED', 'ACCEPTED'];
+
+/**
  * Loads a booking that is ready to be paid for.
  *
  * The payable is read from the **frozen snapshot** and never recomputed. Phase 7
@@ -107,6 +117,7 @@ async function loadBillable(
   bookingId: string,
   userId: string,
   side: 'customer' | 'provider',
+  purpose: PaymentPurpose = 'final_bill',
 ): Promise<BillableBooking> {
   const booking = await deps.context.prisma.booking.findUnique({
     where: { id: bookingId },
@@ -117,6 +128,7 @@ async function loadBillable(
       providerId: true,
       categoryId: true,
       payablePaise: true,
+      visitFeePaise: true,
       category: { select: { cityId: true } },
     },
   });
@@ -132,18 +144,51 @@ async function loadBillable(
 
   const status = booking.status as BookingStatus;
 
-  if (!isBillableBooking(status)) {
-    throw new AppError(409, 'BOOKING_NOT_BILLABLE', `A booking in ${status} owes nothing`, {
+  /**
+   * Two purposes, two entirely different moments.
+   *
+   * The final bill is collected at the end, against Phase 7's frozen payable.
+   * The upfront visit fee is collected at the *start*, against the fee
+   * snapshotted at booking — before there is a payable at all, and before
+   * anybody has done anything.
+   */
+  const amountPaise =
+    purpose === 'visit_fee_upfront'
+      ? (() => {
+          if (!UPFRONT_FEE_STATUSES.includes(status)) {
+            throw new AppError(
+              409,
+              'BOOKING_NOT_BILLABLE',
+              `A visit fee cannot be collected on a booking in ${status}`,
+              { messageKey: 'errors.payments.notBillable', details: { status } },
+            );
+          }
+
+          return booking.visitFeePaise;
+        })()
+      : (() => {
+          if (!isBillableBooking(status)) {
+            throw new AppError(409, 'BOOKING_NOT_BILLABLE', `A booking in ${status} owes nothing`, {
+              messageKey: 'errors.payments.notBillable',
+              details: { status },
+            });
+          }
+
+          if (booking.payablePaise === null || booking.payablePaise <= 0) {
+            // Phase 7 writes the payable in the same transaction as the terminal
+            // status, so this cannot happen — and if it ever does, the honest
+            // answer is to stop rather than to invent an amount.
+            throw AppError.internal(`booking ${bookingId} is ${status} with no frozen payable`);
+          }
+
+          return booking.payablePaise;
+        })();
+
+  if (amountPaise <= 0) {
+    throw new AppError(409, 'BOOKING_NOT_BILLABLE', 'There is nothing to collect', {
       messageKey: 'errors.payments.notBillable',
       details: { status },
     });
-  }
-
-  if (booking.payablePaise === null || booking.payablePaise <= 0) {
-    // Phase 7 writes the payable in the same transaction as the terminal status,
-    // so this cannot happen — and if it ever does, the honest answer is to stop
-    // rather than to invent an amount.
-    throw AppError.internal(`booking ${bookingId} is ${status} with no frozen payable`);
   }
 
   return {
@@ -152,7 +197,7 @@ async function loadBillable(
     customerId: booking.customerId,
     providerId: booking.providerId,
     categoryId: booking.categoryId,
-    payablePaise: booking.payablePaise,
+    payablePaise: amountPaise,
     cityId: booking.category.cityId,
   };
 }
@@ -176,7 +221,7 @@ export async function startPayment(
   purpose: PaymentPurpose = 'final_bill',
 ): Promise<StartPaymentResponse> {
   const { context } = deps;
-  const booking = await loadBillable(deps, bookingId, customerId, 'customer');
+  const booking = await loadBillable(deps, bookingId, customerId, 'customer', purpose);
 
   const existing = await repo.findLivePayment(context.prisma, bookingId, purpose);
 
@@ -274,7 +319,9 @@ export async function recordCheckoutCallback(
   const payment = await repo.findPayment(context.prisma, paymentId);
 
   if (!payment || !payment.bookingId) throw notFound(paymentId);
-  await loadBillable(deps, payment.bookingId, customerId, 'customer');
+  // The payment's own purpose, so an upfront fee's callback is not judged
+  // against the rules for a final bill.
+  await loadBillable(deps, payment.bookingId, customerId, 'customer', payment.purpose);
 
   if (payment.gatewayOrderId !== input.gatewayOrderId) {
     throw AppError.badRequest('That order does not belong to this payment', {

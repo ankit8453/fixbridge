@@ -17,7 +17,13 @@ import {
   walletRouter,
   webhookRouter,
 } from './payments/routes';
-import { router as reviewsRouter } from './reviews/routes';
+import {
+  router as reviewsRouter,
+  opsRouter as reviewsOpsRouter,
+  publicReviewRouter,
+} from './reviews/routes';
+import { router as complaintsRouter, opsRouter as complaintsOpsRouter } from './complaints/routes';
+import { router as trustRouter, opsRouter as trustOpsRouter } from './trust/routes';
 import { router as notificationsRouter } from './notifications/routes';
 import { router as adminRouter } from './admin/routes';
 
@@ -47,7 +53,10 @@ export function registerModuleRoutes(app: Express): void {
   // where a client looks for them. Most specific prefix first.
   app.use(`${API_PREFIX}/providers/me/slots`, providerSlotRouter);
   app.use(`${API_PREFIX}/providers/me/wallet`, walletRouter);
+  app.use(`${API_PREFIX}/providers/me/trust`, trustRouter);
   app.use(`${API_PREFIX}/providers`, publicSlotRouter);
+  // Public and rate-limited, like search — reviews are read before signing in.
+  app.use(`${API_PREFIX}/providers`, publicReviewRouter);
   app.use(`${API_PREFIX}/providers`, providersRouter);
   app.use(`${API_PREFIX}/verification`, verificationRouter);
   // Public and rate-limited — a customer chooses before they sign in.
@@ -56,6 +65,7 @@ export function registerModuleRoutes(app: Express): void {
   app.use(`${API_PREFIX}/quotations`, quotationsRouter);
   app.use(`${API_PREFIX}/payments`, paymentsRouter);
   app.use(`${API_PREFIX}/reviews`, reviewsRouter);
+  app.use(`${API_PREFIX}/complaints`, complaintsRouter);
   app.use(`${API_PREFIX}/notifications`, notificationsRouter);
   // Ops verification lives at the admin path reviewers expect, but the code
   // stays in the verification module. The admin module itself is Phase 11.
@@ -64,5 +74,8 @@ export function registerModuleRoutes(app: Express): void {
   // as verification's ops routes: the path is where ops look, the code stays
   // with its module.
   app.use(`${API_PREFIX}/admin/payments`, paymentsOpsRouter);
+  app.use(`${API_PREFIX}/admin/complaints`, complaintsOpsRouter);
+  app.use(`${API_PREFIX}/admin/reviews`, reviewsOpsRouter);
+  app.use(`${API_PREFIX}/admin/trust`, trustOpsRouter);
   app.use(`${API_PREFIX}/admin`, adminRouter);
 }

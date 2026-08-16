@@ -5,6 +5,7 @@ import { createBookingJobs } from '../modules/bookings/jobs';
 import { registerAcceptanceRateProjector } from '../modules/bookings/stats';
 import { createPayoutJobs, registerUpfrontFeeRefunder } from '../modules/payments/jobs';
 import { registerWebhookProcessor } from '../modules/payments/webhook';
+import { registerTrustEngine } from '../modules/trust/service';
 
 /**
  * Everything that runs on a timer rather than in response to a request.
@@ -34,6 +35,10 @@ export function registerOutboxSubscribers(context: AppContext): void {
   // gateway's delivery timeout is far too short a budget for ledger work.
   registerWebhookProcessor(context.outbox, context);
   registerUpfrontFeeRefunder(context.outbox, context);
+  // Recomputes a technician's score from current truth whenever anything that
+  // could change it happens. Registered last only because it reads what the
+  // others write — the outbox makes no ordering promise, and it does not need one.
+  registerTrustEngine(context.outbox, context);
 }
 
 export function createBackgroundWorkers(context: AppContext): BackgroundWorkers {

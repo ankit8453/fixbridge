@@ -2,8 +2,9 @@
 
 Updated every phase. Live so far: `auth` (Phase 2), `categories`, `customers`
 and `providers` (Phase 3), `verification` (Phase 4), `search` (Phase 5),
-`bookings` (Phase 6), `quotations` (Phase 7) and `payments` (Phase 8). The
-remaining `/api/v1/*` routers are mounted but empty until their phase.
+`bookings` (Phase 6), `quotations` (Phase 7), `payments` (Phase 8), and
+`reviews`, `complaints` and trust (Phase 9). Only `/api/v1/notifications` and
+`/api/v1/admin` remain mounted but empty.
 
 **Base URL (local):** `http://localhost:3000`
 **API prefix for domain modules:** `/api/v1`
@@ -1629,6 +1630,173 @@ technician says they were not paid.
 
 ---
 
+## Reviews, complaints & trust
+
+Design rationale, the full formula, badge bands and suspension rules are in
+[trust.md](trust.md).
+
+> **Two rules shape all of this.** A review may only be written for a booking
+> that was **done and paid for**. And the score must be **explainable** —
+> component by component, in the technician's own language.
+
+### `POST /api/v1/bookings/:bookingId/reviews`
+
+Either party, once each. The direction is derived from **who the caller is**,
+never from the body.
+
+```json
+{ "stars": 5, "tags": ["punctual", "clean_work"], "text": "On time and tidy." }
+```
+
+| Direction           | Tags                                                           |
+| ------------------- | -------------------------------------------------------------- |
+| customer → provider | `punctual` · `polite` · `fair_price` · `clean_work` · `expert` |
+| provider → customer | `respectful` · `clear_problem` · `paid_promptly` · `difficult` |
+
+Using the other direction's tags is a `400`. Text ≤ 500 chars, ≤ 5 tags.
+
+**`201 Created`** → `{ "review": <ReviewView>, "message": "…" }`
+
+| Status | Code                    | When                                         |
+| ------ | ----------------------- | -------------------------------------------- |
+| `403`  | `REVIEW_NOT_ALLOWED`    | Not finished, or **not paid for**            |
+| `403`  | `REVIEW_WINDOW_CLOSED`  | More than `REVIEW_WINDOW_DAYS` since payment |
+| `404`  | `BOOKING_NOT_FOUND`     | Unknown, or not yours                        |
+| `409`  | `REVIEW_ALREADY_EXISTS` | You have already reviewed this booking       |
+
+### `GET /api/v1/bookings/:bookingId/reviews`
+
+Both of a booking's reviews, to its own two parties only.
+
+### `GET /api/v1/providers/:providerId/reviews`
+
+**Public**, rate limited on the same per-IP budget as search.
+
+```json
+{
+  "providerId": "…",
+  "averageStars": 4.6,
+  "reviewCount": 12,
+  "tagCounts": { "punctual": 9, "clean_work": 6 },
+  "reviews": [
+    {
+      "id": "…",
+      "stars": 5,
+      "tags": ["punctual"],
+      "text": "…",
+      "authorName": "Priya S.",
+      "createdAt": "…"
+    }
+  ],
+  "page": 1,
+  "pageSize": 10,
+  "total": 12
+}
+```
+
+**Only published customer→provider reviews.** Provider→customer reviews are
+internal in v1 and appear in no public response — the query filters on direction
+and status, and a test asserts nothing leaks. The author is a first name and an
+initial: enough to read as a person, not enough to find them.
+
+### `POST /api/v1/reviews/:reviewId/report`
+
+Flags a public review for ops. `{ "reason": "…" }`. Reporting the same review
+twice is not two reports. Internal reviews return `404` — saying "you may not
+report that" would confirm one exists.
+
+### `POST /api/v1/bookings/:bookingId/complaints`
+
+Either party, from **ARRIVED onwards** — before the door, a grievance is a
+cancellation. Within `COMPLAINT_WINDOW_DAYS` of the booking ending.
+
+```json
+{ "category": "quality", "description": "It stopped working again after two days." }
+```
+
+Categories: `overcharge` · `no_show` · `quality` · `behavior` · `cash_dispute` ·
+`safety` · `other`.
+
+> **A `safety` complaint from a customer suspends the technician
+> synchronously**, before this responds, pending an ops decision. Every other
+> signal settles through the outbox; that one does not wait.
+
+| Status | Code                      | When                               |
+| ------ | ------------------------- | ---------------------------------- |
+| `409`  | `COMPLAINT_NOT_ALLOWED`   | The technician had not arrived yet |
+| `409`  | `COMPLAINT_WINDOW_CLOSED` | Too long after the job ended       |
+
+### `GET /api/v1/complaints` · `GET /api/v1/complaints/:complaintId`
+
+Complaints a person raised, and complaints against them.
+
+### `GET /api/v1/providers/me/trust`
+
+**Technician only.** The "why is my score 62" endpoint.
+
+```json
+{
+  "trust": {
+    "score": 62,
+    "badge": "SILVER",
+    "settledJobs": 14,
+    "components": [
+      {
+        "name": "rating",
+        "label": "Customer ratings",
+        "reason": "Based on what customers rated you, with recent jobs counting for more.",
+        "raw": 4.2,
+        "normalized": 0.8,
+        "weight": 35,
+        "contribution": 28,
+        "pending": false
+      }
+    ],
+    "nextBand": { "band": "GOLD", "needsScore": 23, "needsJobs": 16 },
+    "suspendedUntil": null,
+    "suspensionReason": null,
+    "trend": [{ "score": 62, "badge": "SILVER", "trigger": "review.created", "at": "…" }]
+  }
+}
+```
+
+Labels and reasons come through `Accept-Language`, so the partner app can say all
+of it in Hindi. `pending: true` marks a component with no data yet. `nextBand`
+gives the gap in **both** dimensions — a technician told "you need 70" who
+reaches 72 on four jobs and still sees no badge has been misled by their own app.
+
+### Ops
+
+| Route                                             | Does                                  |
+| ------------------------------------------------- | ------------------------------------- |
+| `GET /api/v1/admin/complaints`                    | The queue, **oldest first**           |
+| `POST /api/v1/admin/complaints/:id/take-up`       | → `in_review`                         |
+| `POST /api/v1/admin/complaints/:id/resolve`       | `{ note, severity }` — both mandatory |
+| `POST /api/v1/admin/complaints/:id/dismiss`       | `{ note }` — counts against nobody    |
+| `POST /api/v1/admin/reviews/:id/hide` · `/unhide` | Moderation; aggregates recomputed     |
+| `POST /api/v1/admin/trust/suspend`                | `{ providerId, reason, days? }`       |
+| `POST /api/v1/admin/trust/:providerId/reinstate`  | Lifts a suspension early              |
+| `POST /api/v1/admin/trust/:providerId/recompute`  | Forces a rescore                      |
+
+Severity is `minor` · `major` · `severe`. **`severe` suspends.** A dismissal has
+no severity, deliberately: being accused is not a record.
+
+### Search card additions
+
+Result cards gain `rating`, `jobsCompleted` and a trust-derived `badge` band:
+
+```json
+{ "badge": "GOLD", "rating": { "average": 4.6, "count": 12 }, "jobsCompleted": 42 }
+```
+
+`rating` is **null** until somebody has rated them — never a fabricated default.
+
+**Suspended technicians are excluded from search**, as a fourth gate alongside
+listed, verified and active. Expiry is checked lazily against the clock, so a
+suspension ends the moment it ends.
+
+---
+
 ## `GET /health`
 
 Liveness + dependency readiness. Actually pings Postgres and Redis on every
@@ -1697,6 +1865,5 @@ space is reserved and visible.
 
 | Prefix                  | Phase | Will contain             |
 | ----------------------- | ----- | ------------------------ |
-| `/api/v1/reviews`       | 9     | two-way ratings          |
 | `/api/v1/notifications` | 10    | WhatsApp / push adapters |
 | `/api/v1/admin`         | 11    | admin console API        |

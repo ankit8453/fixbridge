@@ -133,15 +133,48 @@ describe('Phase 5 — the trust gates', () => {
         isListed: true,
         user: { status: 'active' },
         verification: { badge: { in: ['VERIFIED', 'SILVER', 'GOLD'] } },
+        // The fourth gate, added in Phase 9. Derived rather than hardcoded so
+        // this stays an exhaustive comparison against the database rather than
+        // a number somebody has to remember to update.
+        OR: [{ suspendedUntil: null }, { suspendedUntil: { lte: new Date() } }],
       },
       select: { userId: true },
     });
 
-    expect(expected.length).toBe(12);
-    expect(returned.size).toBe(12);
+    // 12 verified and listed, of whom one is suspended — see the trust seed.
+    expect(expected.length).toBe(11);
+    expect(returned.size).toBe(expected.length);
     for (const profile of expected) {
       expect(returned.has(profile.userId), `expected ${profile.userId}`).toBe(true);
     }
+  });
+
+  /**
+   * The gate stated from the other side.
+   *
+   * The test above proves everybody eligible is returned; this proves the
+   * suspended one is genuinely eligible on every *other* count, so its absence
+   * is the suspension and not something incidental.
+   */
+  it('excludes a suspended technician who passes every other gate', async (ctx) => {
+    if (!app || !context) return ctx.skip();
+
+    const suspended = await context.prisma.providerProfile.findFirst({
+      where: {
+        suspendedUntil: { gt: new Date() },
+        isListed: true,
+        user: { status: 'active' },
+        verification: { badge: { in: ['VERIFIED', 'SILVER', 'GOLD'] } },
+      },
+      select: { userId: true, displayName: true },
+    });
+
+    expect(suspended, 'the seed should suspend one otherwise-eligible technician').toBeTruthy();
+
+    const response = await search(app, { ...WRIGHT_TOWN, page_size: 25 });
+    const returned = (response.body.results as Card[]).map((card) => card.providerId);
+
+    expect(returned).not.toContain(suspended?.userId);
   });
 
   /**
@@ -570,7 +603,9 @@ describe('Phase 5 — sorting and pagination', () => {
     expect([...firstIds, ...secondIds]).toEqual(
       allIds.slice(0, firstIds.length + secondIds.length),
     );
-    expect(first.body.total).toBe(12);
+    // 11 searchable: 12 verified and listed, less the one the trust seed
+    // suspends. Derived in the gate test above rather than repeated here.
+    expect(first.body.total).toBe(11);
   });
 });
 
