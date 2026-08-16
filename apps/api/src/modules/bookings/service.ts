@@ -7,12 +7,23 @@ import { createBookingOtpStore, type BookingOtpKind } from './otp';
 import * as repo from './repository';
 import {
   applyBookingEvent,
+  isBillableBooking,
   projectBookingStatus,
   topicFor,
   type BookingActor,
   type BookingEventType,
   type BookingStatus,
 } from './state-machine';
+import {
+  assertBreakdownAddsUp,
+  computePayable,
+  type PayableBreakdown,
+} from '../quotations/payable';
+import * as quotationRepo from '../quotations/repository';
+import { toQuotationView } from '../quotations/service';
+import type { PayableView } from '../quotations/types';
+import { formatPaise } from '../search/service';
+import { resolveVisitFee, type ResolvedFee } from './fees';
 import type {
   BookingDetail,
   BookingEventView,
@@ -90,6 +101,19 @@ async function transition(
     );
   }
 
+  /**
+   * The bill is frozen here and nowhere else.
+   *
+   * Computing it inside the one funnel every transition passes through means a
+   * terminal status and its payable are written in the same transaction — there
+   * is no window in which a booking is WORK_DONE and nobody knows what is owed,
+   * and no second code path that could freeze a different number. Phase 8
+   * charges what this wrote; it never recomputes.
+   */
+  const payable = isBillableBooking(outcome.status)
+    ? await freezePayable(deps, booking, outcome.status)
+    : undefined;
+
   const updated = await repo.applyTransition(context.prisma, {
     bookingId: options.bookingId,
     eventType: options.eventType,
@@ -98,6 +122,7 @@ async function transition(
     payload: options.payload ?? {},
     nextStatus: outcome.status,
     ...(options.slot ? { slot: options.slot } : {}),
+    ...(payable ? { payable } : {}),
     topic: topicFor(options.eventType),
   });
 
@@ -113,6 +138,78 @@ async function transition(
   );
 
   return updated;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Pricing                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Looks up what this visit costs, following service → cluster → city → global.
+ *
+ * The cluster rung is why the category's parent is fetched: ops price a whole
+ * trade with one row ("motors and gensets in Jabalpur are ₹99 to visit") rather
+ * than four rows per service that drift apart within a month.
+ */
+export async function resolveVisitFeeForBooking(
+  deps: BookingDeps,
+  cityId: number,
+  categoryId: number,
+): Promise<ResolvedFee> {
+  const { context } = deps;
+
+  const category = await context.prisma.category.findUnique({
+    where: { id: categoryId },
+    select: { parentId: true },
+  });
+
+  const scope = { categoryId, parentCategoryId: category?.parentId ?? null };
+  const candidates = [categoryId, ...(scope.parentCategoryId ? [scope.parentCategoryId] : [])];
+
+  const rows = await quotationRepo.listFeeConfig(context.prisma, cityId, candidates);
+
+  return resolveVisitFee(rows, scope, context.config.BOOKING_VISIT_FEE_PAISE, nowOf(deps));
+}
+
+/**
+ * Assembles the inputs to `computePayable` and checks the result adds up.
+ *
+ * The price card is read fresh rather than from a snapshot because a booking
+ * stores the card's id, not its amount. That is a known sharp edge: a technician
+ * editing a `fixed` price between booking and completion would change the bill.
+ * Phase 8 will snapshot the amount at creation; noted in the phase summary
+ * rather than fixed here, because widening the booking row is its concern.
+ */
+async function freezePayable(
+  deps: BookingDeps,
+  booking: repo.BookingWithEvents,
+  outcome: BookingStatus,
+): Promise<{ payablePaise: number; breakdown: Prisma.InputJsonValue }> {
+  const { context } = deps;
+
+  const [live, priceCard] = await Promise.all([
+    quotationRepo.summariseLiveQuotation(context.prisma, booking.id),
+    booking.priceCardId
+      ? context.prisma.providerPriceCard.findUnique({
+          where: { id: booking.priceCardId },
+          select: { priceType: true, amountPaise: true },
+        })
+      : Promise.resolve(null),
+  ]);
+
+  const breakdown = computePayable({
+    outcome,
+    visitFeePaise: booking.visitFeePaise,
+    approvedQuoteTotalPaise: live.approvedTotalPaise,
+    priceCard,
+  });
+
+  assertBreakdownAddsUp(breakdown);
+
+  return {
+    payablePaise: breakdown.payablePaise,
+    breakdown: breakdown as unknown as Prisma.InputJsonValue,
+  };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -229,6 +326,10 @@ export async function createBooking(
     });
   }
 
+  // Resolved now and snapshotted, so a later price change cannot alter what this
+  // customer was told the visit would cost.
+  const fee = await resolveVisitFeeForBooking(deps, chosen.cityId, input.categoryId);
+
   const bookingId = randomUUID();
   const payload = {
     slotId: slot.id,
@@ -272,7 +373,7 @@ export async function createBooking(
         startsAt: slot.startsAt,
         endsAt: slot.endsAt,
         problemNote: input.problemNote ?? null,
-        visitFeePaise: context.config.BOOKING_VISIT_FEE_PAISE,
+        visitFeePaise: fee.visitFeePaise,
       },
       topicFor('requested'),
       payload,
@@ -403,7 +504,13 @@ export async function submitEndOtp(
   bookingId: string,
   input: SubmitOtpInput,
 ): Promise<BookingDetail> {
-  await loadOwnBooking(deps, bookingId, providerId);
+  const { booking } = await loadOwnBooking(deps, bookingId, providerId);
+
+  // The price is settled before the job is, not after. Checked ahead of the
+  // handshake so a technician standing at the door is told what is missing
+  // rather than watching a correct code be rejected.
+  await requireSettledPrice(deps, booking);
+
   await checkHandshake(deps, bookingId, providerId, 'end', input.otp);
 
   const updated = await transition(deps, {
@@ -472,6 +579,112 @@ async function checkHandshake(
   });
 }
 
+/**
+ * The guard that makes "no surprise pricing" real.
+ *
+ * Two ways a job can be finishable:
+ *
+ *   1. it was booked at a **fixed** price card — the number was agreed before
+ *      anyone left the house, and nothing needs quoting;
+ *   2. a quotation has been **approved** — the number was agreed in writing on
+ *      the spot.
+ *
+ * Everything else is refused. `starting_from` is an advertisement and
+ * `inspection_based` is an admission that nobody knows yet; letting either reach
+ * WORK_DONE would produce exactly the bill-at-the-end this product exists to
+ * abolish. A quote still awaiting a decision blocks too — settle the price, then
+ * finish the job.
+ */
+async function requireSettledPrice(
+  deps: BookingDeps,
+  booking: repo.BookingWithEvents,
+): Promise<void> {
+  const live = await quotationRepo.summariseLiveQuotation(deps.context.prisma, booking.id);
+
+  if (live.pendingId) {
+    throw new AppError(409, 'QUOTATION_PENDING', 'A quotation is still awaiting the customer', {
+      messageKey: 'errors.quotations.pendingDecision',
+      details: { quotationId: live.pendingId },
+    });
+  }
+
+  if (live.approvedId) return;
+
+  const priceCard = booking.priceCardId
+    ? await deps.context.prisma.providerPriceCard.findUnique({
+        where: { id: booking.priceCardId },
+        select: { priceType: true, amountPaise: true },
+      })
+    : null;
+
+  const hasFlatPrice = priceCard?.priceType === 'fixed' && priceCard.amountPaise !== null;
+
+  if (!hasFlatPrice) {
+    throw new AppError(409, 'QUOTATION_REQUIRED', 'This job needs an approved quotation first', {
+      messageKey: 'errors.quotations.required',
+      details: { priceType: priceCard?.priceType ?? null },
+    });
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Declining the work                                                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The customer heard the price and chose not to go ahead.
+ *
+ * Deliberately separate from rejecting a quotation. "Not at that price" invites
+ * a revision; "I don't want the work" ends the job. Collapsing the two would let
+ * a single tap close a booking the customer only meant to haggle over.
+ *
+ * The visit fee is payable and the slot stays consumed, because the technician
+ * genuinely came.
+ */
+export async function declineWork(
+  deps: BookingDeps,
+  customerId: string,
+  bookingId: string,
+  input: { note?: string },
+): Promise<BookingDetail> {
+  const { booking, side } = await loadOwnBooking(deps, bookingId, customerId);
+
+  if (side !== 'customer') {
+    throw new AppError(403, 'BOOKING_WRONG_ACTOR', 'Only the customer may decline the work', {
+      messageKey: 'errors.bookings.notYours',
+    });
+  }
+
+  const live = await quotationRepo.summariseLiveQuotation(deps.context.prisma, bookingId);
+
+  if (live.pendingId) {
+    // Decide the quote first. Otherwise the history cannot say whether the
+    // customer refused this price or simply stopped answering.
+    throw new AppError(409, 'QUOTATION_PENDING', 'Decide the open quotation first', {
+      messageKey: 'errors.quotations.pendingDecision',
+      details: { quotationId: live.pendingId },
+    });
+  }
+
+  if (live.approvedId) {
+    throw new AppError(409, 'QUOTATION_ALREADY_APPROVED', 'A price has already been agreed', {
+      messageKey: 'errors.quotations.alreadyApproved',
+    });
+  }
+
+  const updated = await transition(deps, {
+    bookingId,
+    eventType: 'work_declined',
+    actorType: 'customer',
+    actorUserId: customerId,
+    payload: { note: input.note ?? null, visitFeePaise: booking.visitFeePaise },
+  });
+
+  await createBookingOtpStore(deps.context.redis, deps.context.config).clear(bookingId);
+
+  return toDetail(deps, updated, 'customer', null);
+}
+
 /* -------------------------------------------------------------------------- */
 /* Cancellation                                                               */
 /* -------------------------------------------------------------------------- */
@@ -517,6 +730,18 @@ export async function expireBooking(deps: BookingDeps, bookingId: string): Promi
 /* Reads                                                                      */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Renders the frozen breakdown for display.
+ *
+ * The stored JSON is read back as-is rather than recomputed — that is the whole
+ * point of freezing it. Only the rupee formatting is added on the way out.
+ */
+function toPayableView(payablePaise: number, stored: Prisma.JsonValue): PayableView {
+  const breakdown = stored as unknown as PayableBreakdown;
+
+  return { ...breakdown, payableDisplay: formatPaise(payablePaise) };
+}
+
 /** Statuses from which both parties genuinely need to phone each other. */
 const PHONE_VISIBLE_FROM: readonly BookingStatus[] = [
   'ACCEPTED',
@@ -535,7 +760,7 @@ async function toDetail(
   const { context } = deps;
   const store = createBookingOtpStore(context.redis, context.config);
 
-  const [customer, providerProfile] = await Promise.all([
+  const [customer, providerProfile, quotationRows] = await Promise.all([
     context.prisma.user.findUnique({
       where: { id: booking.customerId },
       select: { phone: true, name: true },
@@ -544,7 +769,11 @@ async function toDetail(
       where: { userId: booking.providerId },
       select: { displayName: true, user: { select: { phone: true } } },
     }),
+    // Both sides see the whole quote history. Transparency is the feature.
+    quotationRepo.listQuotationsForBooking(context.prisma, booking.id),
   ]);
+
+  const quotations = quotationRows.map(toQuotationView);
 
   const status = booking.status as BookingStatus;
   /**
@@ -586,6 +815,15 @@ async function toDetail(
     endsAt: booking.endsAt.toISOString(),
     problemNote: booking.problemNote,
     visitFeePaise: booking.visitFeePaise,
+    quotations,
+    pendingQuotation: quotations.find((quote) => quote.status === 'sent') ?? null,
+    approvedQuotation: quotations.find((quote) => quote.status === 'approved') ?? null,
+    // Frozen at the terminal transition. Null until then — and forever, on an
+    // ending that owed nothing.
+    payablePaise: booking.payablePaise,
+    payable: booking.payableBreakdown
+      ? toPayableView(booking.payablePaise ?? 0, booking.payableBreakdown)
+      : null,
     // Snapshot, not the live address — the technician needs where they were sent.
     address: side === 'customer' || revealPhones ? booking.addressSnapshot : null,
     counterpart: {

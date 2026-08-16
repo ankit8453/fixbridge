@@ -268,6 +268,13 @@ export interface TransitionInput {
   nextStatus: BookingStatus;
   /** What the slot should become, if anything. */
   slot?: { id: string; status: SlotStatus; bookingId: string | null };
+  /**
+   * The frozen bill, on a terminal transition that owes something.
+   *
+   * Written in the same transaction as the status, so a booking can never be
+   * WORK_DONE with no payable or carry a payable it did not earn.
+   */
+  payable?: { payablePaise: number; breakdown: Prisma.InputJsonValue };
   topic: string;
 }
 
@@ -292,7 +299,15 @@ export async function applyTransition(
 
     await tx.booking.update({
       where: { id: input.bookingId },
-      data: { status: input.nextStatus },
+      data: {
+        status: input.nextStatus,
+        ...(input.payable
+          ? {
+              payablePaise: input.payable.payablePaise,
+              payableBreakdown: input.payable.breakdown,
+            }
+          : {}),
+      },
     });
 
     if (input.slot) {

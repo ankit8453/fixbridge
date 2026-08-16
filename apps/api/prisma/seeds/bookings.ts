@@ -6,10 +6,14 @@ import {
   type PlannedSlot,
 } from '../../src/modules/bookings/slot-plan';
 import {
+  isBillableBooking,
   projectBookingStatus,
   type BookingActor,
   type BookingEventType,
 } from '../../src/modules/bookings/state-machine';
+import { resolveVisitFee } from '../../src/modules/bookings/fees';
+import { computeQuotationTotals } from '../../src/modules/quotations/money';
+import { computePayable } from '../../src/modules/quotations/payable';
 import { deterministicUuid } from './deterministic-id';
 import { SEED_CUSTOMER_PHONE } from './customer';
 
@@ -27,10 +31,11 @@ import { SEED_CUSTOMER_PHONE } from './customer';
  *      fixture that will make a test lie, so the seed refuses to create one.
  */
 
-/** Matches the config default. The seed does not load app config. */
+/** Matches the config defaults. The seed does not load app config. */
 const SLOT_INCREMENT_MINUTES = 60;
 const SLOT_HORIZON_DAYS = 14;
-const VISIT_FEE_PAISE = 4_900;
+/** Only the last rung of the chain — `fee_config` supplies the rest. */
+const DEFAULT_VISIT_FEE_PAISE = 4_900;
 
 /* -------------------------------------------------------------------------- */
 /* Slots                                                                      */
@@ -110,6 +115,24 @@ interface EventSeed {
   payload?: Prisma.InputJsonObject;
 }
 
+interface QuoteItemSeed {
+  kind: 'part' | 'labour_extra';
+  description: string;
+  qty: number;
+  unitPaise: number;
+}
+
+interface QuoteSeed {
+  labourPaise: number;
+  items: QuoteItemSeed[];
+  note?: string;
+  /** Where this version ended up. `sent` means still awaiting the customer. */
+  status: 'sent' | 'approved' | 'rejected' | 'superseded' | 'withdrawn';
+  decisionNote?: string;
+  /** Minutes after the booking was created. */
+  offsetMinutes: number;
+}
+
 interface BookingSeed {
   key: string;
   providerPhone: string;
@@ -123,7 +146,17 @@ interface BookingSeed {
    * slot is long gone.
    */
   requestedHoursAgo: number;
+  /**
+   * Which of the technician's price cards this was booked against.
+   *
+   * It decides the pricing path: a `fixed` card can go straight to WORK_DONE,
+   * while `inspection_based` cannot be finished without an approved quotation.
+   * `null` books against a bare skill with no card at all.
+   */
+  priceCardType: 'fixed' | 'starting_from' | 'inspection_based' | null;
   events: EventSeed[];
+  /** Quotation history, oldest first. */
+  quotes?: QuoteSeed[];
 }
 
 /**
@@ -140,12 +173,14 @@ const BOOKING_SEEDS: BookingSeed[] = [
     key: 'requested-open',
     providerPhone: '+919000000001',
     requestedHoursAgo: 1,
+    priceCardType: 'fixed',
     events: [{ eventType: 'requested', actorType: 'customer', offsetMinutes: 0 }],
   },
   {
     key: 'accepted-upcoming',
     providerPhone: '+919000000001',
     requestedHoursAgo: 2,
+    priceCardType: 'fixed',
     events: [
       { eventType: 'requested', actorType: 'customer', offsetMinutes: 0 },
       { eventType: 'accepted', actorType: 'provider', offsetMinutes: 3 },
@@ -155,6 +190,7 @@ const BOOKING_SEEDS: BookingSeed[] = [
     key: 'en-route',
     providerPhone: '+919000000001',
     requestedHoursAgo: 3,
+    priceCardType: 'fixed',
     events: [
       { eventType: 'requested', actorType: 'customer', offsetMinutes: 0 },
       { eventType: 'accepted', actorType: 'provider', offsetMinutes: 2 },
@@ -165,18 +201,34 @@ const BOOKING_SEEDS: BookingSeed[] = [
     key: 'in-progress',
     providerPhone: '+919000000007',
     requestedHoursAgo: 4,
+    priceCardType: 'inspection_based',
     events: [
       { eventType: 'requested', actorType: 'customer', offsetMinutes: 0 },
       { eventType: 'accepted', actorType: 'provider', offsetMinutes: 4 },
       { eventType: 'en_route', actorType: 'provider', offsetMinutes: 40 },
       { eventType: 'arrived', actorType: 'provider', offsetMinutes: 58 },
       { eventType: 'work_started', actorType: 'provider', offsetMinutes: 60 },
+      { eventType: 'quote_sent', actorType: 'provider', offsetMinutes: 72 },
+    ],
+    // Sitting with the customer right now: the fridge is open, the price is not.
+    quotes: [
+      {
+        labourPaise: 60_000,
+        items: [
+          { kind: 'part', description: 'Relay and overload protector', qty: 1, unitPaise: 45_000 },
+          { kind: 'part', description: 'Refrigerant gas top-up (grams)', qty: 120, unitPaise: 300 },
+        ],
+        note: 'Compressor is fine. Relay has burnt out and gas is low.',
+        status: 'sent',
+        offsetMinutes: 72,
+      },
     ],
   },
   {
     key: 'completed',
     providerPhone: '+919000000001',
     requestedHoursAgo: 48,
+    priceCardType: 'fixed',
     events: [
       { eventType: 'requested', actorType: 'customer', offsetMinutes: 0 },
       { eventType: 'accepted', actorType: 'provider', offsetMinutes: 6 },
@@ -190,6 +242,7 @@ const BOOKING_SEEDS: BookingSeed[] = [
     key: 'completed-after-otp-retry',
     providerPhone: '+919000000007',
     requestedHoursAgo: 72,
+    priceCardType: 'fixed',
     events: [
       { eventType: 'requested', actorType: 'customer', offsetMinutes: 0 },
       { eventType: 'accepted', actorType: 'provider', offsetMinutes: 2 },
@@ -206,9 +259,148 @@ const BOOKING_SEEDS: BookingSeed[] = [
     ],
   },
   {
+    /**
+     * The quotation path, straight through: quoted, agreed, done.
+     *
+     * The visit fee is waived into the bill, so the payable is the quote total
+     * alone — the case the whole fee-waiver rule exists for.
+     */
+    key: 'completed-via-quote',
+    providerPhone: '+919000000007',
+    requestedHoursAgo: 96,
+    priceCardType: 'inspection_based',
+    events: [
+      { eventType: 'requested', actorType: 'customer', offsetMinutes: 0 },
+      { eventType: 'accepted', actorType: 'provider', offsetMinutes: 3 },
+      { eventType: 'en_route', actorType: 'provider', offsetMinutes: 30 },
+      { eventType: 'arrived', actorType: 'provider', offsetMinutes: 47 },
+      { eventType: 'work_started', actorType: 'provider', offsetMinutes: 50 },
+      { eventType: 'quote_sent', actorType: 'provider', offsetMinutes: 58 },
+      { eventType: 'quote_approved', actorType: 'customer', offsetMinutes: 64 },
+      { eventType: 'work_done', actorType: 'provider', offsetMinutes: 145 },
+    ],
+    quotes: [
+      {
+        labourPaise: 45_000,
+        items: [{ kind: 'part', description: 'Door gasket', qty: 1, unitPaise: 85_000 }],
+        note: 'Gasket perished; door not sealing.',
+        status: 'approved',
+        offsetMinutes: 58,
+      },
+    ],
+  },
+  {
+    /**
+     * Haggling, which is how this actually goes.
+     *
+     * v1 was too expensive, the technician dropped the imported part for a local
+     * one, and v2 was agreed. Both versions survive — that is the point of
+     * versioning rather than editing.
+     */
+    key: 'completed-after-revision',
+    providerPhone: '+919000000007',
+    requestedHoursAgo: 120,
+    priceCardType: 'inspection_based',
+    events: [
+      { eventType: 'requested', actorType: 'customer', offsetMinutes: 0 },
+      { eventType: 'accepted', actorType: 'provider', offsetMinutes: 4 },
+      { eventType: 'arrived', actorType: 'provider', offsetMinutes: 44 },
+      { eventType: 'work_started', actorType: 'provider', offsetMinutes: 46 },
+      { eventType: 'quote_sent', actorType: 'provider', offsetMinutes: 55 },
+      {
+        eventType: 'quote_rejected',
+        actorType: 'customer',
+        offsetMinutes: 62,
+        payload: { reason: 'Too expensive, please suggest a cheaper part' },
+      },
+      { eventType: 'quote_sent', actorType: 'provider', offsetMinutes: 70 },
+      { eventType: 'quote_approved', actorType: 'customer', offsetMinutes: 76 },
+      { eventType: 'work_done', actorType: 'provider', offsetMinutes: 160 },
+    ],
+    quotes: [
+      {
+        labourPaise: 50_000,
+        items: [{ kind: 'part', description: 'Imported thermostat', qty: 1, unitPaise: 190_000 }],
+        status: 'rejected',
+        decisionNote: 'Too expensive, please suggest a cheaper part',
+        offsetMinutes: 55,
+      },
+      {
+        labourPaise: 50_000,
+        items: [
+          {
+            kind: 'part',
+            description: 'Local thermostat (6 month warranty)',
+            qty: 1,
+            unitPaise: 95_000,
+          },
+        ],
+        note: 'Local part, six month warranty instead of two years.',
+        status: 'approved',
+        offsetMinutes: 70,
+      },
+    ],
+  },
+  {
+    /**
+     * The customer heard the price and sent the technician away.
+     *
+     * The visit happened, so the visit fee is payable and nothing else is. Note
+     * the two steps: the quote was rejected, and then — separately — the job was
+     * declined. A rejection alone would have invited a revision.
+     */
+    key: 'declined-after-quote',
+    providerPhone: '+919000000003',
+    requestedHoursAgo: 144,
+    priceCardType: 'inspection_based',
+    events: [
+      { eventType: 'requested', actorType: 'customer', offsetMinutes: 0 },
+      { eventType: 'accepted', actorType: 'provider', offsetMinutes: 5 },
+      { eventType: 'arrived', actorType: 'provider', offsetMinutes: 50 },
+      { eventType: 'work_started', actorType: 'provider', offsetMinutes: 52 },
+      { eventType: 'quote_sent', actorType: 'provider', offsetMinutes: 61 },
+      {
+        eventType: 'quote_rejected',
+        actorType: 'customer',
+        offsetMinutes: 70,
+        payload: { reason: 'Will get a second opinion' },
+      },
+      {
+        eventType: 'work_declined',
+        actorType: 'customer',
+        offsetMinutes: 74,
+        payload: { note: 'Getting another quote first' },
+      },
+    ],
+    quotes: [
+      {
+        labourPaise: 120_000,
+        items: [
+          {
+            kind: 'part',
+            description: 'Submersible pump winding wire (kg)',
+            qty: 3,
+            unitPaise: 78_000,
+          },
+          {
+            kind: 'labour_extra',
+            description: 'Pump extraction from borewell',
+            qty: 1,
+            unitPaise: 150_000,
+          },
+        ],
+        note: 'Winding is fully burnt; the pump has to come out.',
+        status: 'rejected',
+        decisionNote: 'Will get a second opinion',
+        offsetMinutes: 61,
+      },
+    ],
+  },
+  {
     key: 'rejected-too-far',
     providerPhone: '+919000000001',
     requestedHoursAgo: 96,
+    priceCardType: 'fixed',
     events: [
       { eventType: 'requested', actorType: 'customer', offsetMinutes: 0 },
       {
@@ -223,6 +415,7 @@ const BOOKING_SEEDS: BookingSeed[] = [
     key: 'expired-unanswered',
     providerPhone: '+919000000001',
     requestedHoursAgo: 120,
+    priceCardType: 'fixed',
     events: [
       { eventType: 'requested', actorType: 'customer', offsetMinutes: 0 },
       { eventType: 'expired', actorType: 'system', offsetMinutes: 15 },
@@ -232,6 +425,7 @@ const BOOKING_SEEDS: BookingSeed[] = [
     key: 'cancelled-by-customer',
     providerPhone: '+919000000001',
     requestedHoursAgo: 144,
+    priceCardType: 'fixed',
     events: [
       { eventType: 'requested', actorType: 'customer', offsetMinutes: 0 },
       { eventType: 'accepted', actorType: 'provider', offsetMinutes: 5 },
@@ -247,6 +441,7 @@ const BOOKING_SEEDS: BookingSeed[] = [
     key: 'cancelled-by-provider',
     providerPhone: '+919000000009',
     requestedHoursAgo: 168,
+    priceCardType: 'fixed',
     events: [
       { eventType: 'requested', actorType: 'customer', offsetMinutes: 0 },
       { eventType: 'accepted', actorType: 'provider', offsetMinutes: 3 },
@@ -262,6 +457,38 @@ const BOOKING_SEEDS: BookingSeed[] = [
 
 /** Statuses in which the booking still holds its slot. */
 const HOLDING_STATUSES = ['REQUESTED', 'ACCEPTED', 'EN_ROUTE', 'ARRIVED', 'IN_PROGRESS'] as const;
+
+const quoteTotal = (quote: QuoteSeed): number =>
+  computeQuotationTotals(quote.labourPaise, quote.items).totalPaise;
+
+/** The API's own resolution chain, over the API's own pure function. */
+async function resolveSeedVisitFee(
+  prisma: PrismaClient,
+  cityId: number,
+  categoryId: number,
+): Promise<number> {
+  const category = await prisma.category.findUnique({
+    where: { id: categoryId },
+    select: { parentId: true },
+  });
+
+  const parentCategoryId = category?.parentId ?? null;
+
+  const rows = await prisma.feeConfig.findMany({
+    where: {
+      cityId,
+      isActive: true,
+      OR: [
+        { categoryId: null },
+        { categoryId: { in: [categoryId, ...(parentCategoryId ? [parentCategoryId] : [])] } },
+      ],
+    },
+    select: { categoryId: true, visitFeePaise: true, isActive: true, effectiveFrom: true },
+  });
+
+  return resolveVisitFee(rows, { categoryId, parentCategoryId }, DEFAULT_VISIT_FEE_PAISE)
+    .visitFeePaise;
+}
 
 export interface BookingSeedSummary {
   slots: number;
@@ -317,10 +544,33 @@ export async function seedBookings(
     if (!provider)
       throw new Error(`booking seed refers to unknown technician ${seed.providerPhone}`);
 
-    const skill = await prisma.providerSkill.findFirst({
-      where: { providerId: provider.id },
-      select: { categoryId: true },
-    });
+    /**
+     * The price card decides the pricing path, so it decides the category too.
+     *
+     * A booking made against a `fixed` card can finish without a quotation; one
+     * made against `inspection_based` cannot. Picking the card first and taking
+     * its category means the fixture always exercises the path it claims to.
+     */
+    const priceCard = seed.priceCardType
+      ? await prisma.providerPriceCard.findFirst({
+          where: { providerId: provider.id, priceType: seed.priceCardType, isActive: true },
+          orderBy: { createdAt: 'asc' },
+          select: { id: true, categoryId: true, priceType: true, amountPaise: true },
+        })
+      : null;
+
+    if (seed.priceCardType && !priceCard) {
+      throw new Error(
+        `technician ${seed.providerPhone} has no ${seed.priceCardType} price card for seed "${seed.key}"`,
+      );
+    }
+
+    const skill = priceCard
+      ? { categoryId: priceCard.categoryId }
+      : await prisma.providerSkill.findFirst({
+          where: { providerId: provider.id },
+          select: { categoryId: true },
+        });
 
     if (!skill) throw new Error(`technician ${seed.providerPhone} has no skill to book`);
 
@@ -358,6 +608,31 @@ export async function seedBookings(
     const endsAt =
       claimed?.endsAt ?? new Date(startsAt.getTime() + SLOT_INCREMENT_MINUTES * 60 * 1000);
 
+    // Resolved exactly as the API resolves it, so a seeded booking and a
+    // booked-through-the-app one can never disagree about the visit fee.
+    const visitFeePaise = await resolveSeedVisitFee(prisma, cityId, skill.categoryId);
+
+    const quotes = seed.quotes ?? [];
+    const approved = quotes.find((quote) => quote.status === 'approved');
+    const approvedTotal = approved ? quoteTotal(approved) : null;
+
+    /**
+     * The bill, computed by the same pure function the API freezes.
+     *
+     * Only billable endings get one: a rejected or cancelled booking owes
+     * nothing and must not acquire a payable just because it is terminal.
+     */
+    const payable = isBillableBooking(status)
+      ? computePayable({
+          outcome: status,
+          visitFeePaise,
+          approvedQuoteTotalPaise: approvedTotal,
+          priceCard: priceCard
+            ? { priceType: priceCard.priceType, amountPaise: priceCard.amountPaise }
+            : null,
+        })
+      : null;
+
     await prisma.$transaction(async (tx) => {
       await tx.booking.create({
         data: {
@@ -365,6 +640,7 @@ export async function seedBookings(
           customerId: customer.id,
           providerId: provider.id,
           categoryId: skill.categoryId,
+          priceCardId: priceCard?.id ?? null,
           addressId: address.id,
           addressSnapshot: {
             label: address.label,
@@ -375,11 +651,52 @@ export async function seedBookings(
           startsAt,
           endsAt,
           problemNote: `Seeded booking: ${seed.key.replace(/-/g, ' ')}`,
-          visitFeePaise: VISIT_FEE_PAISE,
+          visitFeePaise,
           status,
           createdAt,
+          ...(payable
+            ? {
+                payablePaise: payable.payablePaise,
+                payableBreakdown: payable as unknown as Prisma.InputJsonObject,
+              }
+            : {}),
         },
       });
+
+      for (const [index, quote] of quotes.entries()) {
+        const totals = computeQuotationTotals(quote.labourPaise, quote.items);
+        const decidedAt =
+          quote.status === 'sent'
+            ? null
+            : new Date(createdAt.getTime() + (quote.offsetMinutes + 5) * 60 * 1000);
+
+        await tx.quotation.create({
+          data: {
+            id: deterministicUuid(`quotation:${seed.key}:${index}`),
+            bookingId,
+            version: index + 1,
+            status: quote.status,
+            labourPaise: quote.labourPaise,
+            partsTotalPaise: totals.partsTotalPaise,
+            totalPaise: totals.totalPaise,
+            note: quote.note ?? null,
+            createdById: provider.id,
+            decidedAt,
+            decisionNote: quote.status === 'rejected' ? (quote.decisionNote ?? null) : null,
+            createdAt: new Date(createdAt.getTime() + quote.offsetMinutes * 60 * 1000),
+            items: {
+              create: quote.items.map((item, itemIndex) => ({
+                id: deterministicUuid(`quotation-item:${seed.key}:${index}:${itemIndex}`),
+                kind: item.kind,
+                description: item.description,
+                qty: item.qty,
+                unitPaise: item.unitPaise,
+                lineTotalPaise: totals.lineTotals[itemIndex] as number,
+              })),
+            },
+          },
+        });
+      }
 
       for (const [index, event] of seed.events.entries()) {
         await tx.bookingEvent.create({

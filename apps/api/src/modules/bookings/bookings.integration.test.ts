@@ -31,6 +31,9 @@ const PHONES = {
 
 const WRIGHT_TOWN = { lat: 23.1618, lng: 79.9492 };
 
+/** ₹180. Phase 7 requires an agreed price before a job can be completed. */
+const FIXED_PRICE_PAISE = 18_000;
+
 let app: Express | undefined;
 let context: AppContext | undefined;
 let unavailableReason: string | undefined;
@@ -43,6 +46,8 @@ interface Fixture {
   addressId: string;
   categoryId: number;
   cityId: number;
+  /** The technician's flat-rate card. Phase 7 needs an agreed price to finish a job. */
+  priceCardId: string;
 }
 
 let fixture: Fixture | undefined;
@@ -131,6 +136,27 @@ async function makeBookableTechnician(
     where: { providerId_categoryId: { providerId: userId, categoryId } },
     update: {},
     create: { providerId: userId, categoryId },
+  });
+
+  /**
+   * A flat-rate card, so these bookings take Phase 7's direct path.
+   *
+   * Phase 6 predates quotations and its jobs finish without one; from Phase 7 a
+   * job can only reach WORK_DONE at an agreed price, and a `fixed` card *is* the
+   * agreement. Adding the card keeps these tests about slots and handshakes
+   * rather than about pricing.
+   */
+  await ctx.prisma.providerPriceCard.upsert({
+    where: { id: fixtureUuid(`c${phone.slice(-4)}`) },
+    update: { amountPaise: FIXED_PRICE_PAISE, isActive: true },
+    create: {
+      id: fixtureUuid(`c${phone.slice(-4)}`),
+      providerId: userId,
+      categoryId,
+      title: 'Flat rate visit',
+      priceType: 'fixed',
+      amountPaise: FIXED_PRICE_PAISE,
+    },
   });
 
   await ctx.prisma.providerVerificationSummary.upsert({
@@ -280,6 +306,7 @@ beforeAll(async () => {
     addressId,
     categoryId: category.id,
     cityId: city.id,
+    priceCardId: fixtureUuid(`c${PHONES.technician.slice(-4)}`),
   };
 }, 90_000);
 
@@ -316,6 +343,22 @@ async function nextOpenSlot(ctx: AppContext, providerId: string, skip = 0) {
 
   const slot = slots[skip];
   if (!slot) throw new Error('fixture has no open slot; slot generation did not run');
+  return slot;
+}
+
+/** The next open slot starting at a given IST hour. Keeps time-of-day out of a test. */
+async function openSlotAtIstHour(ctx: AppContext, providerId: string, istHour: number) {
+  const slots = await ctx.prisma.slot.findMany({
+    where: { providerId, status: 'open', startsAt: { gt: new Date(Date.now() + 60 * 60 * 1000) } },
+    orderBy: { startsAt: 'asc' },
+  });
+
+  const slot = slots.find(
+    (candidate) =>
+      new Date(candidate.startsAt.getTime() + 330 * 60 * 1000).getUTCHours() === istHour,
+  );
+
+  if (!slot) throw new Error(`fixture has no open slot at ${istHour}:00 IST`);
   return slot;
 }
 
@@ -520,6 +563,9 @@ describe('Phase 6 — slots and bookings', () => {
           slotId: slot.id,
           categoryId: fixture.categoryId,
           addressId: fixture.addressId,
+          // The flat-rate path: agreed before anyone left the house, so no
+          // quotation is needed to finish it. See docs/bookings.md.
+          priceCardId: fixture.priceCardId,
           problemNote: 'Geyser is not heating',
         })
         .expect(201);
@@ -595,6 +641,13 @@ describe('Phase 6 — slots and bookings', () => {
         'work_started',
         'work_done',
       ]);
+
+      // Phase 7 freezes the bill on the way out: the card price plus the visit
+      // fee, because nothing was quoted.
+      expect(completed.body.booking.payablePaise).toBe(
+        FIXED_PRICE_PAISE + context.config.BOOKING_VISIT_FEE_PAISE,
+      );
+      expect(completed.body.booking.payable.basis).toBe('price_card');
     });
 
     it('releases the hour when a technician rejects', async () => {
@@ -779,7 +832,14 @@ describe('Phase 6 — slots and bookings', () => {
       const created = await request(app!)
         .post('/api/v1/bookings')
         .set(auth(customer.accessToken))
-        .send({ slotId: slot.id, categoryId: fixture!.categoryId, addressId: fixture!.addressId })
+        .send({
+          slotId: slot.id,
+          categoryId: fixture!.categoryId,
+          addressId: fixture!.addressId,
+          // Flat rate, so Phase 7's pricing guard is satisfied and these tests
+          // stay about the handshake.
+          priceCardId: fixture!.priceCardId,
+        })
         .expect(201);
 
       const bookingId = created.body.booking.id as string;
@@ -1543,8 +1603,16 @@ describe('Phase 6 — slots and bookings', () => {
     it('drops a technician from search once their hour is taken', async () => {
       if (unavailableReason || !context || !fixture || !app) return;
 
-      // A slot far enough out that the search window can name it precisely.
-      const slot = await nextOpenSlot(context, fixture.technicianId, 30);
+      /**
+       * A daytime slot, deliberately.
+       *
+       * The search query names an IST wall-clock window, and the 23:00 slot ends
+       * at "00:00" the next day — which the validator rightly reads as
+       * `end_time <= start_time` and rejects. Picking a mid-morning hour keeps
+       * the test about availability rather than about what time of day it
+       * happens to be running.
+       */
+      const slot = await openSlotAtIstHour(context, fixture.technicianId, 10);
       const istStart = new Date(slot.startsAt.getTime() + 330 * 60 * 1000);
       const date = istStart.toISOString().slice(0, 10);
       const startTime = istStart.toISOString().slice(11, 16);

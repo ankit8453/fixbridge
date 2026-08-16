@@ -3,6 +3,7 @@ import { maskPhone, normalizePhone } from '../src/modules/auth/phone';
 import { seedBookings } from './seeds/bookings';
 import { seedCategories } from './seeds/categories';
 import { seedCustomer } from './seeds/customer';
+import { seedFeeConfig } from './seeds/fees';
 import { seedProviders } from './seeds/providers';
 import { seedSynonyms } from './seeds/synonyms';
 import { seedVerification } from './seeds/verification';
@@ -124,6 +125,8 @@ async function main(): Promise<void> {
 
   const categoryIdBySlug = await seedCategories(prisma, cityId);
   await seedSynonyms(prisma, categoryIdBySlug);
+  // Before bookings: creation snapshots the visit fee through this table.
+  await seedFeeConfig(prisma, cityId, categoryIdBySlug);
   await seedProviders(prisma, cityId, categoryIdBySlug, listingThreshold);
   await seedVerification(prisma, opsUserId);
   await seedCustomer(prisma, cityId);

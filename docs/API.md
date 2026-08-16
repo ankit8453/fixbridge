@@ -1,8 +1,9 @@
 # API reference
 
 Updated every phase. Live so far: `auth` (Phase 2), `categories`, `customers`
-and `providers` (Phase 3), `verification` (Phase 4), and `search` (Phase 5). The
-remaining `/api/v1/*` routers are mounted but empty until their phase.
+and `providers` (Phase 3), `verification` (Phase 4), `search` (Phase 5),
+`bookings` (Phase 6) and `quotations` (Phase 7). The remaining `/api/v1/*`
+routers are mounted but empty until their phase.
 
 **Base URL (local):** `http://localhost:3000`
 **API prefix for domain modules:** `/api/v1`
@@ -1203,6 +1204,11 @@ booking exists.
   "counterpart": { "name": "Ramesh Vishwakarma", "phone": "+919000000001", "phoneRevealed": true },
   "startOtp": "4821",
   "endOtp": "9037",
+  "quotations": [],
+  "pendingQuotation": null,
+  "approvedQuotation": null,
+  "payablePaise": null,
+  "payable": null,
   "events": [
     {
       "id": "…",
@@ -1216,13 +1222,15 @@ booking exists.
 }
 ```
 
-| Field               | Visibility                                                   |
-| ------------------- | ------------------------------------------------------------ |
-| `counterpart.phone` | Masked outside `ACCEPTED`…`WORK_DONE`; full inside           |
-| `address`           | Always to the customer; to the technician only once accepted |
-| `startOtp`          | **Customer only**, from `ACCEPTED`                           |
-| `endOtp`            | **Customer only**, and only at `IN_PROGRESS`                 |
-| `visitFeePaise`     | Snapshot at creation. Stored, never charged — Phase 8        |
+| Field                     | Visibility                                                                |
+| ------------------------- | ------------------------------------------------------------------------- |
+| `counterpart.phone`       | Masked outside `ACCEPTED`…`WORK_DONE`; full inside                        |
+| `address`                 | Always to the customer; to the technician only once accepted              |
+| `startOtp`                | **Customer only**, from `ACCEPTED`                                        |
+| `endOtp`                  | **Customer only**, and only at `IN_PROGRESS`                              |
+| `visitFeePaise`           | Resolved from `fee_config` at creation. Charged or waived at the end      |
+| `quotations`              | Both parties, every version, fully itemised                               |
+| `payablePaise`, `payable` | Frozen at a billable ending; null before, and on endings that owe nothing |
 
 #### Provider actions
 
@@ -1239,6 +1247,9 @@ booking exists.
 
 `start` appends **two** events, because the history should show that arrival was
 proven rather than only that work began.
+
+> **`complete` requires an agreed price** — an approved quotation, or a `fixed`
+> price card. See [Quotations](#quotations--apiv1quotations) below.
 
 #### `POST /:bookingId/cancel`
 
@@ -1266,6 +1277,172 @@ changed my mind" is a dispute, not a cancellation.
 | `409`  | `BOOKING_INVALID_TRANSITION` | Not possible from the current status                  |
 | `409`  | `BOOKING_OTP_MISSING`        | No code is active for this booking yet                |
 | `423`  | `BOOKING_OTP_LOCKED`         | Five wrong codes. Ops must unlock                     |
+
+### `POST /api/v1/bookings/:bookingId/decline-work`
+
+**Customer only**, from `IN_PROGRESS`. "I heard the price and I don't want the
+work." Ends the job at `CLOSED_QUOTE_DECLINED` with the visit fee payable.
+
+Body: `{ "note": "…" }` (optional, ≤500 chars).
+
+Deliberately separate from rejecting a quotation: a rejection invites a revision,
+this ends the job. Refused while a quotation is still awaiting a decision — the
+history must be able to say whether the customer refused _this price_ or simply
+stopped answering.
+
+| Status | Code                         | When                               |
+| ------ | ---------------------------- | ---------------------------------- |
+| `403`  | `BOOKING_WRONG_ACTOR`        | The technician tried to declare it |
+| `409`  | `QUOTATION_PENDING`          | Decide the open quotation first    |
+| `409`  | `QUOTATION_ALREADY_APPROVED` | A price has already been agreed    |
+| `409`  | `BOOKING_INVALID_TRANSITION` | The booking is not `IN_PROGRESS`   |
+
+---
+
+## Quotations — `/api/v1/quotations`
+
+Design rationale, the lifecycle diagram, the money rules and the payable table
+are in [bookings.md](bookings.md#quotations-and-pricing).
+
+> **A job can only be completed at an agreed price.** Either an approved
+> quotation, or a `fixed` price card agreed before anyone left the house. There
+> is no request shape that finishes a job at a number the customer has not seen.
+
+### The two paths
+
+| Booking's price card                         | To finish the job         | Payable                           |
+| -------------------------------------------- | ------------------------- | --------------------------------- |
+| `fixed`                                      | nothing more needed       | card amount **+ visit fee**       |
+| `starting_from`, `inspection_based`, or none | an **approved** quotation | quote total, **visit fee waived** |
+
+### `POST /api/v1/bookings/:bookingId/quotations`
+
+**Technician only**, and only while the booking is `IN_PROGRESS` — before that
+they have not seen the fault, after it the job is over.
+
+```json
+{
+  "labourPaise": 50000,
+  "items": [
+    { "kind": "part", "description": "Door gasket", "qty": 1, "unitPaise": 85000 },
+    { "kind": "part", "description": "Sealant tube", "qty": 2, "unitPaise": 12000 }
+  ],
+  "note": "Gasket perished; door not sealing."
+}
+```
+
+`kind` is `part` or `labour_extra`. A **pure-labour quote is legal** (empty
+`items`); an empty quotation is not.
+
+Limits: `qty` 1–999, `unitPaise` 1–5,000,000 (₹50,000), ≤50 items, and ≤₹2,00,000
+per line and per quotation.
+
+**`201 Created`** → `{ "quotation": <QuotationView>, "message": "…" }`
+
+Sending a new one **supersedes** the previous `sent` version atomically and
+increments `version`. Nothing is ever edited.
+
+```json
+{
+  "id": "3f0a…",
+  "bookingId": "8b1e…",
+  "version": 2,
+  "status": "sent",
+  "labourPaise": 50000,
+  "partsTotalPaise": 109000,
+  "totalPaise": 159000,
+  "totalDisplay": "₹1,590",
+  "note": "Gasket perished; door not sealing.",
+  "decisionNote": null,
+  "items": [
+    {
+      "id": "…",
+      "kind": "part",
+      "description": "Door gasket",
+      "qty": 1,
+      "unitPaise": 85000,
+      "lineTotalPaise": 85000
+    }
+  ],
+  "decidedAt": null,
+  "createdAt": "…"
+}
+```
+
+| Status | Code                         | When                                                |
+| ------ | ---------------------------- | --------------------------------------------------- |
+| `400`  | `VALIDATION_ERROR`           | Bad shape, empty quote, or a figure past the caps   |
+| `403`  | `QUOTATION_WRONG_ACTOR`      | Not the booking's technician                        |
+| `404`  | `BOOKING_NOT_FOUND`          | Unknown, or not yours                               |
+| `409`  | `QUOTATION_NOT_ALLOWED`      | The booking is not `IN_PROGRESS`                    |
+| `409`  | `QUOTATION_ALREADY_APPROVED` | A price is already agreed — a revision is a new job |
+| `409`  | `QUOTATION_CONFLICT`         | Overtaken by another send or an approval. Reload    |
+
+### `GET /api/v1/bookings/:bookingId/quotations`
+
+**Both parties.** Every version, every status, fully itemised — transparency is
+the point, and hiding a superseded version would let a technician quietly revise
+a number the customer already saw.
+
+```json
+{ "bookingId": "8b1e…", "quotations": [], "pending": null, "approved": null }
+```
+
+### Deciding
+
+| Route                                  | Actor      | Body               | Result                       |
+| -------------------------------------- | ---------- | ------------------ | ---------------------------- |
+| `POST /api/v1/quotations/:id/approve`  | Customer   | —                  | `approved`. **Price locked** |
+| `POST /api/v1/quotations/:id/reject`   | Customer   | `{ reason? }` ≤200 | `rejected`. Job continues    |
+| `POST /api/v1/quotations/:id/withdraw` | Technician | —                  | `withdrawn`                  |
+
+**A technician cannot approve their own quotation.** That is the single most
+important actor rule in the module.
+
+**Rejecting does not end the booking.** The technician may send v2, v3… The
+customer ends it with `POST /bookings/:id/decline-work`.
+
+**Approval is final.** No further quotations may be sent on that booking.
+
+| Status | Code                    | When                                         |
+| ------ | ----------------------- | -------------------------------------------- |
+| `403`  | `QUOTATION_WRONG_ACTOR` | The other party may do this, but you may not |
+| `404`  | `QUOTATION_NOT_FOUND`   | Unknown quotation                            |
+| `409`  | `QUOTATION_NOT_PENDING` | Already decided, superseded or withdrawn     |
+| `409`  | `QUOTATION_NOT_ALLOWED` | The booking is no longer `IN_PROGRESS`       |
+
+### Completion errors
+
+Returned by `POST /bookings/:id/complete` when the price is not settled.
+
+| Status | Code                 | When                                                    |
+| ------ | -------------------- | ------------------------------------------------------- |
+| `409`  | `QUOTATION_PENDING`  | A quotation is still awaiting the customer              |
+| `409`  | `QUOTATION_REQUIRED` | No approved quote, and the card is not a `fixed` amount |
+
+### The frozen bill
+
+On a billable ending the booking gains `payablePaise` and `payable`:
+
+```json
+{
+  "payablePaise": 145000,
+  "payable": {
+    "payablePaise": 145000,
+    "payableDisplay": "₹1,450",
+    "visitFeeCharged": false,
+    "basis": "approved_quotation",
+    "components": [
+      { "kind": "quotation", "labelKey": "payable.approvedQuotation", "amountPaise": 145000 },
+      { "kind": "visit_fee", "labelKey": "payable.visitFee", "amountPaise": 0, "waived": true }
+    ]
+  }
+}
+```
+
+`basis` is `approved_quotation` · `price_card` · `visit_fee_only`. A waived visit
+fee appears as a zero line rather than being omitted, so the customer can see it
+was not charged. **Phase 8 collects this number and never recomputes one.**
 
 ---
 
@@ -1335,10 +1512,9 @@ These prefixes resolve to registered routers with no handlers yet, so any path
 under them returns the standard `404 NOT_FOUND` envelope. Listed here so the URL
 space is reserved and visible.
 
-| Prefix                  | Phase | Will contain                         |
-| ----------------------- | ----- | ------------------------------------ |
-| `/api/v1/quotations`    | 7     | itemised quotations, in-app approval |
-| `/api/v1/payments`      | 8     | UPI collection, logged cash          |
-| `/api/v1/reviews`       | 9     | two-way ratings                      |
-| `/api/v1/notifications` | 10    | WhatsApp / push adapters             |
-| `/api/v1/admin`         | 11    | admin console API                    |
+| Prefix                  | Phase | Will contain                |
+| ----------------------- | ----- | --------------------------- |
+| `/api/v1/payments`      | 8     | UPI collection, logged cash |
+| `/api/v1/reviews`       | 9     | two-way ratings             |
+| `/api/v1/notifications` | 10    | WhatsApp / push adapters    |
+| `/api/v1/admin`         | 11    | admin console API           |

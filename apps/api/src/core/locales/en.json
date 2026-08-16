@@ -38,7 +38,19 @@
     "completed": "Work completed.",
     "cancelled": "Booking cancelled.",
     "slotBlocked": "Those hours are blocked. You will not get bookings for them.",
-    "slotUnblocked": "Those hours are open for bookings again."
+    "slotUnblocked": "Those hours are open for bookings again.",
+    "workDeclined": "Work declined. Only the visit charge applies."
+  },
+  "quotations": {
+    "sent": "Estimate sent. The customer will confirm before work starts.",
+    "approved": "Price agreed. The technician can now start the work.",
+    "rejected": "Estimate declined. The technician can send a revised one.",
+    "withdrawn": "Estimate withdrawn."
+  },
+  "payable": {
+    "visitFee": "Visit charge",
+    "approvedQuotation": "Agreed estimate",
+    "priceCard": "Listed price"
   },
   "verification": {
     "uploadUrlIssued": "Ready to upload.",
@@ -134,6 +146,26 @@
       "otpInvalid": "That code is not correct. Please check with the customer.",
       "otpLocked": "Too many wrong codes. Please contact support to continue.",
       "windowTooWide": "Please ask for a shorter date range."
+    },
+    "quotations": {
+      "notFound": "We could not find that estimate.",
+      "notInProgress": "An estimate can only be sent once the technician has reached and started looking.",
+      "providerOnly": "Only the technician can do this.",
+      "customerOnly": "Only the customer can do this.",
+      "notPending": "That estimate has already been dealt with.",
+      "alreadyApproved": "A price has already been agreed for this job.",
+      "conflict": "That estimate was overtaken. Please refresh and try again.",
+      "pendingDecision": "Please accept or decline the estimate first.",
+      "required": "This job needs an agreed estimate before it can be finished.",
+      "math": {
+        "empty": "An estimate must come to more than zero.",
+        "too_many_items": "That is too many items for one estimate.",
+        "bad_qty": "Please check the quantity.",
+        "bad_unit": "Please check the rate.",
+        "line_too_large": "That line comes to more than we allow.",
+        "total_too_large": "That estimate comes to more than we allow.",
+        "bad_labour": "Please check the labour charge."
+      }
     },
     "verification": {
       "documentNotFound": "We could not find that document.",

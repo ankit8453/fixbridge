@@ -11,9 +11,10 @@ Pradesh**, then the rest of India.
 > value of `APP_NAME`. Every user-facing string comes from `APP_NAME` or an i18n
 > key — never a literal.
 
-**Status:** Phase 6 of 14 complete — scaffold, health, identity/auth, profiles,
-the verification engine, geo-search with Hinglish resolution, and the booking
-engine with slots, a physical start/end handshake and a transactional outbox.
+**Status:** Phase 7 of 14 complete — scaffold, health, identity/auth, profiles,
+the verification engine, geo-search with Hinglish resolution, the booking engine
+with slots and a physical start/end handshake, and itemised quotations that agree
+the price in writing before the work proceeds.
 
 ---
 
@@ -121,6 +122,7 @@ modules/         one folder per domain — routes.ts · service.ts · repository
   verification/  KYC ladder, append-only event log, document uploads, badges
   search/        geo radius search, ranking scorer, Hinglish text resolution
   bookings/      slots, booking state machine, handshake OTPs, expiry, stats
+  quotations/    itemised versioned quotes, visit-fee config, payable computation
 types/           Express request augmentation
 ```
 
@@ -128,12 +130,12 @@ Every other domain module is a stub until its phase. `repository.ts` is the only
 file in a module allowed to touch the database — and the only place raw SQL may
 appear.
 
-Three design notes worth reading before touching those areas:
+Four design notes worth reading before touching those areas:
 [docs/geo-notes.md](docs/geo-notes.md) for PostGIS columns with Prisma,
-[docs/verification.md](docs/verification.md) for the append-only KYC model, and
+[docs/verification.md](docs/verification.md) for the append-only KYC model,
 [docs/search.md](docs/search.md) for the ranking formula and query plan, and
 [docs/bookings.md](docs/bookings.md) for the double-booking constraint, the
-booking state machine and the outbox contract.
+booking state machine, the quotation lifecycle and the outbox contract.
 
 ### Phase plan
 
@@ -145,7 +147,7 @@ booking state machine and the outbox contract.
 | 4 ✅  | Verification — KYC ladder, append-only events, MinIO uploads, badges   |
 | 5 ✅  | Search — PostGIS radius, pluggable ranking, Hinglish synonym resolve   |
 | 6 ✅  | Bookings — slots, lifecycle, start/end OTP handshake, outbox           |
-| 7     | Quotations — itemised, in-app approval                                 |
+| 7 ✅  | Quotations — itemised, versioned, in-app approval, frozen payable      |
 | 8     | Payments — UPI collection, logged cash                                 |
 | 9     | Reviews — two-way ratings                                              |
 | 10    | Notifications — WhatsApp Business API / push adapters                  |
@@ -286,6 +288,12 @@ sensible default — override `POSTGRES_PORT` if 5432 is already taken locally.
   guarantee. See [docs/bookings.md](docs/bookings.md).
 - **Booking history is append-only too**, on the same terms as verification, and
   a booking's status is a projection of its event log.
+- **A price is agreed in writing before work proceeds.** A job reaches
+  `WORK_DONE` only at an approved quotation or a `fixed` price card, and a
+  quotation is versioned rather than edited — the customer saw v1, so v1 survives
+  forever. Database triggers enforce that, not convention.
+- **The bill is frozen at the ending**, in the same transaction as the terminal
+  status. Phase 8 collects `payable_paise`; it never recomputes one.
 - **Domain events are written in the same transaction as the state change** — a
   transactional outbox, not a broker call. Delivery is at-least-once, so **every
   consumer must be idempotent**.

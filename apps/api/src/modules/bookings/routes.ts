@@ -4,6 +4,8 @@ import { AppError } from '../../core/errors';
 import { authenticate, getAuthUser } from '../../core/middleware/authenticate';
 import { requireRoles } from '../../core/middleware/require-roles';
 import { enforceSearchRateLimit } from '../search/service';
+import { bookingQuotationRouter } from '../quotations/routes';
+import { declineWorkSchema } from '../quotations/types';
 import * as service from './service';
 import * as slots from './slots-service';
 import {
@@ -29,6 +31,10 @@ const handle =
 const deps = (req: Request): service.BookingDeps => ({ context: getContext(req) });
 
 router.use(authenticate);
+
+// A quotation only exists inside a job, so its collection hangs off the booking.
+// Mounted before the `/:bookingId` routes so the more specific path wins.
+router.use('/:bookingId/quotations', bookingQuotationRouter);
 
 /* ---- customer ---- */
 
@@ -98,6 +104,25 @@ router.post(
 
     const booking = await service.cancelBooking(deps(req), userId, bookingId, input);
     res.status(200).json({ booking, message: req.t('bookings.cancelled') });
+  }),
+);
+
+/**
+ * "I heard the price and I don't want the work."
+ *
+ * Separate from rejecting a quotation on purpose: a rejection invites a
+ * revision, this ends the job. The visit fee is payable because the technician
+ * genuinely came.
+ */
+router.post(
+  '/:bookingId/decline-work',
+  requireRoles('customer'),
+  handle(async (req, res) => {
+    const { bookingId } = bookingIdParamSchema.parse(req.params);
+    const input = declineWorkSchema.parse(req.body);
+    const booking = await service.declineWork(deps(req), getAuthUser(req).id, bookingId, input);
+
+    res.status(200).json({ booking, message: req.t('bookings.workDeclined') });
   }),
 );
 

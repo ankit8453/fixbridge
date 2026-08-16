@@ -122,11 +122,13 @@ stateDiagram-v2
     EN_ROUTE --> CANCELLED_BY_PROVIDER : provider
 
     ARRIVED --> IN_PROGRESS : start handshake
-    IN_PROGRESS --> WORK_DONE : end handshake
+    IN_PROGRESS --> WORK_DONE : end handshake + agreed price
+    IN_PROGRESS --> CLOSED_QUOTE_DECLINED : customer declines the work
 
     REJECTED --> [*]
     EXPIRED --> [*]
     WORK_DONE --> [*]
+    CLOSED_QUOTE_DECLINED --> [*]
     CANCELLED_BY_CUSTOMER --> [*]
     CANCELLED_BY_PROVIDER --> [*]
 ```
@@ -247,6 +249,163 @@ address they were sent to, not the current one.
 
 ---
 
+## Quotations and pricing
+
+Phase 7. The itemised digital quotation is this product's answer to the single
+biggest fear in tier-2 home services: **the number that appears after the job is
+finished.** "Agreed in writing before work proceeds" is a trust feature first and
+a data model second.
+
+### The two pricing paths
+
+```mermaid
+flowchart TD
+    A[Booking reaches IN_PROGRESS] --> B{How was it priced?}
+    B -->|fixed price card| C[Direct path]
+    B -->|starting_from or inspection_based| D[Quotation path]
+    C --> E[End handshake → WORK_DONE]
+    E --> F["Payable = card + visit fee"]
+    D --> G[Technician sends an itemised quote]
+    G --> H{Customer}
+    H -->|approves| I[Price locked]
+    H -->|rejects| G
+    H -->|rejects, then declines the work| J[CLOSED_QUOTE_DECLINED]
+    I --> K[End handshake → WORK_DONE]
+    K --> L["Payable = quote total, visit fee waived"]
+    J --> M["Payable = visit fee only"]
+```
+
+`starting_from` is an advertisement and `inspection_based` is an admission that
+nobody knows yet. Neither is an agreement, so neither can reach WORK_DONE without
+one.
+
+### Quotation lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> sent : provider sends v(N)
+    sent --> approved : customer approves
+    sent --> rejected : customer rejects
+    sent --> withdrawn : provider corrects themselves
+    sent --> superseded : provider sends v(N+1)
+
+    approved --> [*] : price is final
+    rejected --> [*] : provider may send v(N+1)
+    withdrawn --> [*]
+    superseded --> [*]
+```
+
+**Nothing is ever edited.** A revision is a new version that supersedes the old
+one, because the customer _saw_ v1 and v1 has to survive exactly as it was shown.
+Database triggers enforce that: a quotation accepts exactly one kind of UPDATE —
+leaving `sent` — and its line items accept none at all. DELETE is refused outside
+the DPDP erasure path, the same session-flag pattern as `verification_events` and
+`booking_events`.
+
+**Rejecting is not ending.** "Not at that price" invites a revision; ending the
+job is a separate, explicit customer action (`POST /bookings/:id/decline-work`).
+Collapsing the two would let one tap close a booking the customer only meant to
+haggle over.
+
+### The pricing wall
+
+```sql
+CREATE UNIQUE INDEX quotations_one_live_per_booking_idx
+  ON quotations (booking_id)
+  WHERE (status IN ('sent', 'approved'));
+```
+
+One partial index closes both races the phase cares about:
+
+- **two revisions sent at once** — both insert a `sent` row, one is refused;
+- **an approval racing a revision** — the approval leaves v1 live, so the insert
+  of v2 collides, and exactly one transaction commits.
+
+A second unique index on `(booking_id, version)` catches two sends that both
+computed the same next version number. As with slots, the service narrows the
+window and turns the loss into a friendly 409; the index is what makes it
+impossible.
+
+> A test fires six sends in parallel. The assertion is deliberately **not**
+> "exactly one succeeds" — a send that arrives after another has committed is a
+> legitimate v2, not a race loss. What must hold is the invariant: one live
+> quotation, contiguous versions, and every loser getting a 409 rather than a 500.
+
+### Money math
+
+Integers in paise, checked twice. The service computes totals in one pure
+function and the database re-checks the same arithmetic:
+
+```sql
+CHECK (total_paise = labour_paise + parts_total_paise)
+CHECK (line_total_paise = qty * unit_paise)
+CHECK (total_paise > 0)
+```
+
+Two independent statements of the same sum. If they ever disagree, the write
+fails rather than a customer being shown a total that is not the sum of the lines
+above it.
+
+**A pure-labour quote is legal; an empty one is not.** Plenty of jobs are only
+somebody's time. "₹0, please approve" is a bug.
+
+**`int4`, not `int8`.** A Postgres `integer` tops out at ₹2,14,74,836. A doorstep
+repair quotation that reaches ₹2 crore is a bug or a fraud, and a wider column
+makes neither safer. The caps in `money.ts` (₹50,000 per unit, 999 per line,
+₹2,00,000 per line and per quotation, 50 lines) keep every intermediate three
+orders of magnitude clear of the ceiling — Postgres **raises** on integer
+overflow rather than wrapping, so the column is a backstop that should never
+fire. A test proves it would fire anyway.
+
+### The visit fee, and when it is waived
+
+> **The visit fee is the price of the technician turning up, so it is waived
+> whenever the job is priced and done under an approved quotation, and charged
+> whenever the customer sends the technician away or the job is billed at a flat
+> price-card rate.**
+
+The asymmetry is deliberate. A customer who accepts a quote has already paid for
+the trip inside that quote — charging it again would make the itemised total a
+lie, which is the exact thing this feature exists to prevent. A customer who
+hears the price and declines has still consumed a visit, and a technician who
+crossed Jabalpur for nothing must not absorb that.
+
+`fee_config` makes the amount tunable, resolved **service → cluster → city →
+global**:
+
+| Rung       | Example row               | Why it exists                                                 |
+| ---------- | ------------------------- | ------------------------------------------------------------- |
+| `category` | AC gas refill, ₹79        | A cylinder and gauges travel with the technician              |
+| `cluster`  | Motors & Generators, ₹99  | One row prices a whole trade instead of four that drift apart |
+| `city`     | Jabalpur, ₹49             | The baseline                                                  |
+| `global`   | `BOOKING_VISIT_FEE_PAISE` | A new city on its first day                                   |
+
+`effective_from` schedules a change; rows dated in the future are ignored, and
+the amount is **snapshotted onto the booking at creation** so a price change
+never alters what a customer was already told.
+
+### Payable, frozen at the ending
+
+| Outcome                              | Approved quote? | Price card                                  | Payable                                   | Visit fee  |
+| ------------------------------------ | --------------- | ------------------------------------------- | ----------------------------------------- | ---------- |
+| `WORK_DONE`                          | yes             | any                                         | quote total                               | **waived** |
+| `WORK_DONE`                          | no              | `fixed`                                     | card + visit fee                          | charged    |
+| `WORK_DONE`                          | no              | `starting_from` / `inspection_based` / none | **refused** — the guard blocks completion | —          |
+| `CLOSED_QUOTE_DECLINED`              | —               | any                                         | visit fee only                            | charged    |
+| `REJECTED`, `EXPIRED`, `CANCELLED_*` | —               | any                                         | none — no payable is written              | —          |
+
+`computePayable` is pure, takes every input as an argument, and is tested against
+hand-computed fixtures. Its result is written to `bookings.payable_paise` and
+`payable_breakdown` **in the same transaction as the terminal status**, inside
+the one transition funnel — so there is no window where a job is done and nobody
+knows what is owed, and no second code path that could freeze a different number.
+
+**Phase 8 charges what was frozen here. It never recomputes.**
+
+The breakdown lists a waived visit fee as a zero-amount line rather than omitting
+it, so a customer who was told there is a visit charge can see that it was not
+added instead of having to infer it from arithmetic.
+
 ## The transactional outbox
 
 The problem: "change the state, then publish an event" is two writes to two
@@ -301,20 +460,29 @@ being retried but the row stays, with `last_error`, for Phase 11's ops view.
 
 The contract other modules subscribe to. Renaming one silently breaks a consumer.
 
-| Topic                           | Emitted when                          |
-| ------------------------------- | ------------------------------------- |
-| `booking.requested`             | a customer books a slot               |
-| `booking.accepted`              | a technician accepts                  |
-| `booking.rejected`              | a technician declines                 |
-| `booking.expired`               | nobody answered in time               |
-| `booking.en_route`              | a technician sets off                 |
-| `booking.arrived`               | the start handshake succeeds          |
-| `booking.work_started`          | work begins                           |
-| `booking.work_done`             | the end handshake succeeds            |
-| `booking.cancelled_by_customer` | a customer cancels                    |
-| `booking.cancelled_by_provider` | a technician abandons an accepted job |
-| `booking.otp_failed`            | a wrong handshake code                |
-| `booking.otp_locked`            | too many wrong codes                  |
+| Topic                           | Emitted when                            |
+| ------------------------------- | --------------------------------------- |
+| `booking.requested`             | a customer books a slot                 |
+| `booking.accepted`              | a technician accepts                    |
+| `booking.rejected`              | a technician declines                   |
+| `booking.expired`               | nobody answered in time                 |
+| `booking.en_route`              | a technician sets off                   |
+| `booking.arrived`               | the start handshake succeeds            |
+| `booking.work_started`          | work begins                             |
+| `booking.work_done`             | the end handshake succeeds              |
+| `booking.cancelled_by_customer` | a customer cancels                      |
+| `booking.cancelled_by_provider` | a technician abandons an accepted job   |
+| `booking.otp_failed`            | a wrong handshake code                  |
+| `booking.otp_locked`            | too many wrong codes                    |
+| `booking.work_declined`         | the customer ended the job over a price |
+| `quotation.sent`                | a technician sent a version             |
+| `quotation.withdrawn`           | a technician pulled one back            |
+| `quotation.approved`            | the customer agreed a price             |
+| `quotation.rejected`            | the customer said no to a price         |
+
+Quote events travel through `booking_events` too — the timeline is one narrative
+— but they publish under `quotation.*` so a subscriber that cares about pricing
+does not have to sift booking events to find them.
 
 ### How later phases subscribe
 
@@ -334,9 +502,12 @@ Phases 9 and 10 will take up.
 
 - **Phase 9 (trust & disputes)** reads `rejected`, `expired`,
   `cancelled_by_provider` and `otp_locked` — the reliability signals — and the
-  reason codes in each payload.
+  reason codes in each payload. `quotation.rejected` and `booking.work_declined`
+  are a softer signal worth watching: a technician whose quotes are regularly
+  declined may be pricing badly rather than working badly.
 - **Phase 10 (notifications)** subscribes to essentially all of them, and sends
-  over the WhatsApp Business API.
+  over the WhatsApp Business API. `quotation.sent` is the one that matters most:
+  a customer standing next to the technician still gets it in writing.
 
 ---
 
@@ -412,13 +583,33 @@ Things that must stay true. Each has a test.
     transaction)_
 11. Phone numbers are masked outside `ACCEPTED`…`WORK_DONE`.
 12. Search never returns a technician whose hour is already taken.
+13. At most one quotation per booking is `sent` or `approved`. _(partial unique
+    index; proved at SQL level and under 6-way parallel load)_
+14. A quotation's money is never edited, and its line items are never edited or
+    deleted outside the erasure path. _(triggers)_
+15. `total_paise = labour_paise + parts_total_paise` and
+    `line_total_paise = qty × unit_paise`, always. _(CHECK constraints)_
+16. A job reaches `WORK_DONE` only at an agreed price — an approved quotation or
+    a `fixed` price card. _(`requireSettledPrice`)_
+17. `payable_paise` is written exactly on `WORK_DONE` and
+    `CLOSED_QUOTE_DECLINED`, in the same transaction as the status, and never on
+    any other ending.
+18. A visit fee change never alters a booking already made. _(snapshot at
+    creation)_
 
 ---
 
 ## What is deliberately not here
 
-- **Payments.** `visit_fee_paise` is snapshotted onto every booking and charged
-  by nobody. Phase 8.
+- **Payments.** `payable_paise` is frozen and collected by nobody. Phase 8.
+- **GST and invoice formatting.** Phase 8.
+- **A parts catalogue.** Quotation items are free text; inventory and standard
+  part codes are a later problem, and pretending otherwise would slow every
+  technician down for a benefit nobody has asked for yet.
+- **Quotation PDFs.** The in-app record is the artefact.
+- **Price suggestions.** No ML, no "technicians usually charge…" — a wrong
+  suggestion on a screen the customer also sees is worse than none.
+- **Ops quote intervention.** Phase 11.
 - **Rescheduling.** v1 has no reschedule: it is cancel plus rebook. The
   `rescheduled_from_booking_id` column exists so the two can be linked for
   analytics when that changes.

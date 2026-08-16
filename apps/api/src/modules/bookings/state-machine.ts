@@ -21,6 +21,7 @@ export const BOOKING_STATUSES = [
   'WORK_DONE',
   'CANCELLED_BY_CUSTOMER',
   'CANCELLED_BY_PROVIDER',
+  'CLOSED_QUOTE_DECLINED',
 ] as const;
 
 export type BookingStatus = (typeof BOOKING_STATUSES)[number];
@@ -38,6 +39,11 @@ export const BOOKING_EVENT_TYPES = [
   'cancelled_by_provider',
   'otp_failed',
   'otp_locked',
+  'quote_sent',
+  'quote_withdrawn',
+  'quote_approved',
+  'quote_rejected',
+  'work_declined',
 ] as const;
 
 export type BookingEventType = (typeof BOOKING_EVENT_TYPES)[number];
@@ -51,7 +57,25 @@ export const TERMINAL_BOOKING_STATUSES: readonly BookingStatus[] = [
   'WORK_DONE',
   'CANCELLED_BY_CUSTOMER',
   'CANCELLED_BY_PROVIDER',
+  'CLOSED_QUOTE_DECLINED',
 ];
+
+/**
+ * Terminal statuses that leave a bill behind.
+ *
+ * The distinction is not cosmetic: these are exactly the endings where Phase 7
+ * freezes a `payable_paise`, and therefore exactly the ones Phase 8 will collect
+ * against. A booking that was rejected, expired or cancelled owes nothing and
+ * must never acquire a payable.
+ */
+export const BILLABLE_BOOKING_STATUSES: readonly BookingStatus[] = [
+  'WORK_DONE',
+  'CLOSED_QUOTE_DECLINED',
+];
+
+export function isBillableBooking(status: BookingStatus): boolean {
+  return BILLABLE_BOOKING_STATUSES.includes(status);
+}
 
 export function isTerminalBooking(status: BookingStatus): boolean {
   return TERMINAL_BOOKING_STATUSES.includes(status);
@@ -61,9 +85,23 @@ export function isTerminalBooking(status: BookingStatus): boolean {
  * Events that record something without moving the booking.
  *
  * A mistyped handshake code is evidence — it belongs in the history so a dispute
- * can see it — but it is not a state change.
+ * can see it — but it is not a state change. The quote events are here for a
+ * different reason: agreeing a price is a negotiation that happens *while* the
+ * job stays IN_PROGRESS, and it can go round more than once. Only the customer
+ * walking away (`work_declined`) ends anything.
+ *
+ * These are permitted from any non-terminal status by the machine; the narrower
+ * rule — quotes exist only from IN_PROGRESS — belongs to the quotations service,
+ * because it is about pricing, not about the lifecycle.
  */
-export const NON_TRANSITIONING_EVENTS: readonly BookingEventType[] = ['otp_failed', 'otp_locked'];
+export const NON_TRANSITIONING_EVENTS: readonly BookingEventType[] = [
+  'otp_failed',
+  'otp_locked',
+  'quote_sent',
+  'quote_withdrawn',
+  'quote_approved',
+  'quote_rejected',
+];
 
 export interface TransitionRule {
   from: BookingStatus;
@@ -126,6 +164,21 @@ export const TRANSITIONS: readonly TransitionRule[] = [
   // Arrival is proven by the start OTP, and work begins immediately after.
   { from: 'ARRIVED', event: 'work_started', to: 'IN_PROGRESS', actors: ['provider', 'system'] },
   { from: 'IN_PROGRESS', event: 'work_done', to: 'WORK_DONE', actors: ['provider'] },
+
+  /**
+   * Phase 7. The customer heard the price and chose not to go ahead.
+   *
+   * Deliberately the customer's own action and not an automatic consequence of
+   * rejecting a quote: a rejection is "not at that price", which the technician
+   * may answer with a revision. Ending the job is a separate, explicit decision,
+   * and the visit fee is payable because the visit genuinely happened.
+   */
+  {
+    from: 'IN_PROGRESS',
+    event: 'work_declined',
+    to: 'CLOSED_QUOTE_DECLINED',
+    actors: ['customer'],
+  },
 ];
 
 export type TransitionOutcome =
@@ -276,6 +329,18 @@ export const BOOKING_TOPICS = {
   cancelled_by_provider: 'booking.cancelled_by_provider',
   otp_failed: 'booking.otp_failed',
   otp_locked: 'booking.otp_locked',
+  /**
+   * Quote events publish under `quotation.*`, not `booking.*`.
+   *
+   * They travel through the booking's event log because the timeline is one
+   * narrative, but a subscriber that cares about pricing should not have to
+   * filter booking events to find them.
+   */
+  quote_sent: 'quotation.sent',
+  quote_withdrawn: 'quotation.withdrawn',
+  quote_approved: 'quotation.approved',
+  quote_rejected: 'quotation.rejected',
+  work_declined: 'booking.work_declined',
 } as const satisfies Record<BookingEventType, string>;
 
 export function topicFor(event: BookingEventType): string {

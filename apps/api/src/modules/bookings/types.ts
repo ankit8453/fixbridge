@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { PayableView, QuotationView } from '../quotations/types';
 import {
   CUSTOMER_CANCEL_REASONS,
   PROVIDER_CANCEL_REASONS,
@@ -106,8 +107,17 @@ export interface BookingDetail {
   startsAt: string;
   endsAt: string;
   problemNote: string | null;
-  /** Snapshot at creation. Stored, never charged — Phase 8. */
+  /** Resolved from `fee_config` at creation. Whether it is charged is decided at the end. */
   visitFeePaise: number;
+  /** Every version, both sides, fully itemised. */
+  quotations: QuotationView[];
+  /** Awaiting the customer's decision, if any. */
+  pendingQuotation: QuotationView | null;
+  /** The one that settled the price, if any. */
+  approvedQuotation: QuotationView | null;
+  /** Frozen at the terminal transition. Null until then. */
+  payablePaise: number | null;
+  payable: PayableView | null;
   /** The address as it was when booked. Null to a provider before acceptance. */
   address: unknown;
   counterpart: {

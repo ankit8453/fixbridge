@@ -27,6 +27,7 @@ model City {
   categories       Category[]
   addresses        Address[]
   providerProfiles ProviderProfile[]
+  feeConfigs       FeeConfig[]
 
   @@unique([name, state])
   @@index([isActive])
@@ -71,6 +72,7 @@ model User {
   providerProfile ProviderProfile?
   addresses       Address[]
   bookings        Booking[]        @relation("CustomerBookings")
+  quotations      Quotation[]
 
   @@index([status])
   @@map("users")
@@ -143,6 +145,7 @@ model Category {
   priceCards ProviderPriceCard[]
   synonyms   HinglishSynonym[]
   bookings   Booking[]
+  feeConfigs FeeConfig[]
 
   @@unique([cityId, slug])
   @@index([cityId, isActive])
@@ -553,6 +556,9 @@ enum BookingStatus {
   WORK_DONE
   CANCELLED_BY_CUSTOMER
   CANCELLED_BY_PROVIDER
+  /// The technician came, quoted, and the customer chose not to go ahead.
+  /// The visit happened, so the visit fee is payable and no work is billed.
+  CLOSED_QUOTE_DECLINED
 
   @@map("booking_status")
 }
@@ -571,6 +577,15 @@ enum BookingEventType {
   /// Recorded, but moves nothing — a failed handshake is evidence, not a state.
   otp_failed
   otp_locked
+  /// Quotation lifecycle. The booking's timeline is the single narrative, so a
+  /// quote being sent or decided lands here too. None of these move the booking;
+  /// pricing is negotiated while the job stays IN_PROGRESS.
+  quote_sent
+  quote_withdrawn
+  quote_approved
+  quote_rejected
+  /// The customer ended the job rather than accept a price. This one does move.
+  work_declined
 
   @@map("booking_event_type")
 }
@@ -602,9 +617,18 @@ model Booking {
   endsAt   DateTime @map("ends_at") @db.Timestamptz(3)
 
   problemNote   String?       @map("problem_note") @db.VarChar(500)
-  /// Snapshot of the visit fee at creation. Stored, never charged — Phase 8.
+  /// Snapshot of the visit fee at creation, resolved through `fee_config`.
+  /// Whether it is actually charged is decided at the terminal transition.
   visitFeePaise Int           @map("visit_fee_paise")
   status        BookingStatus @default(REQUESTED)
+
+  /// What the customer owes, frozen at the terminal transition.
+  ///
+  /// Phase 8 charges this number; it never recomputes one. A booking that ended
+  /// before any money could be owed (rejected, expired, cancelled) leaves both
+  /// columns null.
+  payablePaise     Int?  @map("payable_paise")
+  payableBreakdown Json? @map("payable_breakdown") @db.JsonB
 
   /// v1 has no reschedule: it is cancel + rebook, linked here for analytics.
   rescheduledFromBookingId String? @map("rescheduled_from_booking_id") @db.Uuid
@@ -612,12 +636,13 @@ model Booking {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  customer  User               @relation("CustomerBookings", fields: [customerId], references: [id], onDelete: Cascade)
-  provider  ProviderProfile    @relation(fields: [providerId], references: [userId], onDelete: Cascade)
-  category  Category           @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  priceCard ProviderPriceCard? @relation(fields: [priceCardId], references: [id], onDelete: SetNull)
-  events    BookingEvent[]
-  slots     Slot[]
+  customer   User               @relation("CustomerBookings", fields: [customerId], references: [id], onDelete: Cascade)
+  provider   ProviderProfile    @relation(fields: [providerId], references: [userId], onDelete: Cascade)
+  category   Category           @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  priceCard  ProviderPriceCard? @relation(fields: [priceCardId], references: [id], onDelete: SetNull)
+  events     BookingEvent[]
+  slots      Slot[]
+  quotations Quotation[]
 
   @@index([customerId, createdAt])
   @@index([providerId, createdAt])
@@ -640,6 +665,118 @@ model BookingEvent {
 
   @@index([bookingId, createdAt])
   @@map("booking_events")
+}
+
+// ---------------------------------------------------------------------------
+// Quotations & pricing
+// ---------------------------------------------------------------------------
+
+/// What the technician charges for turning up, before any work is priced.
+///
+/// A table rather than a constant because the honest number differs by trade: a
+/// motor rewinder arriving with tools and a meter has spent more getting there
+/// than someone changing a tap washer. Rows are scoped city → category and
+/// resolved most-specific-first; `effective_from` means a price change never
+/// rewrites what an existing booking already snapshotted.
+model FeeConfig {
+  id String @id @default(uuid()) @db.Uuid
+
+  cityId     Int  @map("city_id")
+  /// Null means "the default for this city". A cluster id covers every service
+  /// beneath it, so one row can price a whole trade.
+  categoryId Int? @map("category_id")
+
+  visitFeePaise Int      @map("visit_fee_paise")
+  isActive      Boolean  @default(true) @map("is_active")
+  effectiveFrom DateTime @default(now()) @map("effective_from") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  city     City      @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([cityId, isActive, effectiveFrom])
+  @@map("fee_config")
+}
+
+enum QuotationStatus {
+  sent
+  approved
+  rejected
+  /// Replaced by a newer version the provider sent.
+  superseded
+  /// Pulled back by the provider before the customer decided.
+  withdrawn
+
+  @@map("quotation_status")
+}
+
+enum QuotationItemKind {
+  part
+  labour_extra
+
+  @@map("quotation_item_kind")
+}
+
+/// An itemised price, agreed in writing before the work proceeds.
+///
+/// This is the product's answer to the single biggest fear in tier-2 home
+/// services: the number that appears after the job is finished. Nothing here is
+/// ever edited — a revision is a **new version** that supersedes the old one,
+/// because the customer saw v1 and v1 has to survive forever.
+///
+/// A partial unique index allows at most one `sent`-or-`approved` quotation per
+/// booking, which is what makes the send/approve races safe at SQL level.
+model Quotation {
+  id        String @id @default(uuid()) @db.Uuid
+  bookingId String @map("booking_id") @db.Uuid
+  /// 1, 2, 3… per booking. Sequence, not identity.
+  version   Int
+
+  status QuotationStatus @default(sent)
+
+  labourPaise     Int @map("labour_paise")
+  /// Denormalised sum of the items, so a total can be checked without a join.
+  partsTotalPaise Int @map("parts_total_paise")
+  totalPaise      Int @map("total_paise")
+
+  note String? @db.VarChar(500)
+
+  createdById  String    @map("created_by") @db.Uuid
+  /// When the row stopped being live — decided, superseded or withdrawn.
+  decidedAt    DateTime? @map("decided_at") @db.Timestamptz(3)
+  /// The customer's reason for rejecting, when they gave one.
+  decisionNote String?   @map("decision_note") @db.VarChar(200)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  booking   Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  createdBy User            @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  items     QuotationItem[]
+
+  @@unique([bookingId, version])
+  @@index([bookingId, createdAt])
+  @@map("quotations")
+}
+
+/// One line of a quotation. Free text — a parts catalogue is a later problem.
+model QuotationItem {
+  id             String            @id @default(uuid()) @db.Uuid
+  quotationId    String            @map("quotation_id") @db.Uuid
+  kind           QuotationItemKind
+  description    String            @db.VarChar(120)
+  qty            Int
+  unitPaise      Int               @map("unit_paise")
+  /// `qty × unit_paise`, enforced by a CHECK so the arithmetic cannot drift.
+  lineTotalPaise Int               @map("line_total_paise")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  quotation Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  @@index([quotationId])
+  @@map("quotation_items")
 }
 
 // ---------------------------------------------------------------------------

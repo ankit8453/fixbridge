@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BILLABLE_BOOKING_STATUSES,
   BOOKING_EVENT_TYPES,
   BOOKING_STATUSES,
   BOOKING_TOPICS,
@@ -7,6 +8,7 @@ import {
   TERMINAL_BOOKING_STATUSES,
   TRANSITIONS,
   applyBookingEvent,
+  isBillableBooking,
   isTerminalBooking,
   projectBookingStatus,
   topicFor,
@@ -37,8 +39,33 @@ describe('booking transition table', () => {
   it('gives every event type an outbox topic', () => {
     for (const event of BOOKING_EVENT_TYPES) {
       expect(topicFor(event)).toBe(BOOKING_TOPICS[event]);
-      expect(topicFor(event).startsWith('booking.')).toBe(true);
+      // Quote events publish under `quotation.*` so a pricing subscriber does
+      // not have to sift booking events to find them.
+      expect(topicFor(event)).toMatch(/^(booking|quotation)\.[a-z_]+$/);
     }
+  });
+
+  it('publishes quote events under quotation, and everything else under booking', () => {
+    for (const event of BOOKING_EVENT_TYPES) {
+      const expected = event.startsWith('quote_') ? 'quotation.' : 'booking.';
+      expect(topicFor(event).startsWith(expected), `${event} → ${topicFor(event)}`).toBe(true);
+    }
+  });
+
+  it('gives every terminal status a pricing rule, billable or not', () => {
+    // A future terminal status that is neither must not slip through: it would
+    // reach `computePayable` and throw at the worst possible moment.
+    for (const status of TERMINAL_BOOKING_STATUSES) {
+      expect(typeof isBillableBooking(status)).toBe('boolean');
+    }
+
+    expect(BILLABLE_BOOKING_STATUSES.every((status) => isTerminalBooking(status))).toBe(true);
+    expect(isBillableBooking('WORK_DONE')).toBe(true);
+    expect(isBillableBooking('CLOSED_QUOTE_DECLINED')).toBe(true);
+    // Nothing was done and nobody turned up.
+    expect(isBillableBooking('EXPIRED')).toBe(false);
+    expect(isBillableBooking('REJECTED')).toBe(false);
+    expect(isBillableBooking('CANCELLED_BY_CUSTOMER')).toBe(false);
   });
 
   it('reaches every non-initial status from somewhere', () => {
@@ -132,6 +159,43 @@ describe('applyBookingEvent', () => {
       ok: false,
       reason: 'not_allowed',
     });
+  });
+
+  it('lets a price be argued over without the booking moving', () => {
+    // Quote, reject, quote again, approve — the job stays IN_PROGRESS the whole
+    // time. Pricing is a negotiation, not a state change.
+    for (const event of [
+      'quote_sent',
+      'quote_withdrawn',
+      'quote_approved',
+      'quote_rejected',
+    ] as const) {
+      expect(applyBookingEvent('IN_PROGRESS', event, 'provider')).toEqual({
+        ok: true,
+        status: 'IN_PROGRESS',
+      });
+    }
+  });
+
+  it('lets only the customer end the job over a price', () => {
+    expect(applyBookingEvent('IN_PROGRESS', 'work_declined', 'customer')).toEqual({
+      ok: true,
+      status: 'CLOSED_QUOTE_DECLINED',
+    });
+
+    // A technician who does not like how the conversation is going cancels;
+    // they do not get to record the customer as having declined.
+    expect(applyBookingEvent('IN_PROGRESS', 'work_declined', 'provider')).toEqual({
+      ok: false,
+      reason: 'wrong_actor',
+    });
+  });
+
+  it('does not let a customer decline before the technician has started', () => {
+    // Before IN_PROGRESS there is no price to have heard. That is a cancellation.
+    for (const status of ['REQUESTED', 'ACCEPTED', 'EN_ROUTE', 'ARRIVED'] as BookingStatus[]) {
+      expect(applyBookingEvent(status, 'work_declined', 'customer').ok).toBe(false);
+    }
   });
 
   it('records a failed handshake without moving the booking', () => {
