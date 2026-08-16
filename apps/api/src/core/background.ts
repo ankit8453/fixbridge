@@ -3,9 +3,11 @@ import { createJobRunner, type JobRunner } from './jobs';
 import { createOutboxDispatcher, type OutboxDispatcher } from './outbox';
 import { createBookingJobs } from '../modules/bookings/jobs';
 import { registerAcceptanceRateProjector } from '../modules/bookings/stats';
+import { createNotificationJobs } from '../modules/notifications/jobs';
+import { registerNotificationConsumer } from '../modules/notifications/service';
 import { createPayoutJobs, registerUpfrontFeeRefunder } from '../modules/payments/jobs';
 import { registerWebhookProcessor } from '../modules/payments/webhook';
-import { registerTrustEngine } from '../modules/trust/service';
+import { createTrustJobs, registerTrustEngine } from '../modules/trust/service';
 
 /**
  * Everything that runs on a timer rather than in response to a request.
@@ -39,6 +41,16 @@ export function registerOutboxSubscribers(context: AppContext): void {
   // could change it happens. Registered last only because it reads what the
   // others write — the outbox makes no ordering promise, and it does not need one.
   registerTrustEngine(context.outbox, context);
+  /**
+   * Last, and on purpose.
+   *
+   * The trust engine may itself publish — a suspension, a badge change — and
+   * those are among the most important things anybody gets told. Registration
+   * order does not guarantee delivery order (the outbox makes no such promise),
+   * but the events the engine writes go through the same table and reach this
+   * consumer on a later pass.
+   */
+  registerNotificationConsumer(context.outbox, context);
 }
 
 export function createBackgroundWorkers(context: AppContext): BackgroundWorkers {
@@ -52,7 +64,12 @@ export function createBackgroundWorkers(context: AppContext): BackgroundWorkers 
     registry: context.outbox,
   });
 
-  const definitions = [...createBookingJobs(context), ...createPayoutJobs(context)];
+  const definitions = [
+    ...createBookingJobs(context),
+    ...createPayoutJobs(context),
+    ...createNotificationJobs(context),
+    ...createTrustJobs(context),
+  ];
 
   return {
     jobs,

@@ -313,7 +313,7 @@ export type ProviderCancelReason = (typeof PROVIDER_CANCEL_REASONS)[number];
 /* -------------------------------------------------------------------------- */
 
 /**
- * The contract Phases 9 and 10 subscribe to. Topic names are public API for
+ * The contract the trust engine and notifications subscribe to. Topic names are public API for
  * other modules — renaming one silently breaks a consumer.
  */
 export const BOOKING_TOPICS = {

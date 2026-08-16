@@ -358,7 +358,7 @@ export async function recordKycAccess(
  * itself with a session flag. `SET LOCAL` binds to the transaction, which is
  * what keeps the exemption from leaking to another request sharing the pool.
  *
- * Used by test teardown today and by DPDP erasure (Phase 14) tomorrow. It is not
+ * Used by test teardown today and by DPDP erasure (Phase 15) tomorrow. It is not
  * a general-purpose delete and must not become one.
  */
 export async function purgeVerificationData(

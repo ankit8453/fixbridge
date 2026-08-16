@@ -2,6 +2,7 @@ import {
   DEFAULT_ROLE,
   type AuthSession,
   type AuthUser,
+  type Locale,
   type Role,
   type UserStatus,
 } from '@fixbridge/shared';
@@ -75,8 +76,37 @@ export function toAuthUser(user: UserWithRoles): AuthUser {
     roles: extractRoles(user),
     status: user.status as UserStatus,
     defaultCityId: user.defaultCityId,
+    preferredLanguage: user.preferredLanguage as Locale,
     createdAt: user.createdAt.toISOString(),
   };
+}
+
+/**
+ * Changes the language every future message renders in.
+ *
+ * Retroactive by design: the inbox re-renders from stored template keys and
+ * parameters, so switching to English translates a person's whole history rather
+ * than only what happens next. See `notifications/params.ts`.
+ */
+export async function setPreferredLanguage(
+  deps: AuthDeps,
+  userId: string,
+  language: Locale,
+): Promise<AuthUser> {
+  await deps.context.prisma.user.update({
+    where: { id: userId },
+    data: { preferredLanguage: language },
+  });
+
+  const user = await findUserById(deps.context.prisma, userId);
+
+  if (!user) {
+    throw AppError.unauthorized('Authenticated user no longer exists', {
+      messageKey: 'errors.auth.tokenInvalid',
+    });
+  }
+
+  return toAuthUser(user);
 }
 
 function assertActive(user: UserWithRoles): void {

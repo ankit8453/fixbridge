@@ -80,3 +80,15 @@ export function translate(locale: Locale, key: string, vars?: TranslationVars): 
 export function createTranslator(locale: Locale): Translator {
   return (key, vars) => translate(locale, key, vars);
 }
+
+/**
+ * Whether a key really exists in a locale, with no fallback.
+ *
+ * `translate` deliberately never fails — a missing string must not break a
+ * response. That is right at runtime and useless at build time, because it means
+ * a template with no Hindi renders as the literal key and nothing complains.
+ * This is what the notification completeness test asserts against.
+ */
+export function hasTranslation(locale: Locale, key: string): boolean {
+  return lookup(CATALOGS[locale], key) !== undefined;
+}

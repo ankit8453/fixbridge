@@ -6,7 +6,8 @@
   "auth": {
     "otpSent": "हमने आपके फ़ोन पर 6 अंकों का कोड भेजा है। यह {{minutes}} मिनट तक चलेगा।",
     "loggedIn": "आप सफलतापूर्वक लॉगिन हो गए हैं।",
-    "loggedOut": "आप लॉगआउट हो गए हैं।"
+    "loggedOut": "आप लॉगआउट हो गए हैं।",
+    "preferencesSaved": "आपकी पसंद सहेज ली गई है।"
   },
   "customers": {
     "profileUpdated": "आपकी जानकारी सेव हो गई है।",
@@ -112,25 +113,21 @@
     "fanGeyserMotorInstallation": "पंखा, गीज़र और मोटर लगवाना",
     "switchboardMcb": "स्विचबोर्ड और एमसीबी",
     "earthing": "अर्थिंग",
-
     "motorsGenerators": "मोटर और जनरेटर",
     "motorRewinding": "मोटर रीवाइंडिंग",
     "pumpBorewellRepair": "पंप और बोरवेल मरम्मत",
     "gensetServicing": "जनरेटर सर्विसिंग",
     "stabilizers": "स्टेबलाइज़र",
-
     "plumbing": "प्लंबिंग",
     "leakageRepair": "लीकेज की मरम्मत",
     "fittingsFixtures": "फिटिंग और नल-टोंटी",
     "tankCleaning": "टंकी की सफ़ाई",
     "roService": "आरओ सर्विस",
-
     "coolingAppliances": "कूलिंग और घरेलू उपकरण",
     "acServiceGasRefill": "एसी सर्विस और गैस रिफिल",
     "fridgeRepair": "फ्रिज मरम्मत",
     "washingMachineRepair": "वॉशिंग मशीन मरम्मत",
     "microwaveRepair": "माइक्रोवेव मरम्मत",
-
     "mechanics": "मैकेनिक",
     "twoWheelerDoorstep": "दोपहिया की घर पर सर्विस",
     "carBatteryJumpstart": "कार बैटरी और जंपस्टार्ट",
@@ -266,5 +263,128 @@
   },
   "common": {
     "greeting": "नमस्ते {{name}}"
+  },
+  "notifications": {
+    "allRead": "सब पढ़ा हुआ मार्क कर दिया गया।"
+  },
+  "notif": {
+    "badge": {
+      "VERIFIED": "वेरिफ़ाइड",
+      "SILVER": "सिल्वर",
+      "GOLD": "गोल्ड"
+    },
+    "complaintCategory": {
+      "overcharge": "ज़्यादा पैसे लेने",
+      "no_show": "न आने",
+      "quality": "काम की क्वालिटी",
+      "behavior": "व्यवहार",
+      "cash_dispute": "नकद पैसे",
+      "safety": "सुरक्षा",
+      "other": "किसी और बात"
+    },
+    "booking": {
+      "requested": {
+        "title": "नया काम आया है",
+        "body": "{{categoryName}} — {{time}}. {{expiryMinutes}} मिनट में हाँ या ना कर दें, वरना यह काम किसी और को चला जाएगा।"
+      },
+      "accepted": {
+        "title": "बुकिंग पक्की हो गई",
+        "body": "{{providerName}} {{time}} आ रहे हैं। दरवाज़े पर उन्हें यह कोड बताएँ: {{otp}}"
+      },
+      "acceptedNoOtp": {
+        "title": "बुकिंग पक्की हो गई",
+        "body": "{{providerName}} {{time}} आ रहे हैं। शुरू करने का कोड ऐप में देख लें।"
+      },
+      "rejected": {
+        "title": "कारीगर ने मना कर दिया",
+        "body": "{{time}} का {{categoryName}} का काम नहीं हो पाएगा। दूसरा कारीगर देख लें।"
+      },
+      "expired": {
+        "title": "कोई जवाब नहीं आया",
+        "body": "{{time}} के {{categoryName}} के काम का जवाब नहीं आया। दूसरा कारीगर देख लें।"
+      },
+      "cancelledByCustomer": {
+        "title": "ग्राहक ने बुकिंग रद्द कर दी",
+        "body": "{{time}} का {{categoryName}} का काम रद्द हो गया। वह समय फिर से खुल गया है।"
+      },
+      "cancelledByProvider": {
+        "title": "कारीगर ने बुकिंग रद्द कर दी",
+        "body": "{{time}} का {{categoryName}} का काम रद्द हो गया। दूसरा कारीगर देख लें।"
+      }
+    },
+    "quotation": {
+      "sent": {
+        "title": "कारीगर ने पैसे बताए हैं",
+        "body": "{{providerName}} ने {{total}} का हिसाब भेजा है। देख कर हाँ या ना कर दें।"
+      },
+      "approved": {
+        "title": "ग्राहक ने हिसाब मान लिया",
+        "body": "{{total}} का हिसाब मंज़ूर हो गया। काम पूरा कर सकते हैं।"
+      },
+      "rejected": {
+        "title": "ग्राहक ने हिसाब नहीं माना",
+        "body": "{{categoryName}} के काम का हिसाब मंज़ूर नहीं हुआ। नया हिसाब भेज सकते हैं।"
+      }
+    },
+    "payment": {
+      "capturedCustomer": {
+        "title": "पैसा मिल गया",
+        "body": "आपके {{amount}} मिल गए हैं। धन्यवाद।"
+      },
+      "capturedProvider": {
+        "title": "आपके खाते में पैसा जुड़ा",
+        "body": "कमीशन काट कर {{netAmount}} आपके वॉलेट में जुड़ गए हैं।"
+      },
+      "cashRecorded": {
+        "title": "नकद पैसे का हिसाब लिखा गया",
+        "body": "कारीगर ने लिखा है कि आपने {{amount}} नकद दिए। अगर यह ठीक नहीं है तो ऐप में शिकायत करें।"
+      }
+    },
+    "payout": {
+      "paid": {
+        "title": "आपका पैसा भेज दिया गया",
+        "body": "{{amount}} आपके बैंक खाते में भेज दिए गए हैं। UTR: {{utr}}"
+      }
+    },
+    "provider": {
+      "suspended": {
+        "title": "आपका काम फ़िलहाल रोका गया है",
+        "body": "{{reason}} {{until}} तक आपको नए काम नहीं मिलेंगे। बात करने के लिए सहायता टीम से संपर्क करें।"
+      },
+      "reinstated": {
+        "title": "आप फिर से काम ले सकते हैं",
+        "body": "आपका खाता खोल दिया गया है। नए काम फिर से आने लगेंगे।"
+      },
+      "badgeChanged": {
+        "title": "आपको {{badge}} बैज मिला",
+        "body": "आपके काम की वजह से आपको {{badge}} बैज मिला है। अब आप खोज में ऊपर दिखेंगे।"
+      }
+    },
+    "complaint": {
+      "opened": {
+        "title": "आपके ख़िलाफ़ शिकायत आई है",
+        "body": "{{category}} को लेकर शिकायत दर्ज हुई है। हमारी टीम इसे देख रही है।"
+      },
+      "resolvedRaiser": {
+        "title": "आपकी शिकायत का फ़ैसला हो गया",
+        "body": "{{category}} वाली आपकी शिकायत सही पाई गई और उस पर कार्रवाई की गई है।"
+      },
+      "resolvedAgainst": {
+        "title": "शिकायत सही पाई गई",
+        "body": "{{category}} वाली शिकायत सही पाई गई है। इसका असर आपके स्कोर पर पड़ेगा।"
+      },
+      "dismissedRaiser": {
+        "title": "आपकी शिकायत बंद कर दी गई",
+        "body": "{{category}} वाली आपकी शिकायत में कुछ ग़लत नहीं मिला, इसलिए वह बंद कर दी गई।"
+      },
+      "dismissedAgainst": {
+        "title": "शिकायत बंद कर दी गई",
+        "body": "{{category}} वाली शिकायत में कुछ ग़लत नहीं मिला। आपके रिकॉर्ड पर कोई असर नहीं पड़ा।"
+      }
+    },
+    "fallback": {
+      "provider": "आपका कारीगर",
+      "customer": "ग्राहक"
+    }
   }
 }

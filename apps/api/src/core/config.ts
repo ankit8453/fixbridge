@@ -300,6 +300,75 @@ const baseConfigSchema = z.object({
   SUSPEND_CANCELLATION_WINDOW_DAYS: z.coerce.number().int().min(1).max(90).default(7),
   /** How long an automatic suspension lasts before it lapses on its own. */
   SUSPEND_DURATION_DAYS: z.coerce.number().int().min(1).max(365).default(7),
+
+  /**
+   * How often every active technician is rescored, whether or not anything
+   * happened to them.
+   *
+   * Called "nightly" in the docs, but it is an interval for the same reason the
+   * slot horizon is: a process that restarts twice a day would never reach a
+   * 24-hour timer. It is cheap to run often — a recompute reads current truth and
+   * writes a snapshot only when the number actually moved — and it exists so the
+   * recency component decays for somebody who has simply stopped working, which
+   * no event will ever announce.
+   */
+  TRUST_RECOMPUTE_JOB_INTERVAL_MS: z.coerce
+    .number()
+    .int()
+    .min(60_000)
+    .max(86_400_000)
+    .default(6 * 60 * 60 * 1_000),
+
+  /* ---- notifications ---- */
+
+  /**
+   * Which implementation actually sends.
+   *
+   * `console` is the default so a fresh clone runs the whole pipeline — routing,
+   * language, quiet hours, retries — with no vendor account and no network.
+   * Production refuses `fake` below; it would silently swallow every suspension
+   * notice while looking perfectly healthy.
+   */
+  NOTIFY_WHATSAPP_TRANSPORT: z.enum(['console', 'fake', 'whatsapp_cloud']).default('console'),
+  NOTIFY_SMS_TRANSPORT: z.enum(['console', 'fake', 'msg91']).default('console'),
+
+  /** MSG91. Required only when `NOTIFY_SMS_TRANSPORT=msg91`. */
+  MSG91_AUTH_KEY: z.string().min(1).optional(),
+  /** The 6-character DLT-registered sender id, e.g. `FIXBRG`. */
+  MSG91_SENDER_ID: z.string().min(1).optional(),
+  /**
+   * JSON: template stem → DLT template id. Transactional SMS in India sends the
+   * *registered* text, not ours, so this mapping is the contract between our
+   * wording and the operator's. See docs/notifications.md.
+   */
+  MSG91_TEMPLATE_MAP: z.string().min(2).optional(),
+
+  /** WhatsApp Cloud API. Required only when `NOTIFY_WHATSAPP_TRANSPORT=whatsapp_cloud`. */
+  WHATSAPP_PHONE_NUMBER_ID: z.string().min(1).optional(),
+  WHATSAPP_ACCESS_TOKEN: z.string().min(1).optional(),
+  WHATSAPP_API_VERSION: z.string().min(2).default('v21.0'),
+  /** JSON: template stem → the template name registered with Meta, in both locales. */
+  WHATSAPP_TEMPLATE_MAP: z.string().min(2).optional(),
+
+  /**
+   * Quiet hours, in IST. Standard-class messages caught inside the window are
+   * **held and released** at `QUIET_HOURS_END_IST`, never dropped. Setting both
+   * to the same hour turns the feature off.
+   */
+  QUIET_HOURS_START_IST: z.coerce.number().int().min(0).max(23).default(22),
+  QUIET_HOURS_END_IST: z.coerce.number().int().min(0).max(23).default(7),
+
+  /** External send attempts before a delivery is parked for ops. */
+  NOTIFY_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(5),
+  /** How often held messages are checked for release. */
+  NOTIFY_RELEASE_JOB_INTERVAL_MS: z.coerce
+    .number()
+    .int()
+    .min(10_000)
+    .max(3_600_000)
+    .default(5 * 60_000),
+  /** Inbox page size ceiling. */
+  NOTIFICATION_PAGE_SIZE: z.coerce.number().int().min(1).max(100).default(20),
 });
 
 /**
@@ -332,6 +401,44 @@ export const configSchema = baseConfigSchema.superRefine((config, ctx) => {
     }
   }
 
+  /**
+   * A selected vendor needs its credentials, in every environment.
+   *
+   * Same reasoning as the gateway: a half-configured transport fails at the first
+   * real send, and the first real send is somebody's suspension notice.
+   */
+  if (config.NOTIFY_SMS_TRANSPORT === 'msg91') {
+    for (const [field, value] of [
+      ['MSG91_AUTH_KEY', config.MSG91_AUTH_KEY],
+      ['MSG91_SENDER_ID', config.MSG91_SENDER_ID],
+      ['MSG91_TEMPLATE_MAP', config.MSG91_TEMPLATE_MAP],
+    ] as const) {
+      if (value === undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [field],
+          message: 'is required when NOTIFY_SMS_TRANSPORT=msg91',
+        });
+      }
+    }
+  }
+
+  if (config.NOTIFY_WHATSAPP_TRANSPORT === 'whatsapp_cloud') {
+    for (const [field, value] of [
+      ['WHATSAPP_PHONE_NUMBER_ID', config.WHATSAPP_PHONE_NUMBER_ID],
+      ['WHATSAPP_ACCESS_TOKEN', config.WHATSAPP_ACCESS_TOKEN],
+      ['WHATSAPP_TEMPLATE_MAP', config.WHATSAPP_TEMPLATE_MAP],
+    ] as const) {
+      if (value === undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [field],
+          message: 'is required when NOTIFY_WHATSAPP_TRANSPORT=whatsapp_cloud',
+        });
+      }
+    }
+  }
+
   if (config.NODE_ENV !== 'production') return;
 
   /**
@@ -348,6 +455,24 @@ export const configSchema = baseConfigSchema.superRefine((config, ctx) => {
       message:
         'must not be "fake" when NODE_ENV=production — it would accept payments that never happened',
     });
+  }
+
+  /**
+   * Production may not pretend to send.
+   *
+   * `fake` records the message in memory and reports success, which in
+   * production would mean every suspension notice and every cash-recorded alert
+   * vanishing while every dashboard stayed green. Worse than an outage, because
+   * an outage is visible.
+   */
+  for (const field of ['NOTIFY_WHATSAPP_TRANSPORT', 'NOTIFY_SMS_TRANSPORT'] as const) {
+    if (config[field] === 'fake') {
+      ctx.addIssue({
+        code: 'custom',
+        path: [field],
+        message: 'must not be "fake" when NODE_ENV=production — messages would be silently dropped',
+      });
+    }
   }
 
   if (config.AUTH_FIXED_OTP !== undefined) {

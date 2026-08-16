@@ -6,7 +6,8 @@
   "auth": {
     "otpSent": "We have sent a 6-digit code to your phone. It is valid for {{minutes}} minutes.",
     "loggedIn": "Signed in successfully.",
-    "loggedOut": "Signed out successfully."
+    "loggedOut": "Signed out successfully.",
+    "preferencesSaved": "Your preference has been saved."
   },
   "customers": {
     "profileUpdated": "Your profile has been saved.",
@@ -112,25 +113,21 @@
     "fanGeyserMotorInstallation": "Fan, geyser & motor installation",
     "switchboardMcb": "Switchboard & MCB",
     "earthing": "Earthing",
-
     "motorsGenerators": "Motors & Generators",
     "motorRewinding": "Motor rewinding",
     "pumpBorewellRepair": "Pump & borewell repair",
     "gensetServicing": "Generator servicing",
     "stabilizers": "Stabilizers",
-
     "plumbing": "Plumbing",
     "leakageRepair": "Leakage repair",
     "fittingsFixtures": "Fittings & fixtures",
     "tankCleaning": "Tank cleaning",
     "roService": "RO service",
-
     "coolingAppliances": "Cooling & Appliances",
     "acServiceGasRefill": "AC service & gas refill",
     "fridgeRepair": "Fridge repair",
     "washingMachineRepair": "Washing machine repair",
     "microwaveRepair": "Microwave repair",
-
     "mechanics": "Mechanics",
     "twoWheelerDoorstep": "Two-wheeler doorstep service",
     "carBatteryJumpstart": "Car battery & jumpstart",
@@ -266,5 +263,128 @@
   },
   "common": {
     "greeting": "Hello {{name}}"
+  },
+  "notifications": {
+    "allRead": "Everything marked as read."
+  },
+  "notif": {
+    "badge": {
+      "VERIFIED": "Verified",
+      "SILVER": "Silver",
+      "GOLD": "Gold"
+    },
+    "complaintCategory": {
+      "overcharge": "overcharging",
+      "no_show": "not turning up",
+      "quality": "work quality",
+      "behavior": "behaviour",
+      "cash_dispute": "a cash payment",
+      "safety": "safety",
+      "other": "something else"
+    },
+    "booking": {
+      "requested": {
+        "title": "New job request",
+        "body": "{{categoryName}} — {{time}}. Answer within {{expiryMinutes}} minutes or it goes to someone else."
+      },
+      "accepted": {
+        "title": "Your booking is confirmed",
+        "body": "{{providerName}} is coming at {{time}}. Give them this code at the door: {{otp}}"
+      },
+      "acceptedNoOtp": {
+        "title": "Your booking is confirmed",
+        "body": "{{providerName}} is coming at {{time}}. Your start code is in the app."
+      },
+      "rejected": {
+        "title": "The technician could not take it",
+        "body": "Your {{categoryName}} job at {{time}} was declined. Try another technician."
+      },
+      "expired": {
+        "title": "No answer",
+        "body": "Nobody answered your {{categoryName}} request for {{time}}. Try another technician."
+      },
+      "cancelledByCustomer": {
+        "title": "The customer cancelled",
+        "body": "The {{categoryName}} job at {{time}} is cancelled. That slot is open again."
+      },
+      "cancelledByProvider": {
+        "title": "The technician cancelled",
+        "body": "Your {{categoryName}} job at {{time}} is cancelled. Try another technician."
+      }
+    },
+    "quotation": {
+      "sent": {
+        "title": "You have a quote",
+        "body": "{{providerName}} has quoted {{total}}. Review it and approve or decline."
+      },
+      "approved": {
+        "title": "Your quote was approved",
+        "body": "{{total}} approved. You can finish the job."
+      },
+      "rejected": {
+        "title": "Your quote was declined",
+        "body": "The quote for the {{categoryName}} job was declined. You can send a new one."
+      }
+    },
+    "payment": {
+      "capturedCustomer": {
+        "title": "Payment received",
+        "body": "We received {{amount}}. Thank you."
+      },
+      "capturedProvider": {
+        "title": "Credited to your wallet",
+        "body": "{{netAmount}} added to your wallet after commission."
+      },
+      "cashRecorded": {
+        "title": "Cash payment recorded",
+        "body": "Your technician recorded {{amount}} in cash. If that is wrong, raise a complaint in the app."
+      }
+    },
+    "payout": {
+      "paid": {
+        "title": "Payout sent",
+        "body": "{{amount}} has been sent to your bank account. UTR: {{utr}}"
+      }
+    },
+    "provider": {
+      "suspended": {
+        "title": "Your account is paused",
+        "body": "{{reason}} You will not receive new jobs until {{until}}. Contact support to discuss it."
+      },
+      "reinstated": {
+        "title": "You can take jobs again",
+        "body": "Your account is active again. New job requests will start coming through."
+      },
+      "badgeChanged": {
+        "title": "You earned the {{badge}} badge",
+        "body": "Your work has earned you the {{badge}} badge. You will now appear higher in search."
+      }
+    },
+    "complaint": {
+      "opened": {
+        "title": "A complaint was raised about you",
+        "body": "A complaint about {{category}} has been logged. Our team is looking at it."
+      },
+      "resolvedRaiser": {
+        "title": "Your complaint was decided",
+        "body": "Your complaint about {{category}} was upheld and acted on."
+      },
+      "resolvedAgainst": {
+        "title": "A complaint was upheld",
+        "body": "The complaint about {{category}} was upheld. It will affect your score."
+      },
+      "dismissedRaiser": {
+        "title": "Your complaint was closed",
+        "body": "We found nothing wrong in your complaint about {{category}}, so it has been closed."
+      },
+      "dismissedAgainst": {
+        "title": "The complaint was closed",
+        "body": "Nothing was found wrong in the complaint about {{category}}. Your record is unaffected."
+      }
+    },
+    "fallback": {
+      "provider": "your technician",
+      "customer": "the customer"
+    }
   }
 }

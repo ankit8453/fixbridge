@@ -53,7 +53,7 @@ async function resetFixtures(ctx: AppContext): Promise<void> {
   });
 
   // verification_events refuses DELETE, so teardown must use the sanctioned
-  // purge path — the same one DPDP erasure will use in Phase 14.
+  // purge path — the same one DPDP erasure will use in Phase 15.
   await purgeVerificationData(
     ctx.prisma,
     users.map((user) => user.id),

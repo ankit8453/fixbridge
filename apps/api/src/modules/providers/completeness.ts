@@ -1,6 +1,6 @@
 /**
  * Profile completeness. Pure — no database, no config lookups — so every branch
- * is unit-testable and the Flutter onboarding checklist in Phase 13 can render
+ * is unit-testable and the Flutter onboarding checklist in Phase 14 can render
  * exactly what the API scored.
  *
  * Two independent mechanisms, deliberately not conflated:

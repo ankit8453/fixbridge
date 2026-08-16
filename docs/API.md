@@ -2,9 +2,9 @@
 
 Updated every phase. Live so far: `auth` (Phase 2), `categories`, `customers`
 and `providers` (Phase 3), `verification` (Phase 4), `search` (Phase 5),
-`bookings` (Phase 6), `quotations` (Phase 7), `payments` (Phase 8), and
-`reviews`, `complaints` and trust (Phase 9). Only `/api/v1/notifications` and
-`/api/v1/admin` remain mounted but empty.
+`bookings` (Phase 6), `quotations` (Phase 7), `payments` (Phase 8),
+`reviews`, `complaints` and trust (Phase 9), and `notifications` (Phase 10).
+Only `/api/v1/admin` remains mounted but empty.
 
 **Base URL (local):** `http://localhost:3000`
 **API prefix for domain modules:** `/api/v1`
@@ -207,6 +207,7 @@ curl http://localhost:3000/api/v1/auth/me \
     "roles": ["customer"],
     "status": "active",
     "defaultCityId": null,
+    "preferredLanguage": "hi",
     "createdAt": "2026-08-15T11:04:11.310Z"
   },
   "deviceId": "demo-device-0001"
@@ -223,6 +224,31 @@ curl http://localhost:3000/api/v1/auth/me \
 
 Expired and invalid are separate codes precisely so a client knows which of those
 two things to do.
+
+### `PATCH /api/v1/auth/me`
+
+Sets the language every message this person receives renders in.
+
+```bash
+curl -X PATCH http://localhost:3000/api/v1/auth/me \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"preferredLanguage":"en"}'
+```
+
+Returns the same `{ user }` shape. `hi` or `en` only.
+
+> **Why a column and not the `Accept-Language` header.** Notifications are
+> asynchronous — a WhatsApp composed by a background job three hours later has no
+> request to read a header from. See [notifications.md](notifications.md#language).
+>
+> It is **retroactive**: the inbox stores template keys and parameters rather than
+> finished sentences, so switching to English translates a person's whole history
+> rather than only what happens next.
+>
+> Language is the only preference v1 ships. There are deliberately no per-topic
+> opt-outs — everything routed is transactional, and switching off "booking
+> accepted" would break the product silently for whoever did it.
 
 ### `POST /api/v1/auth/refresh`
 
@@ -1797,6 +1823,74 @@ suspension ends the moment it ends.
 
 ---
 
+## Notifications
+
+The full routing table, criticality rules, template-authoring guide and vendor
+go-live checklist are in [notifications.md](notifications.md). What follows is
+the API surface only.
+
+Every route is scoped to the caller's own inbox. There is no "read somebody
+else's notifications" endpoint and there will not be one — an inbox is the record
+of what one specific person was told. Ops asking "did they get the message" is a
+question about `notification_deliveries`, which Phase 11 reads directly.
+
+### `GET /api/v1/notifications`
+
+```bash
+curl "http://localhost:3000/api/v1/notifications?page=1&page_size=20&unread_only=false" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+**`200 OK`**
+
+```json
+{
+  "notifications": [
+    {
+      "id": "9f2c…",
+      "topic": "payment.cash_recorded",
+      "title": "नकद पैसे का हिसाब लिखा गया",
+      "body": "कारीगर ने लिखा है कि आपने ₹269 नकद दिए। अगर यह ठीक नहीं है तो ऐप में शिकायत करें।",
+      "deepLink": "booking/7b1e…",
+      "criticality": "critical",
+      "read": false,
+      "createdAt": "2026-08-16T11:42:07.221Z"
+    }
+  ],
+  "page": 1,
+  "pageSize": 20,
+  "total": 4,
+  "unread": 3
+}
+```
+
+Newest first. `deepLink` is a route hint for the apps (`booking/{id}`, `search`,
+`wallet`, `trust`) — groundwork for push in Phase 14; nothing consumes it yet.
+
+> **Rendered in the reader's `preferredLanguage`, not in `Accept-Language`.** It
+> is the same setting that governed the WhatsApp copy of the same message, and an
+> inbox that disagreed with what somebody already received on their phone would
+> read as two different notifications.
+
+| Query         | Default | Notes                                  |
+| ------------- | ------- | -------------------------------------- |
+| `page`        | `1`     |                                        |
+| `page_size`   | `20`    | max 100, from `NOTIFICATION_PAGE_SIZE` |
+| `unread_only` | `false` | `"true"` for the badge-count view      |
+
+### `GET /api/v1/notifications/unread-count`
+
+`{ "unread": 3 }`. The bell badge, one indexed count.
+
+### `POST /api/v1/notifications/:notificationId/read` · `POST /api/v1/notifications/read-all`
+
+Both return the new `unread` total. Marking read is idempotent, and the response
+is deliberately identical whether the row was already read, belongs to somebody
+else, or does not exist — distinguishing them would let anybody enumerate which
+ids are real.
+
+---
+
 ## `GET /health`
 
 Liveness + dependency readiness. Actually pings Postgres and Redis on every
@@ -1863,7 +1957,6 @@ These prefixes resolve to registered routers with no handlers yet, so any path
 under them returns the standard `404 NOT_FOUND` envelope. Listed here so the URL
 space is reserved and visible.
 
-| Prefix                  | Phase | Will contain             |
-| ----------------------- | ----- | ------------------------ |
-| `/api/v1/notifications` | 10    | WhatsApp / push adapters |
-| `/api/v1/admin`         | 11    | admin console API        |
+| Prefix          | Phase | Will contain      |
+| --------------- | ----- | ----------------- |
+| `/api/v1/admin` | 11    | admin console API |

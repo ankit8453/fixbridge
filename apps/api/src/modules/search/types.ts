@@ -96,7 +96,7 @@ export interface SearchAvailabilityWindow {
 }
 
 /**
- * One result card, shaped for the Phase 12 Flutter list.
+ * One result card, shaped for the Phase 13 Flutter list.
  *
  * Deliberately absent: the provider's exact coordinates (distance only —
  * publishing a technician's home location to anyone who can call a public

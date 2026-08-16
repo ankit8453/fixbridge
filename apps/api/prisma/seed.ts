@@ -5,6 +5,7 @@ import { seedCategories } from './seeds/categories';
 import { seedCustomer } from './seeds/customer';
 import { seedCommissionConfig } from './seeds/commission';
 import { seedFeeConfig } from './seeds/fees';
+import { seedNotifications } from './seeds/notifications';
 import { seedPayments } from './seeds/payments';
 import { seedProviders } from './seeds/providers';
 import { seedSynonyms } from './seeds/synonyms';
@@ -141,6 +142,9 @@ async function main(): Promise<void> {
   await seedPayments(prisma, cityId);
   // Last of all: reviews and trust are computed from settled, paid work.
   await seedTrust(prisma);
+  // Genuinely last: a notification is about something that already happened, so
+  // every other seed has to have happened first — including the suspension.
+  await seedNotifications(prisma);
   await ensureStorageBucket();
 }
 

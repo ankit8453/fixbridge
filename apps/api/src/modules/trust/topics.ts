@@ -6,7 +6,8 @@
  * three would make the other two import it for no other reason.
  *
  * Topic names are public API between modules. Renaming one silently breaks a
- * consumer, and Phase 10 will subscribe to most of these to tell somebody.
+ * consumer, and the notification routing table subscribes to most of these to
+ * tell somebody.
  */
 export const TRUST_TOPICS = {
   reviewCreated: 'review.created',

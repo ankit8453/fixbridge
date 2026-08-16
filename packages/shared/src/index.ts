@@ -71,6 +71,15 @@ export interface AuthUser {
   roles: Role[];
   status: UserStatus;
   defaultCityId: CityId | null;
+  /**
+   * The language every asynchronous message to this person renders in.
+   *
+   * Separate from `Accept-Language`, which only governs the response to a live
+   * request. A WhatsApp composed by a background job three hours later has no
+   * header to read, and guessing wrong means a Jabalpur mistri gets their
+   * suspension explained in English.
+   */
+  preferredLanguage: Locale;
   createdAt: IsoTimestamp;
 }
 

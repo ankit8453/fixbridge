@@ -157,6 +157,27 @@ export async function writeSnapshot(
   return snapshot.id;
 }
 
+/**
+ * The score on the most recent snapshot, or null if there is none.
+ *
+ * Used only by the scheduled sweep, to decide whether anything is worth
+ * recording. Reading the last snapshot rather than `provider_stats.trust_score`
+ * on purpose: stats are a projection that a partial failure could leave stale,
+ * and the snapshot chain is the thing the trend chart is drawn from.
+ */
+export async function lastSnapshotScore(
+  prisma: PrismaClient,
+  providerId: string,
+): Promise<number | null> {
+  const last = await prisma.trustScoreSnapshot.findFirst({
+    where: { providerId },
+    orderBy: { createdAt: 'desc' },
+    select: { score: true },
+  });
+
+  return last?.score ?? null;
+}
+
 export interface StatsUpdate {
   avgStars: number | null;
   reviewCount: number;

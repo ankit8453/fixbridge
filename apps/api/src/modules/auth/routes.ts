@@ -3,6 +3,7 @@ import { getContext } from '../../core/context';
 import { authenticate, getAuthUser } from '../../core/middleware/authenticate';
 import { requireRoles } from '../../core/middleware/require-roles';
 import * as service from './service';
+import { updatePreferencesSchema } from '../notifications/types';
 import { logoutSchema, refreshSchema, requestOtpSchema, verifyOtpSchema } from './types';
 import type { RequestContextInfo } from './types';
 
@@ -92,6 +93,31 @@ router.get(
     const user = await service.getCurrentUser(deps(req), getAuthUser(req).id);
 
     res.status(200).json({ user, deviceId: getAuthUser(req).deviceId });
+  }),
+);
+
+/**
+ * PATCH /api/v1/auth/me — the one notification preference v1 ships.
+ *
+ * Language lives on the user rather than on the customer or technician profile
+ * because most people here are both, and nobody expects to set their language
+ * twice. There are deliberately no per-topic opt-outs: everything routed is
+ * transactional, and switching off "booking accepted" would break the product
+ * silently for whoever did it.
+ */
+router.patch(
+  '/me',
+  authenticate,
+  handle(async (req, res) => {
+    const input = updatePreferencesSchema.parse(req.body);
+
+    const user = await service.setPreferredLanguage(
+      deps(req),
+      getAuthUser(req).id,
+      input.preferredLanguage,
+    );
+
+    res.status(200).json({ user, message: req.t('auth.preferencesSaved') });
   }),
 );
 

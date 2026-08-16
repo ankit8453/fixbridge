@@ -606,12 +606,14 @@ export async function recordCashCollected(
       }
 
       /**
-       * The customer is told, in Phase 10.
-       *
        * Marking cash collected is the one action in this system a technician can
        * take unilaterally about money, so it gets sunlight: the customer sees
-       * "your technician recorded ₹X in cash" and can say otherwise. Disputes
-       * are Phase 9; visibility is what makes them possible.
+       * "your technician recorded ₹X in cash" and can say otherwise.
+       *
+       * This topic routes to the customer on **all three channels**, SMS
+       * included — it has to arrive even with no data connection, because a
+       * charge nobody can dispute is a charge somebody will eventually invent.
+       * See docs/notifications.md.
        */
       await enqueueOutbox(tx, {
         topic: PAYMENT_TOPICS.cashRecorded,

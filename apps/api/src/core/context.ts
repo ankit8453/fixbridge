@@ -15,6 +15,10 @@ import { createOutboxRegistry, type OutboxRegistry } from './outbox';
 import { createS3StorageService, type StorageService } from './storage';
 import { createDefaultAdapters, type VerificationAdapters } from '../modules/verification/adapters';
 import { createPaymentGateway, type PaymentGatewayAdapter } from '../modules/payments/gateway';
+import {
+  createMessageTransports,
+  type MessagingTransports,
+} from '../modules/notifications/transports';
 
 /**
  * Everything long-lived the app needs, built once at boot and hung off the
@@ -27,7 +31,13 @@ export interface AppContext {
   prisma: PrismaClient;
   redis: Redis;
   version: string;
-  /** How OTPs reach a human. Real WhatsApp delivery arrives in Phase 10. */
+  /**
+   * How a login OTP reaches a human.
+   *
+   * Still the development logger. Phase 10 built the message transports for
+   * *notifications*; wiring the login OTP through them needs its own DLT
+   * template and is Phase 15 work — see docs/notifications.md.
+   */
   otpTransport: OtpTransport;
   /** Blocked users whose still-valid access tokens must stop working now. */
   userDenylist: UserDenylist;
@@ -37,10 +47,15 @@ export interface AppContext {
   storage: StorageService;
   /** Third-party KYC vendors. Manual (ops-decided) until one is contracted. */
   adapters: VerificationAdapters;
-  /** Where domain events are published. Phases 9 and 10 subscribe here. */
+  /** Where domain events are published. The trust engine and notifications subscribe here. */
   outbox: OutboxRegistry;
   /** The payment gateway. `fake` everywhere except production. */
   gateway: PaymentGatewayAdapter;
+  /**
+   * How a rendered message physically leaves the building, per external channel.
+   * `console` outside production, so a fresh clone runs the whole pipeline.
+   */
+  messaging: MessagingTransports;
 }
 
 export const CONTEXT_KEY = 'appContext';
@@ -62,6 +77,7 @@ export function createContext(config: AppConfig = loadConfig()): AppContext {
     adapters: createDefaultAdapters(),
     outbox: createOutboxRegistry(),
     gateway: createPaymentGateway(config, logger),
+    messaging: createMessageTransports(config, logger),
   };
 }
 

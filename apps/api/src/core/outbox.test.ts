@@ -35,7 +35,7 @@ describe('outbox registry', () => {
   it('returns an empty list for a topic nobody listens to', () => {
     const registry = createOutboxRegistry();
 
-    // Normal, not an error: this phase emits topics Phases 9 and 10 will take up.
+    // Normal, not an error: plenty of topics drive projections, not messages.
     expect(registry.handlersFor('booking.work_done')).toEqual([]);
     expect(registry.topics()).toEqual([]);
   });

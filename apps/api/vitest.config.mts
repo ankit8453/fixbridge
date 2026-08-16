@@ -65,6 +65,19 @@ export default defineConfig({
       RAZORPAY_KEY_ID: 'rzp_test_fake_key',
       RAZORPAY_KEY_SECRET: 'fake-key-secret',
       RAZORPAY_WEBHOOK_SECRET: 'fake-webhook-secret',
+
+      /**
+       * And the same for messaging, for a stronger reason.
+       *
+       * The default outside production is `console`, which would work here but
+       * would leave every assertion about *what was sent* with nothing to read.
+       * The fake records each message, which is what the routing, retry,
+       * quiet-hours and phone-redaction tests all inspect — and it means a
+       * developer whose `.env` points at a real WhatsApp number cannot make
+       * `npm test` message actual human beings.
+       */
+      NOTIFY_WHATSAPP_TRANSPORT: 'fake',
+      NOTIFY_SMS_TRANSPORT: 'fake',
     },
     reporters: ['default'],
   },

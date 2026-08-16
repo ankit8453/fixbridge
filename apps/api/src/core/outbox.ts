@@ -21,7 +21,7 @@ import type { AppLogger } from './logger';
  * around — it is the deal, and pretending otherwise is how these break.
  *
  * No Kafka, no BullMQ. One Postgres table and a `setInterval` is the right size
- * for pilot traffic, and it is the same table Phases 9 and 10 will subscribe to.
+ * for pilot traffic, and it is the table the trust engine and notifications read.
  */
 
 export interface OutboxMessage {
@@ -163,8 +163,8 @@ export function createOutboxDispatcher(deps: DispatcherDeps): OutboxDispatcher {
   async function deliver(row: DeliveredEvent): Promise<void> {
     const handlers = registry.handlersFor(row.topic);
 
-    // A topic nobody listens to is normal, not an error — Phases 9 and 10 will
-    // subscribe to topics this phase already emits.
+    // A topic nobody listens to is normal, not an error — most of what this
+    // system publishes drives projections rather than messages.
     if (handlers.length === 0) return;
 
     for (const handler of handlers) {
