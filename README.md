@@ -11,10 +11,11 @@ Pradesh**, then the rest of India.
 > value of `APP_NAME`. Every user-facing string comes from `APP_NAME` or an i18n
 > key — never a literal.
 
-**Status:** Phase 7 of 14 complete — scaffold, health, identity/auth, profiles,
+**Status:** Phase 8 of 14 complete — scaffold, health, identity/auth, profiles,
 the verification engine, geo-search with Hinglish resolution, the booking engine
-with slots and a physical start/end handshake, and itemised quotations that agree
-the price in writing before the work proceeds.
+with slots and a physical start/end handshake, itemised quotations that agree the
+price in writing before the work proceeds, and a double-entry ledger collecting
+that price over UPI or cash.
 
 ---
 
@@ -123,6 +124,7 @@ modules/         one folder per domain — routes.ts · service.ts · repository
   search/        geo radius search, ranking scorer, Hinglish text resolution
   bookings/      slots, booking state machine, handshake OTPs, expiry, stats
   quotations/    itemised versioned quotes, visit-fee config, payable computation
+  payments/      double-entry ledger, gateway adapter, webhooks, refunds, payouts
 types/           Express request augmentation
 ```
 
@@ -130,12 +132,13 @@ Every other domain module is a stub until its phase. `repository.ts` is the only
 file in a module allowed to touch the database — and the only place raw SQL may
 appear.
 
-Four design notes worth reading before touching those areas:
+Five design notes worth reading before touching those areas:
 [docs/geo-notes.md](docs/geo-notes.md) for PostGIS columns with Prisma,
 [docs/verification.md](docs/verification.md) for the append-only KYC model,
 [docs/search.md](docs/search.md) for the ranking formula and query plan, and
 [docs/bookings.md](docs/bookings.md) for the double-booking constraint, the
-booking state machine, the quotation lifecycle and the outbox contract.
+booking state machine and the quotation lifecycle, and
+[docs/money.md](docs/money.md) for the ledger, webhook idempotency and payouts.
 
 ### Phase plan
 
@@ -148,7 +151,7 @@ booking state machine, the quotation lifecycle and the outbox contract.
 | 5 ✅  | Search — PostGIS radius, pluggable ranking, Hinglish synonym resolve   |
 | 6 ✅  | Bookings — slots, lifecycle, start/end OTP handshake, outbox           |
 | 7 ✅  | Quotations — itemised, versioned, in-app approval, frozen payable      |
-| 8     | Payments — UPI collection, logged cash                                 |
+| 8 ✅  | Payments — double-entry ledger, UPI + cash rails, payouts              |
 | 9     | Reviews — two-way ratings                                              |
 | 10    | Notifications — WhatsApp Business API / push adapters                  |
 | 11    | Admin console                                                          |
@@ -239,6 +242,14 @@ runtime. See [apps/api/.env.example](apps/api/.env.example).
 | `JOBS_ENABLED`                     | `true`          | In-process background jobs. Off in tests.                                                          |
 | `BOOKING_EXPIRY_JOB_INTERVAL_MS`   | `60000`         | How often stale requests are swept                                                                 |
 | `SLOT_HORIZON_JOB_INTERVAL_MS`     | `21600000`      | How often the horizon is extended. Also runs once at boot.                                         |
+| `PAYMENT_GATEWAY`                  | `fake`          | `fake` \| `razorpay`. **Refused in production.**                                                   |
+| `RAZORPAY_KEY_ID`                  | unset           | Required when the gateway is `razorpay`. Never logged.                                             |
+| `RAZORPAY_KEY_SECRET`              | unset           | Required. Signs checkout callbacks.                                                                |
+| `RAZORPAY_WEBHOOK_SECRET`          | unset           | Required. Signs webhook bodies.                                                                    |
+| `COMMISSION_DEFAULT_BPS`           | `1200`          | 12%. Last rung of the service → cluster → city → global chain.                                     |
+| `COLLECT_FEE_AT_BOOKING`           | `false`         | Upfront visit fee. Built and tested; off for the pilot.                                            |
+| `PAYOUT_MINIMUM_PAISE`             | `10000`         | ₹100. Below this a payout rolls into the next batch.                                               |
+| `WALLET_LEDGER_PAGE_SIZE`          | `50`            | Ledger lines returned by the wallet endpoint                                                       |
 
 > `TRUST_PROXY_HOPS` is a security control, not a formality. Trusting
 > `X-Forwarded-For` when nothing sets it lets any caller spoof their IP and walk
@@ -293,7 +304,13 @@ sensible default — override `POSTGRES_PORT` if 5432 is already taken locally.
   quotation is versioned rather than edited — the customer saw v1, so v1 survives
   forever. Database triggers enforce that, not convention.
 - **The bill is frozen at the ending**, in the same transaction as the terminal
-  status. Phase 8 collects `payable_paise`; it never recomputes one.
+  status. Payments collect `payable_paise`; they never recompute one.
+- **Money exists only as double-entry ledger rows.** There is no balance column
+  anywhere and there never will be — balances are views that sum the entries, and
+  a deferred constraint trigger refuses any journal that does not balance.
+- **The gateway webhook is the only source of payment truth.** A browser callback
+  may optimistically show success; it never records it. See
+  [docs/money.md](docs/money.md).
 - **Domain events are written in the same transaction as the state change** — a
   transactional outbox, not a broker call. Delivery is at-least-once, so **every
   consumer must be idempotent**.

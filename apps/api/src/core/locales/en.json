@@ -52,6 +52,14 @@
     "approvedQuotation": "Agreed estimate",
     "priceCard": "Listed price"
   },
+  "payments": {
+    "orderReady": "Ready to pay.",
+    "confirming": "Payment received. We are confirming it with the bank.",
+    "cashRecorded": "Cash payment recorded. The customer has been told.",
+    "refundRequested": "Refund started. It reaches the customer in 5–7 working days.",
+    "payoutPaid": "Payout marked as paid.",
+    "duesSettled": "Dues cleared."
+  },
   "verification": {
     "uploadUrlIssued": "Ready to upload.",
     "documentUploaded": "Document received.",
@@ -146,6 +154,25 @@
       "otpInvalid": "That code is not correct. Please check with the customer.",
       "otpLocked": "Too many wrong codes. Please contact support to continue.",
       "windowTooWide": "Please ask for a shorter date range."
+    },
+    "payments": {
+      "notFound": "We could not find that payment.",
+      "notBillable": "There is nothing to pay on this booking.",
+      "alreadySettled": "This booking has already been paid for.",
+      "inProgress": "A payment for this booking is already open. Please refresh.",
+      "orderMismatch": "That payment does not match this booking.",
+      "signatureInvalid": "We could not verify that payment. Please try again.",
+      "webhookBad": "Signature verification failed.",
+      "upfrontDisabled": "We do not collect the visit charge in advance.",
+      "cashNotRefundable": "Cash payments cannot be refunded through the app. Please contact support.",
+      "notRefundable": "This payment cannot be refunded.",
+      "refundTooLarge": "That is more than is left to refund.",
+      "invalidAmount": "Please enter a valid amount.",
+      "settlementTooLarge": "That is more than this technician owes.",
+      "payoutNotFound": "We could not find that payout.",
+      "payoutNotPending": "That payout has already been dealt with.",
+      "batchNotFound": "We could not find that payout batch.",
+      "batchIncomplete": "Some payouts in this batch are still pending."
     },
     "quotations": {
       "notFound": "We could not find that estimate.",

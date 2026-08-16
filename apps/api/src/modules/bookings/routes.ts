@@ -6,6 +6,7 @@ import { requireRoles } from '../../core/middleware/require-roles';
 import { enforceSearchRateLimit } from '../search/service';
 import { bookingQuotationRouter } from '../quotations/routes';
 import { declineWorkSchema } from '../quotations/types';
+import { bookingPaymentRouter } from '../payments/routes';
 import * as service from './service';
 import * as slots from './slots-service';
 import {
@@ -32,9 +33,10 @@ const deps = (req: Request): service.BookingDeps => ({ context: getContext(req) 
 
 router.use(authenticate);
 
-// A quotation only exists inside a job, so its collection hangs off the booking.
-// Mounted before the `/:bookingId` routes so the more specific path wins.
+// A quotation only exists inside a job, and so does a payment. Both hang off the
+// booking, mounted before the `/:bookingId` routes so the more specific path wins.
 router.use('/:bookingId/quotations', bookingQuotationRouter);
+router.use('/:bookingId/payments', bookingPaymentRouter);
 
 /* ---- customer ---- */
 

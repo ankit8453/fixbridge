@@ -28,6 +28,30 @@ function firstMeaningfulLine(error: unknown): string {
   );
 }
 
+/**
+ * The next occurrence of an IST weekday, always at least a day away.
+ *
+ * These tests used to name fixed dates, which was fine while availability meant
+ * weekly templates. Since Phase 6 it means **materialised slots**, and slots
+ * only exist from now forward — so "Sunday the 16th" silently became a date
+ * whose morning had already passed, and the test failed for a reason that had
+ * nothing to do with search. Asking for the next one instead makes it true on
+ * any day, at any hour.
+ */
+function nextIstWeekday(weekday: number): string {
+  const IST_OFFSET_MS = 330 * 60 * 1000;
+  const nowIst = new Date(Date.now() + IST_OFFSET_MS);
+
+  // From tomorrow, so today's already-elapsed hours are never in scope.
+  const candidate = new Date(nowIst.getTime() + 24 * 60 * 60 * 1000);
+
+  while (candidate.getUTCDay() !== weekday) {
+    candidate.setUTCDate(candidate.getUTCDate() + 1);
+  }
+
+  return candidate.toISOString().slice(0, 10);
+}
+
 /** Search is per-IP rate limited; every test starts from a clean budget. */
 async function clearSearchLimit(ctx: AppContext): Promise<void> {
   const keys = await ctx.redis.keys('search:rate:ip:*');
@@ -403,7 +427,7 @@ describe('Phase 5 — filters', () => {
   });
 
   /**
-   * A template must **fully cover** the requested window. Partial overlap is not
+   * A slot must **fully cover** the requested window. Partial overlap is not
    * availability — a technician free 18:00–20:00 cannot take a 19:00–21:00 job.
    */
   it('matches only templates that fully cover the requested window', async (ctx) => {
@@ -412,7 +436,7 @@ describe('Phase 5 — filters', () => {
     // 2026-08-18 is a Tuesday. Part-timers work weekday evenings 18:00–22:00.
     const covered = await search(app, {
       ...WRIGHT_TOWN,
-      date: '2026-08-18',
+      date: nextIstWeekday(2),
       start_time: '19:00',
       end_time: '20:00',
       page_size: 25,
@@ -426,7 +450,7 @@ describe('Phase 5 — filters', () => {
     // 21:00–23:00 runs past every seeded window.
     const uncovered = await search(app, {
       ...WRIGHT_TOWN,
-      date: '2026-08-18',
+      date: nextIstWeekday(2),
       start_time: '21:00',
       end_time: '23:00',
       page_size: 25,
@@ -441,7 +465,7 @@ describe('Phase 5 — filters', () => {
     // Golu Rajak works weekends only (days 0 and 6).
     const tuesday = await search(app, {
       ...WRIGHT_TOWN,
-      date: '2026-08-18',
+      date: nextIstWeekday(2),
       start_time: '10:00',
       end_time: '11:00',
       page_size: 25,
@@ -451,10 +475,9 @@ describe('Phase 5 — filters', () => {
 
     await clearSearchLimit(context);
 
-    // 2026-08-16 is a Sunday.
     const sunday = await search(app, {
       ...WRIGHT_TOWN,
-      date: '2026-08-16',
+      date: nextIstWeekday(0),
       start_time: '10:00',
       end_time: '11:00',
       page_size: 25,
@@ -477,7 +500,7 @@ describe('Phase 5 — filters', () => {
 
     const response = await search(app, {
       ...WRIGHT_TOWN,
-      date: '2026-08-18',
+      date: nextIstWeekday(2),
       start_time: '19:00',
       end_time: '19:00',
     });

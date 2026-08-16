@@ -3,7 +3,9 @@ import { maskPhone, normalizePhone } from '../src/modules/auth/phone';
 import { seedBookings } from './seeds/bookings';
 import { seedCategories } from './seeds/categories';
 import { seedCustomer } from './seeds/customer';
+import { seedCommissionConfig } from './seeds/commission';
 import { seedFeeConfig } from './seeds/fees';
+import { seedPayments } from './seeds/payments';
 import { seedProviders } from './seeds/providers';
 import { seedSynonyms } from './seeds/synonyms';
 import { seedVerification } from './seeds/verification';
@@ -127,12 +129,15 @@ async function main(): Promise<void> {
   await seedSynonyms(prisma, categoryIdBySlug);
   // Before bookings: creation snapshots the visit fee through this table.
   await seedFeeConfig(prisma, cityId, categoryIdBySlug);
+  await seedCommissionConfig(prisma, cityId, categoryIdBySlug);
   await seedProviders(prisma, cityId, categoryIdBySlug, listingThreshold);
   await seedVerification(prisma, opsUserId);
   await seedCustomer(prisma, cityId);
   // Last: slots need listed providers, bookings need both the customer and the
   // verification badges that made those providers listable in the first place.
   await seedBookings(prisma, cityId);
+  // Last of all: money hangs off bookings that already have a frozen payable.
+  await seedPayments(prisma, cityId);
   await ensureStorageBucket();
 }
 

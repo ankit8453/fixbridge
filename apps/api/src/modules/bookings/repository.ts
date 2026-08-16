@@ -172,6 +172,9 @@ export interface CreateBookingInput {
   providerId: string;
   categoryId: number;
   priceCardId: string | null;
+  /** Copied at creation so a later edit to the card cannot change the bill. */
+  priceCardType: 'fixed' | 'starting_from' | 'inspection_based' | null;
+  priceCardAmountPaise: number | null;
   addressId: string | null;
   addressSnapshot: Prisma.InputJsonValue;
   slotId: string;
@@ -212,6 +215,8 @@ export async function createBookingWithHold(
         providerId: input.providerId,
         categoryId: input.categoryId,
         priceCardId: input.priceCardId,
+        priceCardType: input.priceCardType,
+        priceCardAmountPaise: input.priceCardAmountPaise,
         addressId: input.addressId,
         addressSnapshot: input.addressSnapshot,
         startsAt: input.startsAt,

@@ -13,6 +13,13 @@ const VALID_ENV = {
 const PRODUCTION_ENV = {
   ...VALID_ENV,
   NODE_ENV: 'production',
+  // Production may not run on the fake gateway, so a "clean" production
+  // environment has to name a real one and carry its keys. These are obvious
+  // placeholders — no real key ever appears in this repo.
+  PAYMENT_GATEWAY: 'razorpay',
+  RAZORPAY_KEY_ID: 'rzp_test_placeholder',
+  RAZORPAY_KEY_SECRET: 'placeholder-secret',
+  RAZORPAY_WEBHOOK_SECRET: 'placeholder-webhook-secret',
 } satisfies NodeJS.ProcessEnv;
 
 describe('parseConfig', () => {
@@ -159,6 +166,42 @@ describe('parseConfig — production guards', () => {
     expect(config.NODE_ENV).toBe('production');
     expect(config.AUTH_FIXED_OTP).toBeUndefined();
   });
+
+  /**
+   * The same shape of guard as the fixed OTP, for the same reason. A production
+   * build on the fake gateway would accept payments that never happened, which
+   * is the single worst thing this codebase could do.
+   */
+  it('refuses to start production on the fake gateway', () => {
+    expect(() => parseConfig({ ...PRODUCTION_ENV, PAYMENT_GATEWAY: 'fake' })).toThrow(
+      ConfigValidationError,
+    );
+    expect(() => parseConfig({ ...PRODUCTION_ENV, PAYMENT_GATEWAY: 'fake' })).toThrow(
+      /PAYMENT_GATEWAY.*payments that never happened/s,
+    );
+  });
+
+  it('defaults to the fake gateway outside production, with no keys at all', () => {
+    const config = parseConfig({ ...VALID_ENV });
+
+    expect(config.PAYMENT_GATEWAY).toBe('fake');
+    expect(config.RAZORPAY_KEY_ID).toBeUndefined();
+  });
+
+  it.each(['RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET', 'RAZORPAY_WEBHOOK_SECRET'])(
+    'refuses PAYMENT_GATEWAY=razorpay without %s, in any environment',
+    (missing) => {
+      // Checked outside production too: a half-configured gateway fails at the
+      // first signature check, by which point a customer has already paid.
+      const env = { ...VALID_ENV, PAYMENT_GATEWAY: 'razorpay' } as Record<string, string>;
+      env.RAZORPAY_KEY_ID = 'rzp_test_placeholder';
+      env.RAZORPAY_KEY_SECRET = 'placeholder-secret';
+      env.RAZORPAY_WEBHOOK_SECRET = 'placeholder-webhook-secret';
+      delete env[missing];
+
+      expect(() => parseConfig(env)).toThrow(new RegExp(`${missing}.*required`, 's'));
+    },
+  );
 
   it('refuses to start production with AUTH_FIXED_OTP set', () => {
     expect(() => parseConfig({ ...PRODUCTION_ENV, AUTH_FIXED_OTP: '000000' })).toThrow(

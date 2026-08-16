@@ -14,6 +14,7 @@ import { createStubGeoService, type GeoService } from './geo';
 import { createOutboxRegistry, type OutboxRegistry } from './outbox';
 import { createS3StorageService, type StorageService } from './storage';
 import { createDefaultAdapters, type VerificationAdapters } from '../modules/verification/adapters';
+import { createPaymentGateway, type PaymentGatewayAdapter } from '../modules/payments/gateway';
 
 /**
  * Everything long-lived the app needs, built once at boot and hung off the
@@ -38,6 +39,8 @@ export interface AppContext {
   adapters: VerificationAdapters;
   /** Where domain events are published. Phases 9 and 10 subscribe here. */
   outbox: OutboxRegistry;
+  /** The payment gateway. `fake` everywhere except production. */
+  gateway: PaymentGatewayAdapter;
 }
 
 export const CONTEXT_KEY = 'appContext';
@@ -58,6 +61,7 @@ export function createContext(config: AppConfig = loadConfig()): AppContext {
     storage: createS3StorageService(config, logger),
     adapters: createDefaultAdapters(),
     outbox: createOutboxRegistry(),
+    gateway: createPaymentGateway(config, logger),
   };
 }
 

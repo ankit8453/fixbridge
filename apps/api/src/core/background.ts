@@ -3,6 +3,8 @@ import { createJobRunner, type JobRunner } from './jobs';
 import { createOutboxDispatcher, type OutboxDispatcher } from './outbox';
 import { createBookingJobs } from '../modules/bookings/jobs';
 import { registerAcceptanceRateProjector } from '../modules/bookings/stats';
+import { createPayoutJobs, registerUpfrontFeeRefunder } from '../modules/payments/jobs';
+import { registerWebhookProcessor } from '../modules/payments/webhook';
 
 /**
  * Everything that runs on a timer rather than in response to a request.
@@ -28,6 +30,10 @@ export interface BackgroundWorkers {
  */
 export function registerOutboxSubscribers(context: AppContext): void {
   registerAcceptanceRateProjector(context.outbox, context);
+  // Webhooks are recorded by the route and applied here, off the outbox — a
+  // gateway's delivery timeout is far too short a budget for ledger work.
+  registerWebhookProcessor(context.outbox, context);
+  registerUpfrontFeeRefunder(context.outbox, context);
 }
 
 export function createBackgroundWorkers(context: AppContext): BackgroundWorkers {
@@ -41,7 +47,7 @@ export function createBackgroundWorkers(context: AppContext): BackgroundWorkers 
     registry: context.outbox,
   });
 
-  const definitions = createBookingJobs(context);
+  const definitions = [...createBookingJobs(context), ...createPayoutJobs(context)];
 
   return {
     jobs,

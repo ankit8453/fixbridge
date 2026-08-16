@@ -220,6 +220,41 @@ const baseConfigSchema = z.object({
     .min(60_000)
     .max(86_400_000)
     .default(6 * 60 * 60 * 1_000),
+
+  /* ---- payments ---- */
+
+  /**
+   * Which gateway is real.
+   *
+   * Defaults to `fake` so a fresh clone, and every test, works with no keys and
+   * no network. Production is not allowed to leave it there — see the guard
+   * below: shipping a payments build that silently takes fake money would be
+   * the worst possible failure of this phase.
+   */
+  PAYMENT_GATEWAY: z.enum(['fake', 'razorpay']).default('fake'),
+  /** Required only when `PAYMENT_GATEWAY=razorpay`. Never logged, never in code. */
+  RAZORPAY_KEY_ID: z.string().min(1).optional(),
+  RAZORPAY_KEY_SECRET: z.string().min(1).optional(),
+  RAZORPAY_WEBHOOK_SECRET: z.string().min(1).optional(),
+  /** The platform's cut when no `commission_config` row applies. 1200 = 12%. */
+  COMMISSION_DEFAULT_BPS: z.coerce.number().int().min(0).max(10_000).default(1_200),
+  /**
+   * Take the visit fee up front, at booking rather than at completion.
+   *
+   * Off for the pilot. The flow is built and tested because the decision to turn
+   * it on should be a config change and a conversation, not a sprint — but a
+   * technician who has not turned up yet has not earned anything, and asking a
+   * first-time customer to pay before they see anybody is the surest way to lose
+   * them in a market that runs on trust.
+   */
+  COLLECT_FEE_AT_BOOKING: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  /** Below this, a payout is not worth a bank transfer. ₹100. */
+  PAYOUT_MINIMUM_PAISE: z.coerce.number().int().min(0).default(10_000),
+  /** Wallet history depth. */
+  WALLET_LEDGER_PAGE_SIZE: z.coerce.number().int().min(1).max(200).default(50),
 });
 
 /**
@@ -227,7 +262,48 @@ const baseConfigSchema = z.object({
  * production process holding a dangerous combination cannot start at all.
  */
 export const configSchema = baseConfigSchema.superRefine((config, ctx) => {
+  /**
+   * Razorpay needs all three keys or none.
+   *
+   * Checked in every environment, not just production: a half-configured gateway
+   * fails at the first signature check, which is the worst moment to find out —
+   * a customer has already paid by then.
+   */
+  if (config.PAYMENT_GATEWAY === 'razorpay') {
+    const required = [
+      ['RAZORPAY_KEY_ID', config.RAZORPAY_KEY_ID],
+      ['RAZORPAY_KEY_SECRET', config.RAZORPAY_KEY_SECRET],
+      ['RAZORPAY_WEBHOOK_SECRET', config.RAZORPAY_WEBHOOK_SECRET],
+    ] as const;
+
+    for (const [field, value] of required) {
+      if (value === undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [field],
+          message: 'is required when PAYMENT_GATEWAY=razorpay',
+        });
+      }
+    }
+  }
+
   if (config.NODE_ENV !== 'production') return;
+
+  /**
+   * Production may not take fake money.
+   *
+   * The same shape of guard as the fixed-OTP one: a dangerous combination is
+   * refused by the schema, so the process cannot start holding it rather than
+   * discovering it at the first payment.
+   */
+  if (config.PAYMENT_GATEWAY === 'fake') {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['PAYMENT_GATEWAY'],
+      message:
+        'must not be "fake" when NODE_ENV=production — it would accept payments that never happened',
+    });
+  }
 
   if (config.AUTH_FIXED_OTP !== undefined) {
     ctx.addIssue({

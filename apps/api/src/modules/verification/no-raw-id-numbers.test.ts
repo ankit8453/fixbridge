@@ -135,3 +135,36 @@ describe('no raw identity numbers anywhere', () => {
     );
   });
 });
+
+/**
+ * Phase 8's addition to the same tripwire.
+ *
+ * A live payment key committed to a repository is a company-ending mistake, and
+ * it is always committed by accident — pasted into a fixture "just to test", or
+ * left in a config file somebody meant to gitignore. The scan runs on every
+ * build so the accident has a few seconds to live.
+ *
+ * Only **live** keys fail. Razorpay test keys are `rzp_test_*` and are harmless
+ * by construction; refusing those too would just push people into obscuring
+ * them, which is worse.
+ */
+describe('no live payment keys anywhere', () => {
+  const LIVE_KEY = new RegExp(`rzp${'_'}live${'_'}[A-Za-z0-9]+`);
+
+  it('contains no live Razorpay key in source, fixtures or docs', () => {
+    const offences = scan(LIVE_KEY);
+
+    expect(
+      offences,
+      `Found something shaped like a LIVE Razorpay key. Rotate it immediately, then remove it.\n${describeOffences(offences)}`,
+    ).toEqual([]);
+  });
+
+  it('would actually catch one — the pattern is not vacuous', () => {
+    // Assembled at runtime so the literal never exists in this file either.
+    const planted = ['rzp', 'live', 'AbCdEf0123456789'].join('_');
+
+    expect(LIVE_KEY.test(planted)).toBe(true);
+    expect(LIVE_KEY.test(['rzp', 'test', 'AbCdEf0123456789'].join('_'))).toBe(false);
+  });
+});

@@ -174,11 +174,10 @@ export async function resolveVisitFeeForBooking(
 /**
  * Assembles the inputs to `computePayable` and checks the result adds up.
  *
- * The price card is read fresh rather than from a snapshot because a booking
- * stores the card's id, not its amount. That is a known sharp edge: a technician
- * editing a `fixed` price between booking and completion would change the bill.
- * Phase 8 will snapshot the amount at creation; noted in the phase summary
- * rather than fixed here, because widening the booking row is its concern.
+ * The price card comes from the **snapshot taken at booking**, never from the
+ * live card. Phase 7 read the card fresh, which meant a technician editing their
+ * rate while standing in someone's kitchen would change that customer's bill;
+ * Phase 8 closed it, on the same reasoning that already applied to the visit fee.
  */
 async function freezePayable(
   deps: BookingDeps,
@@ -187,15 +186,12 @@ async function freezePayable(
 ): Promise<{ payablePaise: number; breakdown: Prisma.InputJsonValue }> {
   const { context } = deps;
 
-  const [live, priceCard] = await Promise.all([
-    quotationRepo.summariseLiveQuotation(context.prisma, booking.id),
-    booking.priceCardId
-      ? context.prisma.providerPriceCard.findUnique({
-          where: { id: booking.priceCardId },
-          select: { priceType: true, amountPaise: true },
-        })
-      : Promise.resolve(null),
-  ]);
+  const live = await quotationRepo.summariseLiveQuotation(context.prisma, booking.id);
+
+  const priceCard =
+    booking.priceCardType !== null
+      ? { priceType: booking.priceCardType, amountPaise: booking.priceCardAmountPaise }
+      : null;
 
   const breakdown = computePayable({
     outcome,
@@ -330,6 +326,26 @@ export async function createBooking(
   // customer was told the visit would cost.
   const fee = await resolveVisitFeeForBooking(deps, chosen.cityId, input.categoryId);
 
+  /**
+   * The price card, copied rather than referenced.
+   *
+   * Same rule as the visit fee: a technician editing their rate after somebody
+   * has booked must not change that booking's bill. The card's id is still
+   * stored for provenance, but nothing downstream reads through it.
+   */
+  const priceCard = input.priceCardId
+    ? await context.prisma.providerPriceCard.findFirst({
+        where: { id: input.priceCardId, providerId: slot.providerId, isActive: true },
+        select: { id: true, priceType: true, amountPaise: true },
+      })
+    : null;
+
+  if (input.priceCardId && !priceCard) {
+    throw AppError.badRequest('That price does not belong to this technician', {
+      messageKey: 'errors.providers.priceCardNotFound',
+    });
+  }
+
   const bookingId = randomUUID();
   const payload = {
     slotId: slot.id,
@@ -360,7 +376,9 @@ export async function createBooking(
         customerId,
         providerId: slot.providerId,
         categoryId: input.categoryId,
-        priceCardId: input.priceCardId ?? null,
+        priceCardId: priceCard?.id ?? null,
+        priceCardType: priceCard?.priceType ?? null,
+        priceCardAmountPaise: priceCard?.amountPaise ?? null,
         addressId: chosen.id,
         addressSnapshot: {
           addressText: chosen.addressText,
@@ -610,19 +628,14 @@ async function requireSettledPrice(
 
   if (live.approvedId) return;
 
-  const priceCard = booking.priceCardId
-    ? await deps.context.prisma.providerPriceCard.findUnique({
-        where: { id: booking.priceCardId },
-        select: { priceType: true, amountPaise: true },
-      })
-    : null;
-
-  const hasFlatPrice = priceCard?.priceType === 'fixed' && priceCard.amountPaise !== null;
+  // The snapshot again, for the same reason: whether this job can be finished
+  // without a quotation was settled at booking time, not at completion time.
+  const hasFlatPrice = booking.priceCardType === 'fixed' && booking.priceCardAmountPaise !== null;
 
   if (!hasFlatPrice) {
     throw new AppError(409, 'QUOTATION_REQUIRED', 'This job needs an approved quotation first', {
       messageKey: 'errors.quotations.required',
-      details: { priceType: priceCard?.priceType ?? null },
+      details: { priceType: booking.priceCardType },
     });
   }
 }

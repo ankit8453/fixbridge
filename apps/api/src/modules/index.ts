@@ -10,7 +10,13 @@ import {
 import { router as searchRouter } from './search/routes';
 import { router as bookingsRouter, providerSlotRouter, publicSlotRouter } from './bookings/routes';
 import { router as quotationsRouter } from './quotations/routes';
-import { router as paymentsRouter } from './payments/routes';
+// `bookingPaymentRouter` is mounted by the bookings router, alongside quotations.
+import {
+  router as paymentsRouter,
+  opsRouter as paymentsOpsRouter,
+  walletRouter,
+  webhookRouter,
+} from './payments/routes';
 import { router as reviewsRouter } from './reviews/routes';
 import { router as notificationsRouter } from './notifications/routes';
 import { router as adminRouter } from './admin/routes';
@@ -18,17 +24,29 @@ import { router as adminRouter } from './admin/routes';
 export const API_PREFIX = '/api/v1';
 
 /**
+ * Webhooks live outside `/api/v1` versioning conventions in one respect: the
+ * raw-body parser is mounted on this prefix in `app.ts`, ahead of the JSON
+ * parser, so the exact bytes survive for signature verification.
+ */
+export const WEBHOOK_PREFIX = `${API_PREFIX}/webhooks`;
+
+/**
  * Domain modules of the monolith. Live: auth (Phase 2), categories, customers and
  * providers (Phase 3). The rest are empty routers, mounted so the wiring is
  * proved and later phases only add handlers.
  */
 export function registerModuleRoutes(app: Express): void {
+  // Public and signature-authenticated. Registered first so nothing else can
+  // claim the path.
+  app.use(WEBHOOK_PREFIX, webhookRouter);
+
   app.use(`${API_PREFIX}/auth`, authRouter);
   app.use(`${API_PREFIX}/categories`, categoriesRouter);
   app.use(`${API_PREFIX}/customers`, customersRouter);
   // Slots live in the bookings module but hang off the providers path, which is
   // where a client looks for them. Most specific prefix first.
   app.use(`${API_PREFIX}/providers/me/slots`, providerSlotRouter);
+  app.use(`${API_PREFIX}/providers/me/wallet`, walletRouter);
   app.use(`${API_PREFIX}/providers`, publicSlotRouter);
   app.use(`${API_PREFIX}/providers`, providersRouter);
   app.use(`${API_PREFIX}/verification`, verificationRouter);
@@ -42,5 +60,9 @@ export function registerModuleRoutes(app: Express): void {
   // Ops verification lives at the admin path reviewers expect, but the code
   // stays in the verification module. The admin module itself is Phase 11.
   app.use(`${API_PREFIX}/admin/verification`, verificationOpsRouter);
+  // Payout batches, dues settlement and the platform's position. Same reasoning
+  // as verification's ops routes: the path is where ops look, the code stays
+  // with its module.
+  app.use(`${API_PREFIX}/admin/payments`, paymentsOpsRouter);
   app.use(`${API_PREFIX}/admin`, adminRouter);
 }

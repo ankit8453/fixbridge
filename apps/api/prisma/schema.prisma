@@ -28,6 +28,7 @@ model City {
   addresses        Address[]
   providerProfiles ProviderProfile[]
   feeConfigs       FeeConfig[]
+  commissionConfig CommissionConfig[]
 
   @@unique([name, state])
   @@index([isActive])
@@ -138,14 +139,15 @@ model Category {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  city       City                @relation(fields: [cityId], references: [id], onDelete: Restrict)
-  parent     Category?           @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
-  children   Category[]          @relation("CategoryTree")
-  skills     ProviderSkill[]
-  priceCards ProviderPriceCard[]
-  synonyms   HinglishSynonym[]
-  bookings   Booking[]
-  feeConfigs FeeConfig[]
+  city        City                @relation(fields: [cityId], references: [id], onDelete: Restrict)
+  parent      Category?           @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children    Category[]          @relation("CategoryTree")
+  skills      ProviderSkill[]
+  priceCards  ProviderPriceCard[]
+  synonyms    HinglishSynonym[]
+  bookings    Booking[]
+  feeConfigs  FeeConfig[]
+  commissions CommissionConfig[]
 
   @@unique([cityId, slug])
   @@index([cityId, isActive])
@@ -292,6 +294,7 @@ model ProviderProfile {
   slots             Slot[]
   bookings          Booking[]
   stats             ProviderStats?
+  payouts           Payout[]
 
   @@index([cityId, isListed])
   @@map("provider_profiles")
@@ -622,6 +625,14 @@ model Booking {
   visitFeePaise Int           @map("visit_fee_paise")
   status        BookingStatus @default(REQUESTED)
 
+  /// What the price card said **at the moment of booking**.
+  ///
+  /// Deliberately independent of `priceCardId`: a technician editing their rate
+  /// mid-job must not change a bill, and a card deleted afterwards must not
+  /// erase what was agreed. The snapshot outlives the card on purpose.
+  priceCardAmountPaise Int?       @map("price_card_amount_paise")
+  priceCardType        PriceType? @map("price_card_type")
+
   /// What the customer owes, frozen at the terminal transition.
   ///
   /// Phase 8 charges this number; it never recomputes one. A booking that ended
@@ -643,6 +654,8 @@ model Booking {
   events     BookingEvent[]
   slots      Slot[]
   quotations Quotation[]
+  payments   Payment[]
+  journals   LedgerJournal[]
 
   @@index([customerId, createdAt])
   @@index([providerId, createdAt])
@@ -777,6 +790,333 @@ model QuotationItem {
 
   @@index([quotationId])
   @@map("quotation_items")
+}
+
+// ---------------------------------------------------------------------------
+// Money — the ledger
+// ---------------------------------------------------------------------------
+//
+// THE TWO LAWS (see docs/money.md):
+//
+//   1. Money exists ONLY as double-entry `ledger_entries`. There is no balance
+//      column anywhere and there never will be — balances are views that sum
+//      the entries. A number you can UPDATE is a number that can be wrong.
+//   2. The gateway webhook is the only source of payment truth. A checkout
+//      callback may optimistically show success; it never records it.
+
+/// What a ledger account is for.
+///
+/// Five accounts carry the whole pilot. `provider_payable` and `provider_dues`
+/// are the two sides of the same relationship — we owe them for online-paid
+/// work, they owe us commission on cash they pocketed — and are kept apart so a
+/// wallet can show both instead of one confusing net figure.
+enum AccountType {
+  /// Platform's money sitting at the gateway. An asset.
+  gateway_cash
+  /// What we owe a technician. A liability.
+  provider_payable
+  /// What a technician owes us, from commission on cash they collected. An asset.
+  provider_dues
+  /// Our cut. Revenue.
+  platform_revenue
+  /// Refunds owed but not yet settled. A liability.
+  refunds_payable
+
+  @@map("account_type")
+}
+
+enum AccountOwnerType {
+  platform
+  provider
+  customer
+
+  @@map("account_owner_type")
+}
+
+enum LedgerJournalType {
+  payment_captured
+  cash_collected
+  refund
+  payout
+  dues_settled
+  /// Ops correction. Phase 11 gives it an endpoint; the type exists now so a
+  /// correction never has to masquerade as one of the others.
+  adjustment
+
+  @@map("ledger_journal_type")
+}
+
+enum LedgerDirection {
+  debit
+  credit
+
+  @@map("ledger_direction")
+}
+
+/// One account in the double-entry system.
+///
+/// Rows are created lazily the first time money touches an owner, so a
+/// technician who has never been paid has no account rather than a zero one.
+model Account {
+  id          String           @id @default(uuid()) @db.Uuid
+  accountType AccountType      @map("account_type")
+  ownerType   AccountOwnerType @map("owner_type")
+  /// Null for platform accounts; a user id otherwise.
+  ownerId     String?          @map("owner_id") @db.Uuid
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  entries LedgerEntry[]
+
+  @@map("accounts")
+}
+
+/// One balanced movement of money, with a reason.
+///
+/// Append-only, and — unlike bookings and KYC — with **no erasure escape
+/// hatch**. A financial record is not personal data; the link to the person
+/// (`booking_id`) is severed on erasure and the money stays, which is both the
+/// legally correct answer and the only one an auditor would accept.
+model LedgerJournal {
+  id          String            @id @default(uuid()) @db.Uuid
+  journalType LedgerJournalType @map("journal_type")
+  /// Nulled rather than cascaded when a booking is erased.
+  bookingId   String?           @map("booking_id") @db.Uuid
+  paymentId   String?           @map("payment_id") @db.Uuid
+  memo        String?           @db.VarChar(500)
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  booking Booking?      @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  payment Payment?      @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  entries LedgerEntry[]
+
+  @@index([journalType, createdAt])
+  @@index([bookingId])
+  @@map("ledger_journals")
+}
+
+/// One line of a journal. Σ debits = Σ credits per journal, enforced by a
+/// deferred constraint trigger — not by the service that wrote it.
+model LedgerEntry {
+  id          String          @id @default(uuid()) @db.Uuid
+  journalId   String          @map("journal_id") @db.Uuid
+  accountId   String          @map("account_id") @db.Uuid
+  direction   LedgerDirection
+  amountPaise Int             @map("amount_paise")
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  journal LedgerJournal @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  account Account       @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([accountId, createdAt])
+  @@index([journalId])
+  @@map("ledger_entries")
+}
+
+// ---------------------------------------------------------------------------
+// Money — commission, payments, refunds, payouts
+// ---------------------------------------------------------------------------
+
+/// Our cut, in basis points, scoped exactly like `fee_config`.
+///
+/// Snapshotted onto the payment at collection, so changing the rate never
+/// touches money that has already moved.
+model CommissionConfig {
+  id String @id @default(uuid()) @db.Uuid
+
+  cityId     Int  @map("city_id")
+  /// Null means "the default for this city". A cluster id covers its services.
+  categoryId Int? @map("category_id")
+
+  /// Basis points: 1200 = 12%.
+  rateBps       Int      @map("rate_bps")
+  isActive      Boolean  @default(true) @map("is_active")
+  effectiveFrom DateTime @default(now()) @map("effective_from") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  city     City      @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([cityId, isActive, effectiveFrom])
+  @@map("commission_config")
+}
+
+enum PaymentPurpose {
+  final_bill
+  visit_fee_upfront
+
+  @@map("payment_purpose")
+}
+
+/// How the money actually reached us.
+///
+/// A separate column rather than a `cash` member of the gateway enum: cash has
+/// no gateway, no order id and no webhook, and modelling it as one would leave
+/// three columns permanently null with nothing saying why.
+enum PaymentMethod {
+  online
+  cash
+
+  @@map("payment_method")
+}
+
+enum PaymentGatewayName {
+  fake
+  razorpay
+
+  @@map("payment_gateway_name")
+}
+
+enum PaymentStatus {
+  created
+  captured
+  failed
+  refunded
+  partially_refunded
+
+  @@map("payment_status")
+}
+
+model Payment {
+  id        String  @id @default(uuid()) @db.Uuid
+  /// Nulled on erasure; the money record survives.
+  bookingId String? @map("booking_id") @db.Uuid
+
+  purpose               PaymentPurpose
+  method                PaymentMethod
+  /// The frozen payable this collects. Never recomputed.
+  amountPaise           Int            @map("amount_paise")
+  /// Our rate at the moment of collection. Config changes never reach back.
+  commissionBpsSnapshot Int            @map("commission_bps_snapshot")
+
+  gateway          PaymentGatewayName? @map("gateway")
+  gatewayOrderId   String?             @map("gateway_order_id") @db.VarChar(120)
+  /// Set by the webhook, not by the browser.
+  gatewayPaymentId String?             @map("gateway_payment_id") @db.VarChar(120)
+
+  status PaymentStatus @default(created)
+
+  /// The app said the customer got through checkout. Optimistic UX only — this
+  /// never moves a single paisa.
+  checkoutVerifiedAt DateTime? @map("checkout_verified_at") @db.Timestamptz(3)
+  capturedAt         DateTime? @map("captured_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  booking  Booking?        @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  refunds  Refund[]
+  journals LedgerJournal[]
+
+  @@index([bookingId])
+  @@index([status, createdAt])
+  @@map("payments")
+}
+
+enum RefundStatus {
+  created
+  processed
+  failed
+
+  @@map("refund_status")
+}
+
+model Refund {
+  id              String       @id @default(uuid()) @db.Uuid
+  paymentId       String       @map("payment_id") @db.Uuid
+  amountPaise     Int          @map("amount_paise")
+  gatewayRefundId String?      @map("gateway_refund_id") @db.VarChar(120)
+  status          RefundStatus @default(created)
+  reason          String?      @db.VarChar(300)
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@map("refunds")
+}
+
+/// Raw gateway deliveries, kept forever.
+///
+/// `gateway_event_id` is UNIQUE and that single constraint is the idempotency
+/// wall: a gateway will deliver the same event more than once, and the second
+/// insert simply fails. Processing happens off the outbox so a slow handler
+/// never makes the gateway time out and retry harder.
+model WebhookEvent {
+  id             String   @id @default(uuid()) @db.Uuid
+  gateway        String   @db.VarChar(40)
+  gatewayEventId String   @unique @map("gateway_event_id") @db.VarChar(200)
+  eventType      String   @map("event_type") @db.VarChar(120)
+  payload        Json     @db.JsonB
+  receivedAt     DateTime @default(now()) @map("received_at") @db.Timestamptz(3)
+
+  processedAt     DateTime? @map("processed_at") @db.Timestamptz(3)
+  /// Set when the event could not be applied. Parked, never dropped — ops read
+  /// this in Phase 11.
+  processingError String?   @map("processing_error") @db.VarChar(1000)
+
+  @@index([processedAt, receivedAt])
+  @@index([eventType])
+  @@map("webhook_events")
+}
+
+enum PayoutBatchStatus {
+  draft
+  processing
+  completed
+
+  @@map("payout_batch_status")
+}
+
+enum PayoutStatus {
+  pending
+  paid
+  failed
+
+  @@map("payout_status")
+}
+
+/// One run of "pay everybody what they are owed".
+model PayoutBatch {
+  id          String            @id @default(uuid()) @db.Uuid
+  status      PayoutBatchStatus @default(draft)
+  createdById String?           @map("created_by") @db.Uuid
+  /// Balances are snapshotted as at this instant.
+  windowEnd   DateTime          @map("window_end") @db.Timestamptz(3)
+  /// Must equal the sum of its payouts — asserted by a trigger.
+  totalPaise  Int               @map("total_paise")
+  payoutCount Int               @map("payout_count")
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  completedAt DateTime?         @map("completed_at") @db.Timestamptz(3)
+
+  payouts Payout[]
+
+  @@index([status, createdAt])
+  @@map("payout_batches")
+}
+
+model Payout {
+  id          String       @id @default(uuid()) @db.Uuid
+  batchId     String       @map("batch_id") @db.Uuid
+  providerId  String       @map("provider_id") @db.Uuid
+  amountPaise Int          @map("amount_paise")
+  status      PayoutStatus @default(pending)
+  /// The bank's reference, typed in by ops after a manual transfer. Pilot-grade
+  /// on purpose: RazorpayX is an interface with no implementation behind it.
+  utrRef      String?      @map("utr_ref") @db.VarChar(60)
+  paidAt      DateTime?    @map("paid_at") @db.Timestamptz(3)
+  failureNote String?      @map("failure_note") @db.VarChar(300)
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  batch    PayoutBatch     @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  provider ProviderProfile @relation(fields: [providerId], references: [userId], onDelete: Cascade)
+
+  @@unique([batchId, providerId])
+  @@index([providerId, createdAt])
+  @@map("payouts")
 }
 
 // ---------------------------------------------------------------------------

@@ -2,8 +2,8 @@
 
 Updated every phase. Live so far: `auth` (Phase 2), `categories`, `customers`
 and `providers` (Phase 3), `verification` (Phase 4), `search` (Phase 5),
-`bookings` (Phase 6) and `quotations` (Phase 7). The remaining `/api/v1/*`
-routers are mounted but empty until their phase.
+`bookings` (Phase 6), `quotations` (Phase 7) and `payments` (Phase 8). The
+remaining `/api/v1/*` routers are mounted but empty until their phase.
 
 **Base URL (local):** `http://localhost:3000`
 **API prefix for domain modules:** `/api/v1`
@@ -1442,7 +1442,190 @@ On a billable ending the booking gains `payablePaise` and `payable`:
 
 `basis` is `approved_quotation` · `price_card` · `visit_fee_only`. A waived visit
 fee appears as a zero line rather than being omitted, so the customer can see it
-was not charged. **Phase 8 collects this number and never recomputes one.**
+was not charged. **Payments collect this number and never recompute one.**
+
+---
+
+## Payments — `/api/v1/payments`
+
+The account model, journal shapes, commission rules and payout lifecycle are in
+[money.md](money.md).
+
+> **The two laws.** Money exists only as double-entry ledger rows — there is no
+> balance column anywhere. And the gateway webhook is the only source of payment
+> truth: a checkout callback may _show_ success, it never _records_ it.
+
+### Two rails
+
+|                       | Online                  | Cash                      |
+| --------------------- | ----------------------- | ------------------------- |
+| Started by            | Customer                | Technician                |
+| Confirmed by          | Signed webhook          | The technician marking it |
+| Ledger records        | Gross, split three ways | Commission only           |
+| Refundable through us | Yes                     | **No**                    |
+
+### `POST /api/v1/bookings/:bookingId/payments`
+
+**Customer only**, on a booking in `WORK_DONE` or `CLOSED_QUOTE_DECLINED`.
+Creates a gateway order for the **frozen payable** — never a recomputed one.
+
+Body: `{ "purpose": "final_bill" }` (default). `visit_fee_upfront` is rejected
+unless `COLLECT_FEE_AT_BOOKING` is on, which it is not for the pilot.
+
+**`201 Created`** — a new order. **`200 OK`** — the existing one.
+
+```json
+{
+  "payment": { "id": "…", "status": "created", "amountPaise": 22900, "amountDisplay": "₹229" },
+  "orderId": "order_Nxxxxxxxxxxxxx",
+  "amountPaise": 22900,
+  "currency": "INR",
+  "keyId": "rzp_test_xxxxxxxxxxxx",
+  "reused": false
+}
+```
+
+**Idempotent by design.** Calling it again while the payment is still `created`
+returns the _same_ order. Two live orders for one bill is how a customer pays
+twice; a partial unique index enforces it even if the check loses a race.
+
+`keyId` is the publishable key the Flutter checkout needs. The secret never
+leaves the server.
+
+| Status | Code                      | When                                 |
+| ------ | ------------------------- | ------------------------------------ |
+| `403`  | `FORBIDDEN`               | Not a customer                       |
+| `404`  | `BOOKING_NOT_FOUND`       | Unknown, or not the caller's booking |
+| `409`  | `BOOKING_NOT_BILLABLE`    | The booking owes nothing             |
+| `409`  | `PAYMENT_ALREADY_SETTLED` | Already paid, in cash or online      |
+| `409`  | `PAYMENT_IN_PROGRESS`     | Lost a race with another tap. Reload |
+
+### `GET /api/v1/bookings/:bookingId/payments`
+
+Either party. Every payment on the booking.
+
+### `POST /api/v1/payments/:paymentId/checkout-callback`
+
+**Customer only.** The signature the checkout SDK handed the browser.
+
+```json
+{
+  "razorpay_order_id": "order_…",
+  "razorpay_payment_id": "pay_…",
+  "razorpay_signature": "…"
+}
+```
+
+> **This moves nothing.** It verifies the signature and stamps
+> `checkoutVerifiedAt` so the app can honestly say "confirming your payment". The
+> ledger waits for the webhook. A booking settles perfectly well if this is never
+> called — which is exactly what happens when the customer locks their phone.
+
+| Status | Code                        | When                            |
+| ------ | --------------------------- | ------------------------------- |
+| `400`  | `PAYMENT_SIGNATURE_INVALID` | The signature does not verify   |
+| `400`  | `VALIDATION_ERROR`          | The order is not this payment's |
+
+### `POST /api/v1/bookings/:bookingId/payments/cash`
+
+**Technician only.** The customer paid in notes at the door.
+
+Body: `{ "note": "…" }` (optional).
+
+Records a `captured` cash payment and posts **only the commission** to the
+ledger, as `provider_dues` — the rest of the money never touched the platform.
+The customer is notified (Phase 10): marking cash is the one thing a technician
+can do unilaterally about money, so it gets sunlight.
+
+**`201 Created`** → `{ "payment": <PaymentView>, "message": "…" }`
+
+### `POST /api/v1/payments/:paymentId/refund`
+
+**Ops/admin only** this phase.
+
+Body: `{ "amountPaise": 5000, "reason": "…" }`. Omit `amountPaise` to refund
+everything still refundable.
+
+**`202 Accepted`** — the gateway has been asked. Nothing has moved: the ledger
+waits for `refund.processed`, exactly as capture waits for `payment.captured`.
+
+The reversal comes out of **both pockets in proportion** at the snapshotted rate.
+
+| Status | Code                  | When                                         |
+| ------ | --------------------- | -------------------------------------------- |
+| `400`  | `VALIDATION_ERROR`    | More than is left to refund                  |
+| `403`  | `FORBIDDEN`           | Not ops                                      |
+| `409`  | `REFUND_NOT_POSSIBLE` | Cash payment, or the payment is not captured |
+
+### `POST /api/v1/webhooks/razorpay`
+
+**Public**, authenticated by HMAC signature over the raw body. Handles
+`payment.captured`, `payment.failed`, `refund.processed`, `refund.failed`;
+records and acknowledges everything else.
+
+Always answers `200` on a valid signature, including for a duplicate —
+`{ "received": true, "duplicate": true }`. Telling a gateway "error" for an event
+we already handled only makes it retry harder.
+
+`400 WEBHOOK_SIGNATURE_INVALID` on a bad or missing signature, and nothing is
+recorded.
+
+### `GET /api/v1/providers/me/wallet`
+
+**Technician only.** What we owe, what they owe, and their own ledger lines.
+
+```json
+{
+  "wallet": {
+    "payablePaise": 20152,
+    "payableDisplay": "₹201.52",
+    "duesPaise": 7548,
+    "duesDisplay": "₹75.48",
+    "netPaise": 12604,
+    "pendingPayoutPaise": 0,
+    "payoutMinimumPaise": 10000,
+    "recentPayouts": [],
+    "ledger": [
+      {
+        "journalId": "…",
+        "journalType": "payment_captured",
+        "accountType": "provider_payable",
+        "direction": "credit",
+        "amountPaise": 20152,
+        "amountDisplay": "₹201.52",
+        "bookingId": "…",
+        "createdAt": "…"
+      }
+    ]
+  }
+}
+```
+
+Payable and dues are shown separately rather than netted — "we owe you ₹4,000,
+you owe us ₹600" is checkable against a technician's own week, "₹3,400" is not.
+Their own accounts only, and **no memos**: those are written for ops and can name
+other people.
+
+### Ops — `/api/v1/admin/payments`
+
+All **ops/admin only**.
+
+| Route                            | Does                                                       |
+| -------------------------------- | ---------------------------------------------------------- |
+| `POST /payout-batches`           | Drafts a batch from every positive balance                 |
+| `GET /payout-batches/:batchId`   | The batch and its lines                                    |
+| `POST /payouts/:payoutId/paid`   | `{ utrRef }` — ledger moves here, and only here            |
+| `POST /payouts/:payoutId/failed` | `{ note }` — nothing posted; the balance rolls over        |
+| `POST /dues/settle`              | `{ providerId, amountPaise, memo? }` — a technician repaid |
+| `GET /ledger/position`           | The platform's position, straight from the view            |
+
+Drafting returns `201` with a batch, or `200` with `batchId: null` when there is
+nobody to pay, plus a `skipped` list explaining why — `below_minimum` or
+`net_negative`. Ops should not have to guess who was left out.
+
+`utrRef` is **required** by a database CHECK. A payout marked paid with no bank
+reference is unauditable, and the one time anybody needs it is the one time a
+technician says they were not paid.
 
 ---
 
@@ -1512,9 +1695,8 @@ These prefixes resolve to registered routers with no handlers yet, so any path
 under them returns the standard `404 NOT_FOUND` envelope. Listed here so the URL
 space is reserved and visible.
 
-| Prefix                  | Phase | Will contain                |
-| ----------------------- | ----- | --------------------------- |
-| `/api/v1/payments`      | 8     | UPI collection, logged cash |
-| `/api/v1/reviews`       | 9     | two-way ratings             |
-| `/api/v1/notifications` | 10    | WhatsApp / push adapters    |
-| `/api/v1/admin`         | 11    | admin console API           |
+| Prefix                  | Phase | Will contain             |
+| ----------------------- | ----- | ------------------------ |
+| `/api/v1/reviews`       | 9     | two-way ratings          |
+| `/api/v1/notifications` | 10    | WhatsApp / push adapters |
+| `/api/v1/admin`         | 11    | admin console API        |

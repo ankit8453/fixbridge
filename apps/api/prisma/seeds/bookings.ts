@@ -641,6 +641,9 @@ export async function seedBookings(
           providerId: provider.id,
           categoryId: skill.categoryId,
           priceCardId: priceCard?.id ?? null,
+          // Copied, not referenced — the API does the same at creation.
+          priceCardType: priceCard?.priceType ?? null,
+          priceCardAmountPaise: priceCard?.amountPaise ?? null,
           addressId: address.id,
           addressSnapshot: {
             label: address.label,
