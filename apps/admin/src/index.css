@@ -1,9 +1,0 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/*
- * No dark mode and no theming, on purpose. This is an internal tool used in one
- * office under one set of lights; a theme layer is a second set of colour bugs
- * to find and nobody here has asked for it.
- */
