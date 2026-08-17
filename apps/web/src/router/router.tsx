@@ -58,13 +58,24 @@ function RedirectStripLocale() {
  * screen rather than one shared page.
  */
 const surfaceRoutes: RouteObject[] = [
-  // Wildcard, not `index: true` — the marketing surface owns nine routes
-  // (/, /services, /services/:slug, /how-it-works, /for-partners, /download,
-  // /contact, /privacy, /terms), the same "surface owns its own nested
-  // routing" shape `app/*`/`partner/*`/`admin/*` already use below. Flagged
-  // in the marketing port's own report: this was a one-line change from the
-  // scaffold's original `index: true`, which could only ever match `/`
-  // itself and would have 404'd every other marketing route.
+  // The marketing surface owns nine routes (/, /services, /services/:slug,
+  // /how-it-works, /for-partners, /download, /contact, /privacy, /terms) and
+  // does its own nested routing, the same shape `app/*`/`partner/*`/`admin/*`
+  // use below. That needs the wildcard.
+  //
+  // BOTH entries are required, and this is the subtle part. These routes are
+  // mounted as `children` of a `/` (and `/en`) parent by `withLocalePrefix`.
+  // A child `path: '*'` matches a NON-EMPTY remainder, so it covers
+  // `/services` but NOT `/` itself — on the homepage the parent matched, no
+  // child did, and `RootLayout`'s <Outlet/> rendered nothing at all. The page
+  // was blank: brand <style> tag, no content, and no error anywhere, because
+  // nothing had actually failed. `index: true` is what matches the empty
+  // remainder, and the two together cover the whole surface.
+  //
+  // Verified by probing `matchRoutes` directly rather than by reasoning about
+  // it — `/` and `/en` resolved to the parent alone before, to the index
+  // route after.
+  { index: true, element: <MarketingEntry /> },
   { path: '*', element: <MarketingEntry /> },
 
   { path: 'login', element: <CustomerLogin /> },
