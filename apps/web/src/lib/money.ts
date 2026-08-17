@@ -1,10 +1,10 @@
 /**
  * The only money formatter in this app — same contract as
- * apps/api/src/modules/search/service.ts `formatPaise` and
- * apps/admin/src/lib/money.ts, kept in step deliberately. Money is an integer
- * number of paise everywhere in this system (see the root README); a float of
- * rupees anywhere is the bug this convention exists to prevent, so there is
- * no rupees-in overload here on purpose.
+ * apps/api/src/modules/search/service.ts `formatPaise`, kept in step
+ * deliberately. Money is an integer number of paise everywhere in this
+ * system (see the root README); a float of rupees anywhere is the bug this
+ * convention exists to prevent, so there is no rupees-in overload here on
+ * purpose.
  */
 export function formatPaise(paise: number): string {
   if (!Number.isFinite(paise)) return '—';

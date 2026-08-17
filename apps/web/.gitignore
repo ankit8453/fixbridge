@@ -1,6 +1,5 @@
-# Next.js build output
-.next/
-out/
+# Vite build output
+dist/
 
 # Local env
 .env

@@ -36,7 +36,35 @@
     "resend": "Resend code",
     "devHint": "Dev mode: enter code 000000",
     "sessionExpired": "Your session has expired. Please sign in again.",
-    "restoring": "Checking your session…"
+    "restoring": "Checking your session…",
+    "changeNumber": "Change number",
+    "otpSentTo": "We sent a code to {{phone}}",
+    "signInAs": "Sign in — {{surface}}",
+    "registerAs": "Create account — {{surface}}",
+    "registerHint": "New here? Verifying your number creates your account automatically — there is no separate sign-up form.",
+    "goToRegister": "New here? Create an account",
+    "goToLogin": "Already have an account? Sign in",
+    "wrongSurfaceTitle": "You're signed in, but not here",
+    "wrongSurfaceBody": "This account does not have access to this section.",
+    "admin": {
+      "loginIdLabel": "Staff ID (phone number)",
+      "passwordLabel": "Password",
+      "signIn": "Sign in",
+      "otpLabel": "Verification code",
+      "verify": "Verify",
+      "codeSentTo": "Code sent to {{phone}}",
+      "registerBlockedTitle": "Admin accounts are not self-service",
+      "registerBlockedBody": "Admin accounts are created by an existing admin from the ops console — this keeps a leaked password from being enough, on its own, to grant refund or payout powers. Contact your administrator to be added.",
+      "backToLogin": "Back to sign in"
+    }
+  },
+  "notFound": {
+    "title": "Page not found",
+    "hint": "The page you're looking for doesn't exist or has moved.",
+    "backHome": "Back to home"
+  },
+  "scaffold": {
+    "pending": "This surface is built on top of this foundation by another phase."
   },
   "pwa": {
     "shortName": "Booking"

@@ -6,13 +6,32 @@ import { networkError, parseErrorResponse } from '../api-error';
 /**
  * Where the session actually lives, and the single-flight refresh.
  *
- * **The access token is a module variable and nothing else.** It is never
- * written to `localStorage`, `sessionStorage` or a non-httpOnly cookie — any
- * of those are readable by an injected script, and this token is what lets a
- * page act as the signed-in user. Living only in memory means it also dies
- * with the tab/reload, which is why `AuthProvider` calls `refreshAccessToken`
- * once on mount: the httpOnly refresh cookie (set only by the route handlers
- * below) is what actually survives a reload.
+ * ## The one forced change from the Next.js version, stated plainly
+ *
+ * The old app kept the refresh token in an httpOnly cookie, set by a Next.js
+ * route handler running on a server — page JavaScript could never read it,
+ * full stop. A static SPA has no server of its own to hold that cookie, so
+ * this refresh token lives in `localStorage` instead.
+ *
+ * **This is weaker, not equivalent.** An XSS bug anywhere in this bundle (a
+ * badly-escaped name, a compromised dependency) can now read `localStorage`
+ * and steal a 30-day credential, not just whatever lives in the current tab's
+ * memory. That is the accepted cost of removing the server: there is nowhere
+ * left to put an httpOnly cookie. What still holds from the old design:
+ *
+ *  - **The access token is still a module variable, never persisted.** It
+ *    dies with the tab/reload regardless of what happens to the refresh
+ *    token, which keeps the *common* case (a stolen access token from a log
+ *    line, a browser extension reading page state) to a 15-minute blast
+ *    radius rather than 30 days.
+ *  - **Single-flight refresh** is unchanged (see `refreshAccessToken` below)
+ *    — that guarantee has nothing to do with where the token is stored.
+ *
+ * If this system ever gets a server component back (a thin BFF, an edge
+ * function) reintroducing an httpOnly cookie for the refresh token is the
+ * fix, not a `localStorage` hardening trick — there is no amount of
+ * obfuscation that makes JS-readable storage equivalent to JS-unreadable
+ * storage.
  */
 
 let accessToken: string | null = null;
@@ -26,10 +45,6 @@ export function setAccessToken(token: string | null): void {
   accessToken = token;
 }
 
-export function clearSession(): void {
-  accessToken = null;
-}
-
 /** `api.ts` registers here: a refresh that fails mid-session must be able to tell the UI. */
 export function onSessionLost(handler: () => void): void {
   sessionLostHandler = handler;
@@ -40,16 +55,17 @@ export function onSessionLost(handler: () => void): void {
 /* -------------------------------------------------------------------------- */
 
 const DEVICE_ID_KEY = 'fixbridge.web.deviceId';
+const REFRESH_TOKEN_KEY = 'fixbridge.web.refreshToken';
 
 /**
  * A stable per-browser device id, generated once and kept in `localStorage`.
  *
- * This is NOT a secret and does not need httpOnly/cookie treatment — knowing
- * a device id lets nobody do anything; it only lets the API tell "the same
- * browser refreshing its token" apart from "a stolen refresh token replayed
- * from somewhere else" (see docs/API.md `/auth/refresh`). Losing it (cleared
- * storage, different browser) just looks like a new device signing in, not a
- * security hole.
+ * This is NOT a secret and does not need protecting the way the refresh
+ * token does — knowing a device id lets nobody do anything; it only lets the
+ * API tell "the same browser refreshing its token" apart from "a stolen
+ * refresh token replayed from somewhere else" (see docs/API.md
+ * `/auth/refresh`). Losing it (cleared storage, different browser) just
+ * looks like a new device signing in, not a security hole.
  */
 export function getDeviceId(): string {
   if (typeof window === 'undefined') return 'server';
@@ -62,87 +78,132 @@ export function getDeviceId(): string {
   return fresh;
 }
 
+function getRefreshToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+function setRefreshToken(token: string | null): void {
+  if (typeof window === 'undefined') return;
+  if (token) window.localStorage.setItem(REFRESH_TOKEN_KEY, token);
+  else window.localStorage.removeItem(REFRESH_TOKEN_KEY);
+}
+
+/** Clears everything this tab knows about the session — access token, refresh token, both. */
+export function clearSession(): void {
+  accessToken = null;
+  setRefreshToken(null);
+}
+
 /* -------------------------------------------------------------------------- */
 /* Session-issuing calls                                                      */
 /* -------------------------------------------------------------------------- */
 
-/**
- * What `/api/session/login` and `/api/session/refresh` hand back to page JS.
- * Deliberately has no `refreshToken` field — the route handlers strip it
- * before responding, so there is never a moment where it exists in a variable
- * this bundle's JavaScript could read, log or accidentally serialise.
- */
+/** What every session-issuing call hands back to the rest of the app. */
 export interface ClientSession {
   accessToken: string;
   expiresIn: number;
   user: AuthUser;
 }
 
-async function postLocal(path: string, body: unknown): Promise<ClientSession> {
-  let response: Response;
-  try {
-    response = await fetch(path, {
-      method: 'POST',
-      // Same-origin default already sends/receives cookies for a same-origin
-      // request; explicit for readability, not because the default is unsafe.
-      credentials: 'same-origin',
-      headers: {
-        'Content-Type': 'application/json',
-        // The route handler forwards this upstream — see app/api/session/_shared.ts.
-        'Accept-Language': getClientLocale(),
-      },
-      body: JSON.stringify(body),
-    });
-  } catch {
-    throw networkError(path);
-  }
-
-  if (!response.ok) throw await parseErrorResponse(response);
-  return (await response.json()) as ClientSession;
+/** The full shape the API's auth endpoints actually return — see docs/API.md. */
+interface AuthSessionResponse {
+  accessToken: string;
+  expiresIn: number;
+  refreshToken: string;
+  refreshExpiresAt: string;
+  user: AuthUser;
 }
 
-/**
- * `POST /api/v1/auth/otp/request` issues no tokens, so it talks to the
- * external API directly rather than through a route handler — there is
- * nothing here for a proxy to protect.
- */
-export async function requestOtp(
-  phone: string,
-): Promise<{ phone: string; expiresInSeconds: number }> {
+async function postJson<T>(path: string, body: unknown): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}/api/v1/auth/otp/request`, {
+    response = await fetch(`${API_BASE_URL}${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept-Language': getClientLocale() },
-      body: JSON.stringify({ phone }),
+      body: JSON.stringify(body),
     });
   } catch {
     throw networkError(API_BASE_URL);
   }
 
   if (!response.ok) throw await parseErrorResponse(response);
-  return (await response.json()) as { phone: string; expiresInSeconds: number };
+  return (await response.json()) as T;
+}
+
+/** Stores the pair, and hands the caller back only what page code needs day to day. */
+function adopt(session: AuthSessionResponse): ClientSession {
+  setAccessToken(session.accessToken);
+  setRefreshToken(session.refreshToken);
+  return { accessToken: session.accessToken, expiresIn: session.expiresIn, user: session.user };
+}
+
+export async function requestOtp(
+  phone: string,
+): Promise<{ phone: string; expiresInSeconds: number }> {
+  return postJson('/api/v1/auth/otp/request', { phone });
 }
 
 export async function login(phone: string, otp: string): Promise<ClientSession> {
-  const session = await postLocal('/api/session/login', { phone, otp, deviceId: getDeviceId() });
-  setAccessToken(session.accessToken);
-  return session;
+  const session = await postJson<AuthSessionResponse>('/api/v1/auth/otp/verify', {
+    phone,
+    otp,
+    deviceId: getDeviceId(),
+  });
+  return adopt(session);
 }
 
+/* -------------------------------------------------------------------------- */
+/* The ops console's two-step sign-in                                        */
+/* -------------------------------------------------------------------------- */
+
+export interface AdminChallenge {
+  challengeId: string;
+  /** Masked — display only, same trap as the customer login screen's OTP flow. */
+  phone: string;
+  expiresInSeconds: number;
+}
+
+/** Step one: id + password. Returns a challenge, never a session — see docs/API.md. */
+export async function adminPasswordStep(
+  loginId: string,
+  password: string,
+): Promise<AdminChallenge> {
+  return postJson('/api/v1/auth/admin/password', { loginId, password });
+}
+
+/** Step two: the challenge + the OTP that was sent. Returns the real session. */
+export async function adminLogin(challengeId: string, otp: string): Promise<ClientSession> {
+  const session = await postJson<AuthSessionResponse>('/api/v1/auth/admin/verify', {
+    challengeId,
+    otp,
+    deviceId: getDeviceId(),
+  });
+  return adopt(session);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Logout + refresh                                                          */
+/* -------------------------------------------------------------------------- */
+
 export async function logout(): Promise<void> {
+  const refreshToken = getRefreshToken();
   clearSession();
+
+  if (!refreshToken) return;
+
   try {
-    // Best-effort revocation. The in-memory session is already gone either
-    // way — a network failure here must never leave someone stuck signed in.
-    await postLocal('/api/session/logout', {});
+    // Best-effort revocation. The in-memory/local session is already gone
+    // either way — a network failure here must never leave someone stuck
+    // signed in on this device.
+    await postJson('/api/v1/auth/logout', { refreshToken });
   } catch {
     // Swallowed deliberately, see above.
   }
 }
 
 /**
- * Rotates the access token via `/api/session/refresh`, at most once
+ * Rotates the access token via `/api/v1/auth/refresh`, at most once
  * concurrently.
  *
  * **This is the classic bug.** Several queries can hit a stale access token
@@ -162,13 +223,18 @@ export async function refreshAccessToken(): Promise<ClientSession | null> {
   if (refreshInFlight) return refreshInFlight;
 
   refreshInFlight = (async () => {
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) return null;
+
     try {
-      const session = await postLocal('/api/session/refresh', { deviceId: getDeviceId() });
-      setAccessToken(session.accessToken);
-      return session;
+      const session = await postJson<AuthSessionResponse>('/api/v1/auth/refresh', {
+        refreshToken,
+        deviceId: getDeviceId(),
+      });
+      return adopt(session);
     } catch {
-      // Whatever the reason — no cookie, a reused/expired refresh token, the
-      // API unreachable — the honest outcome is "not signed in any more".
+      // Whatever the reason — no stored token, a reused/expired one, the API
+      // unreachable — the honest outcome is "not signed in any more".
       clearSession();
       sessionLostHandler();
       return null;

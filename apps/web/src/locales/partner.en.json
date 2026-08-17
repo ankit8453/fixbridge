@@ -388,8 +388,9 @@
     },
     "slots": {
       "title": "Working hours",
-      "hint": "These are your open hours for the next 7 days. Tap one to take it off sale.",
-      "empty": "No open hours in the next 7 days — check your availability settings",
+      "hint": "These are your hours for the next 7 days. Tap an open one to take it off sale (chhutti), tap a blocked one to open it again.",
+      "empty": "No hours in the next 7 days — check your availability settings",
+      "blocked": "Blocked",
       "justBlockedTitle": "Just blocked",
       "undo": "Undo"
     },

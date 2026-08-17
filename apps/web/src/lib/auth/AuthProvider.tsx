@@ -1,8 +1,9 @@
-'use client';
-
 import { createContext, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { AuthUser, Role } from '@fixbridge/shared';
 import {
+  adminLogin as sessionAdminLogin,
+  adminPasswordStep as sessionAdminPasswordStep,
+  type AdminChallenge,
   login as sessionLogin,
   logout as sessionLogout,
   onSessionLost,
@@ -13,13 +14,12 @@ import {
 /**
  * Who is signed in, everywhere in this app.
  *
- * Mounted once, in the root `[locale]` layout, above all four surfaces —
- * including marketing — not just the ones that require a session. The
- * marketing header needs to know "already signed in" to change its own CTA,
- * and the surface switcher (`components/shell/SurfaceSwitcher`) needs it on
- * every route it might render on. Surfaces that actually require a session
- * layer `RequireAuth`/`RequireRole` (`./guards`) on top of this, they do not
- * replace it.
+ * Mounted once, in `main.tsx`, above the router — including marketing routes,
+ * not just the ones that require a session. The marketing header needs to
+ * know "already signed in" to change its own CTA, and the surface switcher
+ * (`components/shell/SurfaceSwitcher`) needs it on every route it might
+ * render on. Surfaces that actually require a session layer `RequireAuth`/
+ * `RequireRole` (`./guards`) on top of this, they do not replace it.
  */
 
 export type AuthStatus = 'restoring' | 'signedOut' | 'signedIn';
@@ -31,6 +31,10 @@ export interface AuthState {
   roles: Role[];
   requestOtp: (phone: string) => Promise<{ phone: string; expiresInSeconds: number }>;
   login: (phone: string, otp: string) => Promise<void>;
+  /** Step one of the ops console's two-factor sign-in — see `session.ts`. */
+  adminPasswordStep: (loginId: string, password: string) => Promise<AdminChallenge>;
+  /** Step two — consumes the challenge and actually signs the ops user in. */
+  adminLogin: (challengeId: string, otp: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -51,6 +55,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus('signedIn');
   }, []);
 
+  const adminLogin = useCallback(async (challengeId: string, otp: string) => {
+    const session = await sessionAdminLogin(challengeId, otp);
+    setUser(session.user);
+    setStatus('signedIn');
+  }, []);
+
   const logout = useCallback(async () => {
     await sessionLogout();
     handleSessionLost();
@@ -60,10 +70,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * Restores a session across a reload.
    *
    * The access token deliberately does not survive a reload (it lives in
-   * memory — see `session.ts`), so the httpOnly refresh cookie is exchanged
-   * once at boot. A failure here — no cookie, an expired one, the API being
-   * briefly unreachable — is not an error worth surfacing: it just means the
-   * visitor starts signed out, same as anyone else.
+   * memory — see `session.ts`), so the refresh token kept in `localStorage`
+   * is exchanged once at boot. A failure here — no stored token, an expired
+   * one, the API being briefly unreachable — is not an error worth
+   * surfacing: it just means the visitor starts signed out, same as anyone
+   * else.
    */
   useEffect(() => {
     let cancelled = false;
@@ -95,8 +106,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const roles = useMemo(() => user?.roles ?? [], [user]);
 
   const value = useMemo<AuthState>(
-    () => ({ status, user, roles, requestOtp, login, logout }),
-    [status, user, roles, login, logout],
+    () => ({
+      status,
+      user,
+      roles,
+      requestOtp,
+      login,
+      adminPasswordStep: sessionAdminPasswordStep,
+      adminLogin,
+      logout,
+    }),
+    [status, user, roles, login, adminLogin, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

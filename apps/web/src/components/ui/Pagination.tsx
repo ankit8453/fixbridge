@@ -1,5 +1,4 @@
-'use client';
-
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useT } from '../../i18n/useT';
 import { Button } from './Button';
 
@@ -25,17 +24,19 @@ export function Pagination({
   const last = Math.min(total, page * pageSize);
 
   return (
-    <div className="flex flex-col gap-2 border-t border-slate-200 pt-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-2 border-t border-border pt-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
       <span className="tabular-nums">
         {first}–{last} / {total}
       </span>
       <div className="flex items-center gap-2">
         <Button
           variant="secondary"
+          size="sm"
           disabled={page <= 1}
           onClick={() => onChange(page - 1)}
           aria-label={t('pagination.previous')}
         >
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.75} />
           {t('pagination.previous')}
         </Button>
         <span className="tabular-nums">
@@ -43,11 +44,13 @@ export function Pagination({
         </span>
         <Button
           variant="secondary"
+          size="sm"
           disabled={page >= pages}
           onClick={() => onChange(page + 1)}
           aria-label={t('pagination.next')}
         >
           {t('pagination.next')}
+          <ChevronRight className="h-4 w-4" aria-hidden="true" strokeWidth={1.75} />
         </Button>
       </div>
     </div>

@@ -9,12 +9,9 @@ import partnerHi from '../locales/partner.hi.json';
 import { DEFAULT_LOCALE, type Locale } from './config';
 
 /**
- * The lookup engine, isomorphic on purpose.
- *
- * This file imports nothing from `react`, `next/navigation` or the DOM, so
- * the exact same `translate()` runs in a server component, a route handler
- * and a client component — one implementation for `getT()` (server) and
- * `useT()` (client) to share, rather than two i18n systems that could drift.
+ * The lookup engine, isomorphic on purpose — it imports nothing from `react`
+ * or the DOM, so `useT()` (the only consumer now that there is no server
+ * render) and any future non-component call site share one implementation.
  * Mirrors apps/api/src/core/i18n.ts's lookup/interpolate shape deliberately:
  * the web copy needs the same nested-key discipline the API's does, and
  * reusing the algorithm (not the code — API and web ship separately) means
@@ -86,7 +83,7 @@ export function translate(locale: Locale, key: string, vars?: TranslationVars): 
   return interpolate(template, vars);
 }
 
-/** A bound translator for one locale — what `getT()` and `useT()` both return. */
+/** A bound translator for one locale — what `useT()` returns. */
 export function createTranslator(locale: Locale): Translator {
   return (key, vars) => translate(locale, key, vars);
 }

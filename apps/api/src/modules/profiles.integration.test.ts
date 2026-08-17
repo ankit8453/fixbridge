@@ -1043,9 +1043,7 @@ describe('Phase 12 — the public provider profile', () => {
     const providerId = await listedProvider();
     if (!providerId) return;
 
-    const response = await request(app)
-      .get(`/api/v1/providers/${providerId}`)
-      .expect(200);
+    const response = await request(app).get(`/api/v1/providers/${providerId}`).expect(200);
 
     const profile = response.body.profile as Record<string, unknown>;
 
@@ -1102,9 +1100,7 @@ describe('Phase 12 — the public provider profile', () => {
     if (!suspended) return;
 
     await request(app).get(`/api/v1/providers/${suspended.userId}`).expect(404);
-    await request(app)
-      .get('/api/v1/providers/00000000-0000-4000-8000-000000000000')
-      .expect(404);
+    await request(app).get('/api/v1/providers/00000000-0000-4000-8000-000000000000').expect(404);
   }, 45_000);
 
   /**

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Static sitemap for the marketing surface's fixed routes, in both locales
+  (hi unprefixed, en under /en — see src/i18n/config.ts's buildLocalizedHref).
+
+  What this file does NOT do: list /services/:slug entries. Those slugs are
+  live API data (GET /api/v1/categories), and this is a static file with no
+  build-time step that calls the API — generating it correctly would need a
+  small build script hitting the live categories endpoint, which is out of
+  this port's scope. A crawler still reaches every category page within one
+  hop from /services (linked there and from the homepage's category grid),
+  so nothing is unreachable, just not pre-listed here. Flagged in this
+  port's report.
+
+  The domain below is a placeholder — replace it with the real deployed
+  origin before this file does anything useful for a crawler; a sitemap
+  pointing at localhost is worse than no sitemap.
+-->
+<urlset xmlns="https://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="https://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://example.com/</loc>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://example.com/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://example.com/en" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://example.com/" />
+  </url>
+  <url>
+    <loc>https://example.com/services</loc>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://example.com/services" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://example.com/en/services" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://example.com/services" />
+  </url>
+  <url>
+    <loc>https://example.com/how-it-works</loc>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://example.com/how-it-works" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://example.com/en/how-it-works" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://example.com/how-it-works" />
+  </url>
+  <url>
+    <loc>https://example.com/for-partners</loc>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://example.com/for-partners" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://example.com/en/for-partners" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://example.com/for-partners" />
+  </url>
+  <url>
+    <loc>https://example.com/download</loc>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://example.com/download" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://example.com/en/download" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://example.com/download" />
+  </url>
+  <url>
+    <loc>https://example.com/contact</loc>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://example.com/contact" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://example.com/en/contact" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://example.com/contact" />
+  </url>
+  <url>
+    <loc>https://example.com/privacy</loc>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://example.com/privacy" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://example.com/en/privacy" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://example.com/privacy" />
+  </url>
+  <url>
+    <loc>https://example.com/terms</loc>
+    <xhtml:link rel="alternate" hreflang="hi" href="https://example.com/terms" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://example.com/en/terms" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://example.com/terms" />
+  </url>
+</urlset>

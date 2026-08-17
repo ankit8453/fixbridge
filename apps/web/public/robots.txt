@@ -1,0 +1,16 @@
+# Marketing routes (surface A) are the only ones meant to be indexed —
+# PHASE12_PROMPT.md: "SEO applies ONLY to surface A ... App surfaces (B/C):
+# noindex". The customer/partner/admin surfaces sit behind auth anyway, so a
+# crawler gains nothing from them; disallowing them here just saves crawl
+# budget rather than acting as an access control (that's the API's job).
+User-agent: *
+Disallow: /app
+Disallow: /partner
+Disallow: /admin
+Disallow: /design
+Disallow: /en/app
+Disallow: /en/partner
+Disallow: /en/admin
+Disallow: /en/design
+
+Sitemap: /sitemap.xml

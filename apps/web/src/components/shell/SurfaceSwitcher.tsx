@@ -1,7 +1,4 @@
-'use client';
-
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { Link, useLocation } from 'react-router-dom';
 import type { Role } from '@fixbridge/shared';
 import { useAuth } from '../../lib/auth/useAuth';
 import { useLocale, useT } from '../../i18n/useT';
@@ -23,16 +20,16 @@ const SURFACES: readonly SurfaceDef[] = [
 
 /**
  * For a user holding more than one role — the very common "technician who is
- * also a customer" case the phase spec calls out — a way to jump between
- * `/app` and `/partner` (and `/admin` for ops/admin) without hunting for a
- * URL bar. Renders nothing when there is nothing to switch between: signed
- * out, or signed in with access to exactly one surface.
+ * also a customer" case — a way to jump between `/app` and `/partner` (and
+ * `/admin` for ops/admin) without hunting for a URL bar. Renders nothing when
+ * there is nothing to switch between: signed out, or signed in with access
+ * to exactly one surface.
  */
 export function SurfaceSwitcher() {
   const { status, roles } = useAuth();
   const locale = useLocale();
   const t = useT();
-  const pathname = usePathname() || '/';
+  const { pathname } = useLocation();
 
   if (status !== 'signedIn') return null;
 
@@ -50,9 +47,9 @@ export function SurfaceSwitcher() {
         return (
           <Link
             key={surface.key}
-            href={href}
+            to={href}
             aria-current={active ? 'page' : undefined}
-            className={`inline-flex min-h-touch items-center rounded-lg px-3 text-sm font-medium transition-colors ${
+            className={`inline-flex min-h-touch items-center rounded-lg px-3 text-sm font-medium transition-colors duration-150 ${
               active ? 'bg-brand text-brand-foreground' : 'text-slate-700 hover:bg-slate-100'
             }`}
           >

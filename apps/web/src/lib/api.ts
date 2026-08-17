@@ -6,16 +6,17 @@ import { ApiError, networkError, parseErrorResponse } from './api-error';
 import { getAccessToken, refreshAccessToken } from './auth/session';
 
 /**
- * The one place this app talks to the external API for already-authenticated
- * reads and writes.
+ * The one place this app talks to the API for already-authenticated reads
+ * and writes.
  *
- * Token *issuance* — login, refresh, logout — deliberately does NOT go
- * through here; that lives in `auth/session.ts` and the `/api/session/*`
- * route handlers, because it is the one flow that must never let a refresh
- * token pass through page JavaScript. Everything else — search, bookings,
- * quotations, the wallet, whatever a future surface needs — goes through
- * `apiRequest` below, which attaches the in-memory access token and handles
- * a single silent refresh on `401` before giving up.
+ * Token *issuance* — login, refresh, logout, the admin two-step — deliberately
+ * does NOT go through here; that lives in `auth/session.ts`, which talks to
+ * the API's unauthenticated auth endpoints directly (there is no local proxy
+ * layer in this SPA — see that module's own comment on the refresh-token
+ * storage trade-off). Everything else — search, bookings, quotations, the
+ * wallet, whatever a future surface needs — goes through `apiRequest` below,
+ * which attaches the in-memory access token and handles a single silent
+ * refresh on `401` before giving up.
  */
 
 export { ApiError };
@@ -32,7 +33,7 @@ export interface RequestOptions {
    * this is almost never needed from a page: the truly unauthenticated auth
    * calls (`otp/request`, login, refresh) live in `auth/session.ts` instead.
    * It exists for a genuinely public `GET` (e.g. a marketing-page stat) made
-   * while signed out, where a stray `401` should just mean "no data",  not
+   * while signed out, where a stray `401` should just mean "no data", not
    * kick off a refresh attempt against a session that was never there.
    */
   skipAuth?: boolean;
@@ -177,9 +178,9 @@ export function parsePage<T>(body: unknown, itemsKey: string): Page<T> {
 /* -------------------------------------------------------------------------- */
 
 /**
- * One `QueryClient` factory, shared by the real app (`Providers`, rendered
- * once) and tests (which want a fresh one per test with retries off — see
- * `src/test/harness.tsx`).
+ * One `QueryClient` factory, shared by the real app (mounted once in
+ * `main.tsx`) and tests (which want a fresh one per test with retries off —
+ * see `src/test/harness.tsx`).
  */
 export function createQueryClient(): QueryClient {
   return new QueryClient({

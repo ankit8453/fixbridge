@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="hi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!--
+      Fonts: Google Fonts CDN with an explicit `display=swap` (brief requirement).
+      `preconnect` to both hosts before the stylesheet request — the stylesheet
+      itself then points at fonts.gstatic.com for the actual font files, so
+      skipping that preconnect would still cost a DNS+TLS round trip on the
+      slow part. Two families: Inter for Latin copy, Noto Sans Devanagari for
+      Hindi — `src/index.css` switches between them off `<html lang>`, which
+      `RootLayout` keeps in sync with the active locale.
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap"
+    />
+    <link rel="icon" href="/icons/icon-192.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <title>fixbridge</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

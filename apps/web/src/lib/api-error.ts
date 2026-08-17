@@ -1,11 +1,9 @@
 /**
  * The API's `{ error: { code, message, requestId, details? } }` envelope, as
- * an exception. Shared by `api.ts` (calls to the external API) and
- * `auth/session.ts` (calls to this app's own `/api/session/*` route
- * handlers, which relay the external API's status code and body verbatim —
- * see those route handlers) so both surfaces produce the same error shape
- * and every screen can render one `ErrorState` component regardless of which
- * of the two a given action happened to call.
+ * an exception. Shared by `api.ts` and `auth/session.ts` (both call the
+ * external API directly now — see session.ts for why there is no longer a
+ * local proxy layer) so every screen can render one `ErrorState` component
+ * regardless of which of the two a given action happened to call.
  */
 
 export interface ApiErrorDetail {

@@ -4,15 +4,14 @@ import { expect, vi } from 'vitest';
 import { type ReactNode } from 'react';
 
 /**
- * The API, mocked at the `fetch` boundary — same shape as
- * apps/admin/src/test/harness.tsx, so a reader of one recognises the other.
- * Keyed by `"METHOD path"` (path only, no origin) so the same table works
- * whether the call went to the external API
- * (`http://localhost:.../api/v1/...`) or a local route handler
- * (`/api/session/...`). What these suites risk getting wrong is *which*
- * endpoint gets called with *what* body/query/header — not whether `fetch`
- * resolves — hence a route table asserted against, not a bare
- * `mockResolvedValue`.
+ * The API, mocked at the `fetch` boundary. Keyed by `"METHOD path"` (path
+ * only, no origin) — every call in this app now goes straight to
+ * `API_BASE_URL` (no local proxy layer, see `lib/auth/session.ts`), so
+ * matching on pathname alone is what lets the same table work regardless of
+ * which base URL a given test environment configures. What these suites
+ * risk getting wrong is *which* endpoint gets called with *what*
+ * body/query/header — not whether `fetch` resolves — hence a route table
+ * asserted against, not a bare `mockResolvedValue`.
  */
 
 export interface RecordedCall {
@@ -118,15 +117,13 @@ export function testQueryClient(): QueryClient {
 /**
  * Renders with just a `QueryClientProvider` — the common case for a
  * component test that exercises a presentational/query-driven component
- * directly rather than a whole guarded route (the auth guards themselves are
- * covered by auth-silent-refresh.test.ts and session-cookie-flags.test.ts,
- * not re-tested per component).
+ * directly rather than a whole guarded route.
  */
 export function renderWithQuery(ui: ReactNode): RenderResult {
   return render(<QueryClientProvider client={testQueryClient()}>{ui}</QueryClientProvider>);
 }
 
-/** A ready-made `AuthSession`-shaped body, for handlers that issue a session. */
+/** A ready-made auth session response body, for handlers that issue a session. */
 export function sessionBody(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     tokenType: 'Bearer',

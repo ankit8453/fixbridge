@@ -145,9 +145,12 @@ export async function listOwnSlots(
   const spanDays = (query.to.getTime() - query.from.getTime()) / (24 * 60 * 60 * 1000);
 
   if (spanDays > context.config.SLOT_HORIZON_DAYS) {
-    throw AppError.badRequest(`The window may span at most ${context.config.SLOT_HORIZON_DAYS} days`, {
-      messageKey: 'errors.bookings.windowTooWide',
-    });
+    throw AppError.badRequest(
+      `The window may span at most ${context.config.SLOT_HORIZON_DAYS} days`,
+      {
+        messageKey: 'errors.bookings.windowTooWide',
+      },
+    );
   }
 
   const slots = await repo.listProviderSlots(context.prisma, providerId, query.from, query.to, [

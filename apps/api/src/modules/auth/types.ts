@@ -129,7 +129,10 @@ export type AdminPasswordInput = z.infer<typeof adminPasswordSchema>;
 export const adminVerifySchema = z
   .object({
     challengeId: z.string().uuid(),
-    otp: z.string().trim().regex(/^\d{4,8}$/, 'must be the code that was sent'),
+    otp: z
+      .string()
+      .trim()
+      .regex(/^\d{4,8}$/, 'must be the code that was sent'),
     deviceId: z.string().trim().min(1).max(128),
   })
   .strict();

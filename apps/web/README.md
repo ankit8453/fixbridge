@@ -1,190 +1,238 @@
 # `apps/web` — the customer, partner, admin and marketing surfaces
 
-Next.js (App Router) + TypeScript + Tailwind. One deployable app, four route
-groups, calling the same `/api/v1/*` the mobile apps will eventually use.
-This document covers the **foundation**: auth, i18n, the API client, the UI
-kit and the shared shell. Each surface's actual pages are documented by
-whichever phase/agent built them — see `docs/summaries/` at the repo root.
+Vite + React 19 + TypeScript + Tailwind. One deployable SPA, four surfaces,
+calling the same `/api/v1/*` the mobile apps will eventually use. This
+document covers the **foundation**: routing, auth, i18n, the API client, the
+design system and the shared shells. Each surface's actual pages are built by
+whichever agent/phase owns them on top of this.
+
+> **Why Vite, not Next.js.** This app replaced a working Next.js
+> implementation of all four surfaces because the owner cannot maintain
+> Next.js long-term. The old app's logic, API calls, Hindi copy and business
+> rules were correct, and were ported across surface by surface; the
+> reference tree it was ported from has since been deleted, so this app is
+> the only implementation. The one behavioural regression the move forced is
+> the refresh-token storage change documented under "Auth" below, and the
+> loss of server-rendered HTML for the marketing surface (no pre-rendered
+> markup for crawlers, no first paint before JS boots).
 
 ## Running it
 
 ```bash
-cp .env.example .env.local   # then edit NEXT_PUBLIC_API_URL, see below
-npm install                  # from the repo root — this is an npm workspace
-npm run dev:web               # from the repo root, or `npm run dev` in this directory
+cp .env.example .env   # then edit VITE_API_URL if the API isn't on :3001
+npm install             # from the repo root — this is an npm workspace
+npm run dev:web         # from the repo root, or `npm run dev` in this directory
 ```
 
-Opens on **`:3000`**.
-
-### The port collision with the API
-
-This app is fixed to `:3000` — that is Next's default and, more importantly,
-the port a Vercel deploy does not let you choose. `apps/api` **also**
-defaults `PORT` to `3000` (see `apps/api/.env.example`). Running the API and
-this app side by side locally means giving the API a different port:
-
-```bash
-# apps/api/.env
-PORT=3001
-```
-
-```bash
-# apps/web/.env.local
-NEXT_PUBLIC_API_URL=http://localhost:3001
-```
-
-`.env.example` in this directory defaults to `:3001` on that assumption.
+Opens on **`:3000`**. The API defaults to `:3001` locally (see the root
+README) — `.env.example` assumes that.
 
 ## Architecture
 
 ```
 src/
-  app/
-    [locale]/            every real page lives under here — see i18n below
-      layout.tsx          the actual root layout (html/body, fonts, providers)
-      providers.tsx        QueryClientProvider + AuthProvider, client-side
-      (marketing)/         surface A — public, SEO-first, no auth
-      app/                 surface B — customer, requires any authenticated role
-      partner/             surface C — technician, requires the `technician` role
-      admin/               surface D — ops/admin, requires `ops`/`admin` role, noindex
-    api/session/          Next Route Handlers that own the refresh cookie (see Auth)
-    manifest.ts            PWA manifest (see PWA)
-    not-found.tsx           true-root 404 — see the file's own comment for why
-    global-error.tsx        true-root error boundary — same reason
-  brand/tokens.ts          the ONE file that changes to rebrand this app
-  i18n/                    locale detection, the t()/useT() translator, config
-  locales/{hi,en}.json      the app's own copy (plus per-surface locale files
-                             other agents add under the same naming: e.g.
-                             marketing.hi.json, customer.en.json — merged by
-                             src/i18n/dictionaries.ts)
+  main.tsx                 true entry point — mounts AuthProvider → QueryClientProvider →
+                            ToastProvider → RouterProvider, in that order (see the file's comment)
+  index.css                 Tailwind + font-family switching + the one shared focus ring
+  vite-env.d.ts              typed import.meta.env
+  brand/tokens.ts            the ONE file that changes to rebrand or retune the palette
+  i18n/                      locale detection (URL-based), the t()/useT() translator
+  locales/{hi,en}.json        foundation-owned copy; other agents add <surface>.{hi,en}.json
+                              (marketing.*, customer.*, partner.* already exist, ported verbatim
+                              from legacy-next-src — see i18n/dictionaries.ts)
   lib/
-    api.ts                 the typed fetch client for the external API
-    money.ts                 the ₹ formatter
-    env.ts                   NEXT_PUBLIC_API_URL, read once
-    auth/                   session state, AuthProvider, route guards
+    api.ts                   the typed fetch client for the external API
+    api-error.ts              ApiError + envelope parsing
+    money.ts                  the ₹ formatter
+    env.ts                    VITE_API_URL / VITE_RAZORPAY_KEY_ID, read once
+    auth/                     session state, AuthProvider, route guards — see Auth below
   components/
-    ui/                     hand-rolled primitives — Button, Card, Field, ...
-    shell/                  RoleNav, SurfaceSwitcher, LocaleToggle
-  middleware.ts             locale routing (see i18n)
-  test/                     shared Vitest/RTL harness — mockApi, renderWithQuery, ...
+    ui/                      the design system — see below, barrel: @/components/ui
+    shell/                   RoleNav, SurfaceSwitcher, LocaleToggle, AdminShell, MobileAppShell
+  router/
+    router.tsx                the whole route table
+    localePrefix.ts            duplicates a route tree under `/` (hi) and `/en`
+    RootLayout.tsx              <html lang> sync + the one Suspense boundary for lazy surfaces
+    NotFound.tsx
+  routes/
+    auth/                     CustomerLogin, CustomerRegister, PartnerLogin, PartnerRegister,
+                              AdminLogin, AdminRegisterPlaceholder, PhoneOtpForm — see Auth routes
+    design/DesignSystemShowcase.tsx   /design — every UI primitive in every state
+  surfaces/
+    marketing/MarketingHome.tsx        placeholder — the marketing agent's mount point
+    customer/CustomerAppEntry.tsx       placeholder — the customer agent's mount point
+    partner/PartnerAppEntry.tsx         placeholder — the partner agent's mount point
+    admin/AdminAppEntry.tsx             placeholder — the admin agent's mount point
+  test/                      Vitest/RTL harness — mockApi, renderWithQuery, sessionBody, ...
 ```
 
-### Why four route groups in one app
+## Routing (`src/router/`)
 
-`(marketing)` is a route group (parenthesised — adds no URL segment);
-`app`, `partner`, `admin` are real path segments. All four sit under a
-`[locale]` dynamic segment, which every one of them needs for `t()` — see
-i18n below for why that segment exists at all.
+React Router 6 (`createBrowserRouter`/`RouterProvider`), matching the old
+app's URL scheme exactly:
 
-## Auth
+| Path                                  | Surface                     | Guard                                           |
+| ------------------------------------- | --------------------------- | ----------------------------------------------- |
+| `/`                                   | Marketing                   | none                                            |
+| `/login`, `/register`                 | Customer auth               | none — sits outside the guard                   |
+| `/partner/login`, `/partner/register` | Partner auth                | none                                            |
+| `/admin/login`                        | Admin auth (password → OTP) | none                                            |
+| `/admin/register`                     | **Not a form** — see below  | none                                            |
+| `/app/*`                              | Customer app                | `RequireAuth` → `/login`                        |
+| `/partner/*`                          | Partner app                 | `RequireAuth` → `/partner/login` (see note)     |
+| `/admin/*`                            | Ops console                 | `RequireRole(['ops','admin'])` → `/admin/login` |
+| `/design`                             | Design system showcase      | none                                            |
 
-**Threat model:** an XSS bug somewhere in this app (a rendered comment, a
-badly-escaped name) must not be able to steal a session that lasts 30 days.
-It can steal whatever lives in memory for the life of the tab; it must never
-be able to read a refresh token.
+Every path above also exists under `/en/...` (English) — `hi` is the default
+and is never prefixed. This is built by `router/localePrefix.ts`'s
+`withLocalePrefix()`, which mounts the **same route tree twice**, once under
+`/` and once under `/en`, rather than an optional `:locale?` param (see that
+file's own comment on why: an optional segment makes a literal path like
+`login` ambiguous with a locale value). An explicit `/hi` or `/hi/...` visit
+redirects to the unprefixed equivalent, matching the old Next middleware's
+behaviour, so the default locale never has two canonical URLs.
+
+**`/partner/*` is guarded with `RequireAuth`, not `RequireRole('technician')`.**
+Ported directly from `legacy-next-src/app/[locale]/partner/(protected)/layout.tsx`:
+a signed-in customer with no provider registration must still reach
+`/partner` and see a "become a partner" pitch
+(`POST /providers/me/register`, any authenticated user can call it — see
+`legacy-next-src/components/partner/BecomePartnerGate.tsx` for the reference
+implementation). `PartnerAppEntry` demonstrates the branch point
+(`roles.includes('technician')`); the partner-surface agent builds the real
+gate and the real routed content behind it.
+
+**`/admin/register` is deliberately not a registration form.** A public route
+that could mint an admin account would let anyone grant themselves refund and
+payout powers — see `routes/auth/AdminRegisterPlaceholder.tsx`'s own comment.
+It renders a plain "ask an existing admin" message. **This route was added on
+a mid-task routing clarification, not the original phase brief — flag it for
+the product owner to confirm or overrule.**
+
+Every surface's entry point (`surfaces/*/*.tsx`) is `React.lazy`-loaded;
+`RootLayout` wraps the router `<Outlet>` in one `<Suspense>` boundary. The
+auth routes are NOT lazy (small, and the first thing a signed-out visitor
+waits on).
+
+**Plugging in a real surface:** replace the corresponding `surfaces/*/*.tsx`
+file's default export. The route (`app/*`, `partner/*`, `admin/*`) and its
+guard already exist in `router/router.tsx` — a surface agent adds its own
+nested routes _inside_ that entry component (e.g. with a nested
+`<Routes>`/`<Outlet>`, or by expanding the `element` in `router.tsx` if the
+surface wants top-level route objects instead — either is fine, `router.tsx`
+does not care how a surface organises its own children).
+
+## Auth (`src/lib/auth/`)
+
+**Threat model:** an XSS bug somewhere in this app must not be able to steal
+a session that lasts 30 days without at least having to reach into storage
+that page JS can read.
 
 - **Access token:** a module-level variable in `lib/auth/session.ts`. Never
-  `localStorage`, never a readable cookie. Dies with the tab/reload.
-- **Refresh token:** an **httpOnly, `SameSite=Lax`** cookie
-  (`fixbridge_refresh`), set and read **only** by three Next Route Handlers —
-  `POST /api/session/login`, `/refresh`, `/logout` — which proxy to the API's
-  `/api/v1/auth/otp/verify`, `/refresh`, `/logout`. Every response these
-  handlers send strips the refresh token out of the JSON body first
-  (`app/api/session/_shared.ts`'s `stripRefreshToken`) — page JavaScript
-  never sees it, not even transiently in a variable that could be logged.
-  `Secure` is conditional on `NODE_ENV === 'production'`: a browser silently
-  refuses to store a `Secure` cookie over plain `http`, and local dev serves
-  this app over `http://localhost:3000`.
-- **Device id:** generated once (`web-<uuid>`), kept in `localStorage`. Not a
-  secret — knowing it lets nobody do anything; it only lets the API tell "the
-  same browser refreshing" apart from "a stolen refresh token replayed from
-  elsewhere" (see the root README's note on `/auth/refresh`).
+  written to any storage. Dies with the tab/reload.
+- **Refresh token: `localStorage`, not an httpOnly cookie — the one forced
+  change from the old Next app, and it is weaker, not equivalent.** The old
+  app kept it in an httpOnly cookie set by a Next.js route handler running on
+  a server; a static SPA has no server to hold that cookie. An XSS bug can
+  now read `localStorage` and steal the 30-day credential, not just whatever
+  lives in memory for the current tab. This is the accepted cost of removing
+  the server — read `session.ts`'s own comment at the top of the file before
+  touching this, it explains exactly what still holds (the access token is
+  still memory-only, single-flight refresh is unchanged) and what the real
+  fix would be if a server ever comes back (a thin BFF re-introducing an
+  httpOnly cookie, not a `localStorage` hardening trick).
+- **Device id:** `web-<uuid>`, `localStorage`. Not a secret (see
+  `session.ts`).
 - **Silent refresh, single-flight:** `lib/api.ts`'s `apiRequest` catches a
-  `401 AUTH_TOKEN_EXPIRED`, calls `refreshAccessToken()`
-  (`lib/auth/session.ts`) and retries once. `refreshAccessToken` shares one
-  in-flight promise across every concurrent caller — see that function's own
-  comment for exactly why two callers presenting the same (about-to-rotate)
-  refresh token is the bug this exists to prevent. Tested in
-  `src/test/auth-silent-refresh.test.ts`.
+  `401 AUTH_TOKEN_EXPIRED`, calls `refreshAccessToken()` and retries once.
+  `refreshAccessToken` shares one in-flight promise across every concurrent
+  caller. Tested in `src/test/auth-silent-refresh.test.ts`.
 - **`AuthProvider`** (`lib/auth/AuthProvider.tsx`) + **`useAuth()`**
-  (`lib/auth/useAuth.ts`) expose `status` (`'restoring' | 'signedOut' |
-'signedIn'`), `user`, `roles`, `requestOtp(phone)`, `login(phone, otp)`,
-  `logout()`. Mounted once, above all four surfaces (`app/[locale]/layout.tsx`
-  → `providers.tsx`) — even marketing pages want to know "already signed in".
-- **Guards** (`lib/auth/guards.tsx`): `<RequireAuth>` / `<RequireRole
-role="technician">`, client components a surface layout wraps its children
-  in. `lib/auth/server-guard.ts`'s `hasSessionCookie()` is a cheap
-  **server-side** fast path (checks the cookie's presence, not its
-  validity/roles) used in each guarded layout to `redirect()` a definitely
-  signed-out request before shipping any client JS. **Neither guard is the
-  real security boundary** — the API enforces every permission on every
-  request regardless of what this app renders; these exist purely so a
-  signed-out visitor never sees a flash of protected UI.
-- **A login page is not part of this foundation** — build one at (by
-  convention, since the guards default here) `(marketing)/login/page.tsx`
-  using `useAuth()`'s `requestOtp`/`login`, matching the admin console's dev
-  OTP flow (`AUTH_FIXED_OTP=000000` for `+9199999...` numbers).
+  (`lib/auth/useAuth.ts`), mounted once in `main.tsx` above the router:
 
-Flow diagram (login):
+  ```ts
+  interface AuthState {
+    status: 'restoring' | 'signedOut' | 'signedIn';
+    user: AuthUser | null;
+    roles: Role[];
+    requestOtp: (phone: string) => Promise<{ phone: string; expiresInSeconds: number }>;
+    login: (phone: string, otp: string) => Promise<void>;
+    adminPasswordStep: (
+      loginId: string,
+      password: string,
+    ) => Promise<{ challengeId: string; phone: string; expiresInSeconds: number }>;
+    adminLogin: (challengeId: string, otp: string) => Promise<void>;
+    logout: () => Promise<void>;
+  }
+  ```
 
-```
-Browser                    Next (this app)                  API
-  |-- POST /api/session/login ->|
-  |   {phone, otp, deviceId}    |-- POST /api/v1/auth/otp/verify ->|
-  |                             |<---------- {accessToken, refreshToken, ...}
-  |                             |  set-cookie: fixbridge_refresh=... (httpOnly)
-  |<-- {accessToken, user} -----|  (refreshToken stripped)
-  |  (kept in memory only)
-```
+  `adminPasswordStep`/`adminLogin` are the ops console's two-factor sign-in —
+  `POST /api/v1/auth/admin/password` then `POST /api/v1/auth/admin/verify`
+  (see `apps/api/src/modules/auth/admin-login.ts` for why it's two calls).
 
-## i18n — Hindi-first
+- **Guards** (`lib/auth/guards.tsx`): `<RequireAuth redirectTo="/login">` /
+  `<RequireRole role={['ops','admin']} redirectTo="/admin/login">`. **Neither
+  guard is the real security boundary** — the API enforces every permission
+  on every request regardless of what this app renders; these exist purely
+  so a signed-out visitor never sees a flash of protected UI. Uses
+  `<Navigate replace>`, not an imperative redirect in an effect.
 
-Default locale `hi` (no URL prefix), `en` under `/en/...`. **Decision:** a
-`[locale]` dynamic segment (every page lives under
-`src/app/[locale]/...`) plus `src/middleware.ts`, not a library
-(`next-intl`, etc.) and not the old Pages-Router `i18n` config (removed in
-the App Router). The middleware:
+### Auth routes (`src/routes/auth/`)
 
-- `/en/...` → passes through; `[locale]` is `en`.
-- `/...` (no prefix) → **rewritten** (not redirected) to `/hi/...`
-  internally — the address bar keeps the clean URL. A rewrite costs nothing
-  extra on the wire; a redirect is a round trip every first-time visitor
-  (by definition hitting the unprefixed URL) would pay for on 4G.
-- `/hi/...` (explicit) → redirected to the unprefixed URL, so `hi` never has
-  two canonical addresses for the same page (duplicate URLs split SEO
-  ranking signal).
+`PhoneOtpForm` is the phone → OTP flow shared by `CustomerLogin`,
+`CustomerRegister`, `PartnerLogin`, `PartnerRegister` — login and register
+are the same API call (the API creates the account on first successful OTP
+verification; there is no separate sign-up endpoint), so one component is
+both screens; only heading copy, submit label and the post-login redirect
+differ. **The masked-phone bug this form exists to prevent:**
+`POST /auth/otp/request` echoes the phone back masked
+(`+9199999*****`) — `phone` (what the user typed) and `maskedPhone` (display
+only) are separate state on purpose. Regression test:
+`src/test/login-phone.test.tsx`.
 
-No `Accept-Language` sniffing: the default is always `hi` regardless of
-browser language, so a crawler and a Hindi-reading visitor see the same
-content at the same URL — see `src/middleware.ts`'s own comment for the full
-reasoning.
+`AdminLogin` implements the two-step password→OTP flow directly (it doesn't
+share `PhoneOtpForm` — the shape is different: id+password, then a
+challenge+OTP, not phone, then OTP).
 
-**`t()`:** `useT()` (client, `src/i18n/useT.ts`) and `getT(locale)` (server,
-`src/i18n/get-t.ts`) share one lookup engine (`src/i18n/dictionaries.ts`),
-mirroring `apps/api/src/core/i18n.ts`'s nested-key/fallback-to-default-locale
-shape. Copy lives in `src/locales/{hi,en}.json` for foundation-owned strings;
-other surfaces add their own `<surface>.{hi,en}.json` files (e.g.
-`marketing.hi.json`) merged in by `dictionaries.ts` — one file per surface
-per locale keeps a rename or a copy edit from becoming a merge conflict on
-one giant JSON file.
+All six auth routes are placeholders — real copy/branding/onboarding is each
+surface agent's job. What is real: the route exists, sits outside its
+surface's guard, and calls the correct `useAuth()` methods with the correct
+arguments.
 
-**`Accept-Language`:** `lib/api.ts`'s `apiRequest` sets it from
-`lib/i18n/locale-client.ts`'s `getClientLocale()`, which reads
-`document.documentElement.lang` (set by the root layout from the same
-`[locale]` param `useT()` reads) — chosen over threading a `locale` prop
-through every call site because `apiRequest` is called from places that
-cannot call a hook (a `queryFn`, an event handler).
+## i18n — Hindi-first (`src/i18n/`)
 
-**Fonts:** `next/font/google` — Noto Sans Devanagari + Inter (Latin
-fallback), **`display: 'optional'`**, not the usual `'swap'`. `swap`
-guarantees an eventual visible repaint from the fallback font to the real
-one; for Devanagari, that repaint is not subtle — a fallback font's glyph
-widths differ enough from Noto Sans Devanagari to visibly reflow a
-Hindi-heavy page. `optional` uses the custom font only if it is already
-available almost instantly (effectively: cached), otherwise renders with the
-fallback for that whole page view and never swaps mid-read — the right trade
-for a cheap phone on 4G, where "the nicer font didn't load" beats "the
-layout jumped under your thumb." See `src/app/[locale]/layout.tsx`.
+Default locale `hi` (unprefixed), `en` under `/en/...` — see Routing above
+for how the URL split is implemented (two duplicated route trees, not a
+`[locale]` segment — there is no server to run Next-style middleware).
+
+- **`useLocale()`** (`i18n/useT.ts`) reads `useLocation().pathname` — `en` if
+  it starts with `/en` or equals it, `hi` otherwise. No context provider
+  needed; the URL already is the source of truth.
+- **`useT()`** — `(key: string, vars?: Record<string, string | number>) => string`.
+  Nested dot-path keys, `{{var}}` interpolation, falls back to `hi` then to
+  the key itself on a miss (mirrors `apps/api/src/core/i18n.ts`).
+- **`getClientLocale()`** (`i18n/locale-client.ts`) — for call sites that
+  aren't components (`lib/api.ts`'s `Accept-Language` header). Reads
+  `document.documentElement.lang`, which `RootLayout` keeps synced to
+  `useLocale()`'s value on every render.
+- **Catalogs** (`i18n/dictionaries.ts`): one JSON file per surface per
+  locale, merged at the top level — `locales/{hi,en}.json` (foundation:
+  `brand.*`, `common.*`, `nav.*`, `auth.*`, `notFound.*`, `pagination.*`),
+  `locales/marketing.{hi,en}.json`, `locales/customer.{hi,en}.json`,
+  `locales/partner.{hi,en}.json` — all four ported verbatim from
+  `legacy-next-src/locales/`. A surface agent may extend its own file freely;
+  adding a new top-level namespace elsewhere requires touching
+  `dictionaries.ts`'s merge.
+- **Fonts:** Google Fonts `<link>` in `index.html` (Inter + Noto Sans
+  Devanagari, `display=swap`), switched by `index.css`'s
+  `html[lang='hi'] { font-family: var(--font-devanagari); }` — keyed off
+  `<html lang>`, the same attribute `getClientLocale()` reads, so there is
+  exactly one place that has to stay correct. Hindi body copy also gets a
+  taller `line-height` (1.7) — Devanagari conjuncts crowd each other at Latin
+  line-heights.
+- **`buildLocalizedHref(locale, pathname)`** (`i18n/config.ts`) — the URL for
+  `pathname` in `locale`; `hi` never prefixed, everything else is. Used by
+  every guard redirect and by `LocaleToggle`.
 
 ## API client (`src/lib/api.ts`)
 
@@ -198,10 +246,10 @@ apiRequest<T>(path: string, options?: {
 }): Promise<T>
 ```
 
-Attaches the in-memory access token, sets `Accept-Language`, and on a `401
-AUTH_TOKEN_EXPIRED` calls the silent refresh and retries once (see Auth).
-Throws `ApiError` (`status`, `code`, `requestId`, `fieldErrors`) on any
-non-2xx — render it with `<ErrorState>` from the UI kit.
+Attaches the in-memory access token, sets `Accept-Language`, and on a
+`401 AUTH_TOKEN_EXPIRED` calls the silent refresh and retries once. Throws
+`ApiError` (`status`, `code`, `requestId`, `fieldErrors`) on any non-2xx —
+render it with `<ErrorState>`.
 
 **Pagination — the one quirk, isolated:**
 
@@ -211,13 +259,15 @@ parsePage<T>(body: unknown, itemsKey: string): { items: T[]; page: number; pageS
 ```
 
 Every paginated endpoint takes `page`/`page_size` **except** the Phase 4
-verification queue, which takes `pageSize`. `paginationParams` defaults to
-`page_size`; the one call site that needs the other passes
-`spelling: 'pageSize'` explicitly — see the function's own comment.
+verification queue, which takes `pageSize` — the one call site that needs it
+passes `spelling: 'pageSize'` explicitly.
 
-**TanStack Query:** `createQueryClient()` — 10s stale time, no
-retry on 4xx, `refetchOnWindowFocus: false` (mobile-first: no desktop
-window-focus habit to serve). Mounted once in `app/[locale]/providers.tsx`.
+**TanStack Query:** `createQueryClient()` — 10s stale time, no retry on 4xx,
+`refetchOnWindowFocus: false`. Mounted once in `main.tsx`.
+
+**Session issuance (login/refresh/logout/admin two-step) does NOT go through
+`apiRequest`** — it lives in `lib/auth/session.ts` and talks to the API
+directly, because token issuance has its own rules (see Auth above).
 
 ## The ₹ util (`src/lib/money.ts`)
 
@@ -227,119 +277,98 @@ parseRupeesToPaise(input: string): number | null
 ```
 
 The **only** money formatter in this app — matches
-`apps/api/src/modules/search/service.ts`'s `formatPaise` exactly. Money is
-an integer number of paise everywhere in this system; nothing else may call
-`toLocaleString` on an amount.
+`apps/api/src/modules/search/service.ts`'s `formatPaise` exactly. Money is an
+integer number of paise everywhere; nothing else may call `toLocaleString` on
+an amount.
 
-## UI kit (`src/components/ui`, barrel: `@/components/ui`)
+## The design system (`src/components/ui`, barrel: `@/components/ui`)
 
-Hand-rolled, no design-system dependency — same reasoning as
-`apps/admin/src/components/ui`, extended for a touch-first audience: every
-interactive control enforces a **44px touch target** and **16px+ text**
-(below 16px, iOS Safari zooms the whole page on focus).
+Hand-rolled, no component library. Every interactive control enforces a
+**44px touch target** and **16px+ text** (iOS Safari zooms the page on focus
+below 16px). Icons: `lucide-react`, stroke width 1.75 by convention (2.25 for
+an "active" state, 2.5 for spinners). Motion: 150ms transitions, no bounce.
+**See `/design` (`routes/design/DesignSystemShowcase.tsx`) to review every
+state of every primitive at a glance** — that page is the proof this system
+actually looks the way this document claims.
 
-| Export                                                 | Signature                                                                                                                      |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| `Button`                                               | `{ variant?: 'primary'\|'secondary'\|'danger'\|'ghost'; fullWidth?: boolean } & ButtonHTMLAttributes`                          |
-| `Card`                                                 | `{ title?; actions?; children; className? }`                                                                                   |
-| `StatTile`                                             | `{ label: string; value: string\|number; href?: string; hint?: string }`                                                       |
-| `DetailRow`                                            | `{ label: string; children }`                                                                                                  |
-| `Field`                                                | `{ label: string; hint?: string; error?: string\|null; children: (id: string) => ReactNode }` (render-prop)                    |
-| `TextInput` / `TextArea` / `Select`                    | standard HTML attributes, pre-styled                                                                                           |
-| `Modal`                                                | `{ title: string; onClose: () => void; children; width?: string }` — bottom sheet on phone width, centred dialog from `sm:` up |
-| `Badge`                                                | `{ tone?: 'neutral'\|'good'\|'warn'\|'bad'\|'info'; children }` — generic; no domain-specific status→tone mapping baked in     |
-| `Table` / `Th` / `Td` / `Tr`                           | for genuinely tabular screens; most lists on a phone-width screen should be cards, not a `<table>`                             |
-| `Pagination`                                           | `{ page, pageSize, total, onChange: (page: number) => void }`                                                                  |
-| `Spinner` / `EmptyState` / `ErrorState` / `QueryState` | loading/empty/error primitives; `QueryState` wraps a TanStack Query result's three states in one place                         |
+| Export                                                 | Signature                                                                                                                                                                                                    |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Button`                                               | `{ variant?: 'primary'\|'secondary'\|'danger'\|'ghost'; size?: 'sm'\|'md'\|'lg'; fullWidth?: boolean; loading?: boolean } & ButtonHTMLAttributes`                                                            |
+| `Card`                                                 | `{ title?; actions?; children; className? }`                                                                                                                                                                 |
+| `CardHeader`                                           | `{ title: ReactNode; subtitle?; actions? }`                                                                                                                                                                  |
+| `StatTile`                                             | `{ label: string; value: string\|number; href?: string; hint?: string; delta?: number\|string; icon?: ComponentType<LucideProps> }` — `delta`'s colour is derived from its own sign, not caller-supplied     |
+| `DetailRow`                                            | `{ label: string; children }`                                                                                                                                                                                |
+| `Field`                                                | `{ label: string; hint?: string; error?: string\|null; children: (id: string) => ReactNode }` (render-prop)                                                                                                  |
+| `TextInput` / `TextArea` / `Select`                    | standard HTML attributes, pre-styled                                                                                                                                                                         |
+| `Modal`                                                | `{ title: string; onClose: () => void; children; width?: string }` — centred dialog on `sm:`+, bottom sheet below it                                                                                         |
+| `Sheet`                                                | `{ open: boolean; title: string; onClose: () => void; children }` — ALWAYS a bottom sheet, never becomes a centred dialog                                                                                    |
+| `Badge`                                                | `{ tone?: 'neutral'\|'success'\|'warning'\|'danger'\|'info'; children }` — a tag; no domain-specific status→tone mapping baked in                                                                            |
+| `StatusPill`                                           | same tone vocabulary as `Badge`, plus a leading status dot                                                                                                                                                   |
+| `Table`                                                | `{ columns: TableColumn<T>[]; rows: T[]; rowKey: (row: T) => string; empty?: { title?; hint? }; cardTitle?: (row: T) => ReactNode }` — a real `<table>` (sticky header) on `sm:`+, one card per row below it |
+| `Pagination`                                           | `{ page, pageSize, total, onChange: (page: number) => void }`                                                                                                                                                |
+| `Tabs`                                                 | `{ tabs: { value; label; badge? }[]; value: string; onChange: (value: string) => void }` — roving tabindex, arrow-key navigation                                                                             |
+| `ToastProvider` / `useToast`                           | `useToast(): { show: (opts: { title; description?; tone?; durationMs? }) => void }` — provider mounted once in `main.tsx`                                                                                    |
+| `Skeleton` / `SkeletonText`                            | `{ className? }` / `{ lines? }`                                                                                                                                                                              |
+| `Avatar`                                               | `{ name?: string\|null; src?: string\|null; size?: number }` — initials fallback, never a broken-image icon                                                                                                  |
+| `Spinner` / `EmptyState` / `ErrorState` / `QueryState` | loading/empty/error primitives; `QueryState` wraps a TanStack Query result's three states in one place                                                                                                       |
 
-## Brand (`src/brand/tokens.ts`)
+### App shells (`src/components/shell`)
 
-The **one file** that changes to rebrand this app: `APP_NAME` (from
-`NEXT_PUBLIC_APP_NAME`, defaulting to `@fixbridge/shared`'s
-`DEFAULT_APP_NAME`), `brandColors`, `<BrandLogo>` (a monogram placeholder),
-`<BrandStyleVars>` (writes the palette onto `:root` as CSS custom properties
-— Tailwind's `bg-brand`/`text-brand` classes point at those variable names,
-never a literal hex, so a rebrand needs no Tailwind rebuild). Copy
-(tagline, meta description) lives in i18n (`brand.*` keys in
-`src/locales/{hi,en}.json`) — this module only names which keys those are
-(`BRAND_COPY_KEYS`).
+- **`AdminShell`** — `{ navItems: AdminNavItem[]; activeHref: string; title: ReactNode; breadcrumbs?: Breadcrumb[]; userMenu?: ReactNode; children }`. Dark slate collapsible sidebar (desktop) / off-canvas drawer (below `md:`), sticky light topbar with breadcrumbs + title + user menu, `bg-slate-50` canvas. This is deliberately the one shell that is NOT mobile-first — the ops audience is at a desk.
+- **`MobileAppShell`** — `{ title?; topBarActions?; tabs: MobileTabItem[]; activeKey: string; children }`. Compact sticky top bar + sticky bottom tab bar with icon + label + unread badge, `env(safe-area-inset-bottom)`-aware. Shared shape for `/app` and `/partner`; only the tab list differs.
+- `RoleNav`, `SurfaceSwitcher`, `LocaleToggle` — the old minimal top bar and its pieces, ported. A starting point for a surface with no shell yet, not a fixture.
 
-## PWA-lite (`src/app/manifest.ts`)
+## Brand & design tokens (`src/brand/tokens.ts`)
 
-Manifest only — **no service worker, no offline support, no push**,
-deliberately (see the phase spec's "explicitly out of scope": push rides
-WhatsApp for partners in v1; a service worker with no offline strategy
-behind it is a caching bug waiting to happen, not a feature). Enough for
-Chrome/Android's "Add to Home Screen". Icons
-(`public/icons/icon-{192,512}.png`) are flat placeholder squares in the
-brand primary colour — real, licensed artwork (including a maskable variant
-with proper safe-zone padding) is a pre-launch task; swap the two PNG files
-and nothing else needs to change.
+The **one file** that changes to rebrand this app or retune its palette:
+`APP_NAME` (from `VITE_APP_NAME`, defaulting to `@fixbridge/shared`'s
+`DEFAULT_APP_NAME`), `brandColors` (primary teal `#0f6e5c`, accent),
+`semanticColors` (`success`/`warning`/`danger`/`muted`/`surface`/`border`),
+`<BrandLogo>` (monogram placeholder), `<BrandStyleVars>` (writes every token
+above onto `:root` as CSS custom properties — `tailwind.config.ts`'s
+`brand`/`success`/`warning`/`danger`/`muted`/`surface`/`border` colours all
+point at those variable names, never a literal hex). Copy (tagline, meta
+description) lives in i18n (`brand.*` keys) — this module only names which
+keys those are (`BRAND_COPY_KEYS`).
 
 ## Testing
 
-Vitest 3.2.7 + React Testing Library, `jsdom` by default. Route-handler
-suites opt into `// @vitest-environment node` at the top of the file (see
-`vitest.config.ts`) — `NextRequest`/`NextResponse` assume Node's fetch
-globals, which `jsdom` partially shadows.
+Vitest 3.2.7 + React Testing Library, `jsdom`.
 
-- `src/test/setup.ts` — the one global setup: RTL `cleanup()`, the auth
-  module's in-memory state reset, a `crypto.randomUUID` polyfill, mock/env
+- `src/test/setup.ts` — RTL `cleanup()`, the auth module's in-memory +
+  `localStorage` state reset, a `crypto.randomUUID` polyfill, mock/env
   teardown.
 - `src/test/harness.tsx` — `mockApi(routes)` (fetch mocked at the boundary,
-  keyed `"METHOD path"`), `waitForCall`, `renderWithQuery` (renders inside a
-  retry-off `QueryClientProvider`), `sessionBody()`.
+  keyed `"METHOD path"` — matches on pathname only, since every call now
+  goes straight to the API with no local proxy layer), `waitForCall`,
+  `renderWithQuery`, `sessionBody()`.
 - `src/test/auth-silent-refresh.test.ts` — the single-flight refresh
   guarantee, plus login/OTP.
-- `src/test/session-cookie-flags.test.ts` — calls the real
-  `POST /api/session/login` route handler and asserts the `Set-Cookie`
-  header is `HttpOnly`, `SameSite=Lax`, and conditionally `Secure`.
+- `src/test/refresh-token-storage.test.ts` — replaces the old
+  `session-cookie-flags.test.ts` (that mechanism no longer exists). Asserts
+  the refresh token lands in the expected `localStorage` key, the access
+  token never does, and `logout()` clears both.
 - `src/test/i18n-toggle.test.tsx` — `LocaleToggle` computes the correct
-  cross-locale URL in both directions.
+  cross-locale URL in both directions, via `MemoryRouter`.
+- `src/test/login-phone.test.tsx` — the masked-phone regression test.
 
 ## Mobile-first
 
 The design target is a ₹8,000 Android phone on 4G — desktop is the
-adaptation. Concretely: 44px touch targets, 16px+ form text, `optional` font
-loading, `refetchOnWindowFocus: false`, image optimisation left **on**
-(`next.config.ts`), and every list built to paginate rather than render
-everything at once.
+adaptation (the one deliberate exception: `AdminShell`, built for a desk).
+Concretely: 44px touch targets, 16px+ form text, `font-display: swap`,
+`refetchOnWindowFocus: false`, every list built to paginate rather than
+render everything at once, and every surface lazy-loaded so a first-time
+marketing visitor never downloads the admin console's code.
 
-## A note on dependency versions in this workspace
+## The old Next.js tree
 
-`apps/admin` (React 18) and this app (React 19) coexist in one npm
-workspace. Where a shared dependency's exact version would otherwise force
-npm to hoist a single, version-mismatched copy of `react`/`react-dom` to the
-workspace root — breaking both this app's TypeScript compile (two `ReactNode`
-types in one program) and `@testing-library/react`'s rendering (two React
-runtime instances, "Objects are not valid as a React child") — this app
-pins its own exact versions of the packages that touch React
-(`@tanstack/react-query`, `@testing-library/react`) distinct from admin's, and
-root `package.json`'s `overrides` field pins `@fixbridge/admin`'s React
-stack to 18.3.1 explicitly. If `apps/admin` is ever removed from the
-workspace, that `overrides` block becomes dead weight and can go with it.
+Gone. It lived at `legacy-next-src/` as read-only reference while the four
+surfaces were ported, and was deleted once every route had a live
+counterpart (marketing 9, customer 10, partner 10, admin 14 + login).
 
-## Dev server speed
-
-The dev script runs **Turbopack** (`next dev --turbopack`). On this codebase,
-measured cold on Windows:
-
-| | Webpack | Turbopack |
-| --- | --- | --- |
-| First route compiled | 61s | 32s |
-| Each further cold route | tens of seconds | ~1–3s |
-| Warm reload | fast | fast |
-
-The second row is the one you feel: you cross route boundaries constantly while
-working, and Webpack recompiles a large graph each time.
-
-Two things worth knowing before concluding "Next is slow":
-
-**Dev and production are different problems.** These numbers are the dev
-bundler. Production is pre-built — the marketing pages are static/ISR HTML and
-the shared JS bundle is ~102 kB. Nothing about dev compile time reaches a
-customer.
-
-**On Windows, add the repo to your antivirus exclusions.** Real-time scanning
-inspects every file a bundler writes, and `.next/` churns thousands of them.
-This is frequently a larger factor than the bundler choice.
+Source comments across the app still cite `legacy-next-src/...` paths as
+provenance — "ported from X". Those are deliberate history, not broken
+links: they say where a non-obvious business rule came from, which is worth
+more than a path that resolves. Git history has the files if a decision ever
+needs re-litigating.

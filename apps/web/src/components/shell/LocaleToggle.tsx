@@ -1,22 +1,19 @@
-'use client';
-
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../lib/auth/useAuth';
 import { useLocale, useT } from '../../i18n/useT';
 import { buildLocalizedHref, DEFAULT_LOCALE } from '../../i18n/config';
 import { apiRequest } from '../../lib/api';
 
 /**
- * Switches locale by navigating to the equivalent URL in the other
- * locale — not a client-side state flip — because the locale IS the URL in
- * this app (`src/middleware.ts`). A stateful toggle that left the URL alone
- * would desync a bookmark or a shared link from what's actually on screen.
+ * Switches locale by navigating to the equivalent URL in the other locale —
+ * not a client-side state flip — because the locale IS the URL in this app
+ * (see `router/router.tsx`). A stateful toggle that left the URL alone would
+ * desync a bookmark or a shared link from what's actually on screen.
  */
 export function LocaleToggle() {
   const locale = useLocale();
   const t = useT();
-  const pathname = usePathname() || '/';
+  const { pathname } = useLocation();
   const { status } = useAuth();
 
   const target = locale === 'hi' ? 'en' : 'hi';
@@ -39,7 +36,7 @@ export function LocaleToggle() {
 
   return (
     <Link
-      href={href}
+      to={href}
       onClick={handleClick}
       aria-label={target === 'en' ? t('locale.toggleToEnglish') : t('locale.toggleToHindi')}
       className="inline-flex min-h-touch items-center px-2 text-sm font-medium text-slate-700 underline-offset-2 hover:underline"

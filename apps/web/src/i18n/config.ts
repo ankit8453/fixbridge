@@ -8,11 +8,11 @@ export function isSupportedLocale(value: string | undefined | null): value is Lo
 }
 
 /**
- * The URL for `pathname` in `locale`, matching the scheme `src/middleware.ts`
+ * The URL for `pathname` in `locale`, matching the scheme `src/router/locale.tsx`
  * enforces: `hi` (default) is never prefixed, every other locale is. Used
  * anywhere a link has to stay in — or deliberately switch — locale: the auth
- * guards' login redirect, `LocaleToggle`, and any future surface that builds
- * its own nav.
+ * guards' login redirect, `LocaleToggle`, and any surface that builds its own
+ * nav.
  */
 export function buildLocalizedHref(locale: Locale, pathname: string): string {
   const clean = pathname.startsWith('/') ? pathname : `/${pathname}`;

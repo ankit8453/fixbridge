@@ -1,5 +1,3 @@
-'use client';
-
 import {
   useId,
   type InputHTMLAttributes,
@@ -12,7 +10,7 @@ import {
 // the whole page on focus, which then has to be zoomed back out by hand —
 // exactly the jank this app's mobile-first target cannot afford.
 const CONTROL =
-  'w-full min-h-touch rounded-lg border border-slate-300 px-3 py-2 text-base text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500 disabled:bg-slate-50';
+  'w-full min-h-touch rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500 disabled:bg-slate-50';
 
 export function Field({
   label,
@@ -34,9 +32,9 @@ export function Field({
         {label}
       </label>
       {children(id)}
-      {hint && !error ? <p className="mt-1 text-sm text-slate-500">{hint}</p> : null}
+      {hint && !error ? <p className="mt-1 text-sm text-muted">{hint}</p> : null}
       {error ? (
-        <p role="alert" className="mt-1 text-sm font-medium text-red-700">
+        <p role="alert" className="mt-1 text-sm font-medium text-danger">
           {error}
         </p>
       ) : null}

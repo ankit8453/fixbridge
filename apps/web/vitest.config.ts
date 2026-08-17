@@ -1,7 +1,6 @@
 import react from '@vitejs/plugin-react';
 // From `vitest/config` rather than `vite`, so the `test` block below is typed
-// without a triple-slash reference that silently stops applying on an upgrade
-// (same reasoning as apps/admin/vite.config.ts).
+// without a triple-slash reference that silently stops applying on an upgrade.
 import { defineConfig } from 'vitest/config';
 import path from 'node:path';
 
@@ -16,13 +15,10 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    // jsdom is the default; server-only suites (route handlers, cookie flags)
-    // opt into `node` per-file with a `// @vitest-environment node` comment,
-    // because NextRequest/NextResponse assume Node's fetch globals and jsdom
-    // partially shadows them (Headers/Request behave differently under jsdom).
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: false,
     testTimeout: 10000,
+    exclude: ['**/node_modules/**'],
   },
 });

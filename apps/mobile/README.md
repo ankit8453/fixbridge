@@ -1,8 +1,8 @@
 # Mobile app (placeholder)
 
 Nothing here yet. The customer and technician mobile apps are built in
-**Phases 13–14**, in Flutter. Phase 12 is a Next.js web app; Phase 15 is launch
-hardening.
+**Phases 13–14**, in Flutter. Phase 12 is the Vite + React web app; Phase 15 is
+launch hardening.
 
 They will consume the `/api/v1/*` modules and the `hi` / `en` i18n keys the API
 already ships (see [apps/api/src/core/locales/](../api/src/core/locales/)).

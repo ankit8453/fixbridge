@@ -291,6 +291,54 @@ curl -X POST http://localhost:3001/api/v1/auth/logout \
 
 **`200 OK`** → `{ "message": "Signed out successfully." }`
 
+### `POST /api/v1/auth/admin/password`
+
+Step **one of two** for the ops console. Staff sign in with an ID and password
+first, then the OTP this call sends — see
+[apps/api/src/modules/auth/admin-login.ts](../apps/api/src/modules/auth/admin-login.ts).
+
+Returns a **challenge, never a session**. That split is the whole point: a
+leaked password on its own is half an access attempt, not an entry. Only `ops`
+and `admin` accounts can hold a password at all — a database trigger refuses
+one on any other account, and a second trigger wipes it if the role is removed.
+
+```bash
+curl -X POST http://localhost:3001/api/v1/auth/admin/password \
+  -H 'Content-Type: application/json' \
+  -d '{"loginId":"+919999900001","password":"…"}'
+```
+
+**`200 OK`** → `{ "challengeId": "…", "phone": "+9199999*****", "message": "…" }`
+
+The phone comes back **masked**; it is for display only. Sending it back as a
+phone number anywhere will fail validation.
+
+**`401`** — identical response for a wrong password, an unknown account and a
+non-staff account, and the call takes the same wall-clock time in each case, so
+it cannot be used to discover which staff accounts exist.
+
+**`429`** — rate limited per login id **and** per IP. Both limits are consumed
+_before_ the password is checked, so an attacker cannot spend someone else's
+budget probing.
+
+### `POST /api/v1/auth/admin/verify`
+
+Step two. Consumes the challenge and issues **the same session shape every
+other sign-in returns**, so nothing downstream needs to know an ops user came
+in through a different door.
+
+```bash
+curl -X POST http://localhost:3001/api/v1/auth/admin/verify \
+  -H 'Content-Type: application/json' \
+  -d '{"challengeId":"…","otp":"000000","deviceId":"ops-laptop-01"}'
+```
+
+**`200 OK`** → `{ "accessToken": "…", "refreshToken": "…", "user": {…}, "message": "…" }`
+
+The challenge lives in Redis with a 5-minute TTL and allows 5 attempts. It is
+deleted on success **and on exhaustion**; a wrong guess preserves the remaining
+TTL rather than extending it.
+
 ### `GET /api/v1/auth/admin-only`
 
 Demo route proving the `requireRoles` guard. Delete it when real admin endpoints
@@ -1129,7 +1177,57 @@ contract are in [bookings.md](bookings.md).
 > any overlapping `held`/`booked` slot for the same provider. There is no request
 > shape that can get around it.
 
+### `GET /api/v1/providers/:providerId`
+
+**Public.** The full profile page behind a search result — and behind a link
+forwarded on WhatsApp, which is the case that matters: someone who never ran a
+search must still land on a complete profile.
+
+> **The route is pattern-matched to a UUID** (`/:providerId([0-9a-fA-F-]{36})`),
+> not just validated in the handler. A bare `/:providerId` also matches the
+> literal string `me`, which swallowed `GET /providers/me` and answered `400`
+> where it should have answered `401`. The constraint belongs in the path.
+
+```bash
+curl http://localhost:3001/api/v1/providers/195e4019-d1a9-4ea6-bac9-3b4945bdc1c6
+```
+
+**`200 OK`** → `providerId`, `displayName`, `badge`, `bio`, `yearsExperience`,
+`city`, `rating`, `jobsCompleted`, `tagCounts`, `skills[]`, `priceCards[]`.
+
+What it deliberately **never** returns: coordinates, phone number, or
+completeness internals. Same reasoning as search — see
+[public-profile.ts](../apps/api/src/modules/providers/public-profile.ts).
+
+Applies the **same four gates as search** (listed · active · verified badge ·
+not suspended), because a profile page that rendered someone search refuses to
+show would be a way around the gates.
+
+**`404`** — identical for a suspended provider and one that never existed. The
+response cannot be used to learn that an account exists but is hidden.
+
 ### Availability
+
+#### `GET /api/v1/providers/me/slots`
+
+**`technician` only.** A technician's own week — `open`, `blocked` and `booked`
+hours together, with `bookingId` where one exists.
+
+Phase 6 shipped a block button with no way to see what had been blocked, so
+un-blocking only worked inside the browser session that did the blocking; the
+calendar was effectively write-only. The partner web app made that immediately
+obvious, and this closes it.
+
+> Deliberately a **separate endpoint** rather than an `?includeBlocked=true`
+> flag on the public one. A flag gated on the caller's identity is one forgotten
+> check away from publishing everybody's day.
+
+```bash
+curl 'http://localhost:3001/api/v1/providers/me/slots?from=2026-08-16T00:00:00Z&to=2026-08-18T00:00:00Z' \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+**`200 OK`** → `{ "slots": [ { …, "state": "open|blocked|booked", "bookingId": "…|null" } ] }`
 
 #### `GET /api/v1/providers/:providerId/slots`
 

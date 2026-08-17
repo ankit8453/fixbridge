@@ -1,28 +1,23 @@
-'use client';
-
 import { useMemo } from 'react';
-import { useParams } from 'next/navigation';
+import { useLocation } from 'react-router-dom';
 import { createTranslator, type Translator } from './dictionaries';
-import { DEFAULT_LOCALE, isSupportedLocale, type Locale } from './config';
+import { DEFAULT_LOCALE, type Locale } from './config';
 
 /**
- * The active locale, for client components.
- *
- * Reads it from the route's `[locale]` segment via `useParams()` rather than
- * a React context provider — every page already lives under
- * `src/app/[locale]/...`, so the value is already there for free, and it
- * updates automatically on navigation between `/` and `/en/...` with no
- * `<LocaleProvider>` needed for a value the router already knows. Falls back
- * to `hi` if the segment is ever missing or malformed (should not happen —
- * `src/middleware.ts` only ever produces `hi`/`en` — but a hook that throws
- * on a bad param is a worse failure mode than one that assumes the default).
+ * The active locale, derived from the URL — not a `[locale]` route param
+ * (there is no server-rendered router segment here) and not a
+ * `<LocaleProvider>` context (the URL already is the one source of truth,
+ * see `router/locale.tsx`), just the pathname itself: `/en` or `/en/...` is
+ * English, everything else is Hindi. Recomputes automatically on navigation
+ * because `useLocation()` does, with no provider needed for a value the
+ * router already knows.
  */
 export function useLocale(): Locale {
-  const params = useParams<{ locale?: string }>();
-  return isSupportedLocale(params?.locale) ? params.locale : DEFAULT_LOCALE;
+  const { pathname } = useLocation();
+  return pathname === '/en' || pathname.startsWith('/en/') ? 'en' : DEFAULT_LOCALE;
 }
 
-/** `t()` for client components — see `../i18n/get-t.ts` for the server equivalent. */
+/** `t()` for components. */
 export function useT(): Translator {
   const locale = useLocale();
   return useMemo(() => createTranslator(locale), [locale]);

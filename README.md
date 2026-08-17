@@ -95,7 +95,9 @@ Full endpoint reference: [docs/API.md](docs/API.md).
 ### The web app
 
 All four surfaces — the marketing site, the customer app, the partner app and
-the ops console — are one Next.js application:
+the ops console — are one Vite + React single-page application, each surface
+lazy-loaded on its own route prefix (`/`, `/app`, `/partner`, `/admin`) with
+its own sign-in page:
 
 ```bash
 npm run dev:web
@@ -136,7 +138,7 @@ disputes and ledger history, and every action is audited. See
 .
 ├── apps/
 │   ├── api/          Express + TypeScript modular monolith — the backend
-│   ├── admin/        React ops console (Phase 11)
+│   ├── web/          Vite + React SPA — marketing, customer, partner, ops console
 │   └── mobile/       placeholder (Phases 13–14)
 ├── packages/
 │   └── shared/       types + constants shared by API and future clients
@@ -175,7 +177,7 @@ types/           Express request augmentation
 Every module is now live. `repository.ts` is the only file in a module allowed
 to touch the database — and the only place raw SQL may appear.
 
-Eight design notes worth reading before touching those areas:
+Nine design notes worth reading before touching those areas:
 [docs/geo-notes.md](docs/geo-notes.md) for PostGIS columns with Prisma,
 [docs/verification.md](docs/verification.md) for the append-only KYC model,
 [docs/search.md](docs/search.md) for the ranking formula and query plan,
@@ -184,9 +186,11 @@ booking state machine and the quotation lifecycle,
 [docs/money.md](docs/money.md) for the ledger, webhook idempotency and payouts,
 [docs/trust.md](docs/trust.md) for the trust formula, badge bands and
 suspension, [docs/notifications.md](docs/notifications.md) for the routing
-table, quiet hours and the DLT/WhatsApp go-live checklist, and
+table, quiet hours and the DLT/WhatsApp go-live checklist,
 [docs/admin-guide.md](docs/admin-guide.md) for the plain-language ops runbook
-written for a future ops hire who has never seen the codebase.
+written for a future ops hire who has never seen the codebase, and
+[docs/web.md](docs/web.md) for the web app's auth flow, i18n routing and the
+two trade-offs the move from Next.js to Vite cost.
 
 ### Phase plan
 
@@ -203,7 +207,7 @@ written for a future ops hire who has never seen the codebase.
 | 9 ✅  | Reviews, complaints & the trust engine — badges, auto-suspension       |
 | 10 ✅ | Notifications — routing table, WhatsApp/SMS transports, quiet hours    |
 | 11 ✅ | Admin console — React SPA over the ops APIs with audit backbone        |
-| 12    | Web app — Next.js                                                      |
+| 12 ✅ | Web app — Vite + React SPA, all four surfaces, separate logins         |
 | 13–14 | Mobile apps — Flutter, customer then partner                           |
 | 15    | Launch hardening                                                       |
 
@@ -216,7 +220,7 @@ Run from the repo root.
 | Command                           | Does                                                           |
 | --------------------------------- | -------------------------------------------------------------- |
 | `npm run start:dev`               | Builds `shared`, then runs the API with `tsx watch`            |
-| `npm run dev:web`                 | Runs the web app — all four surfaces — on :3000                 |
+| `npm run dev:web`                 | Runs the web app — all four surfaces — on :3000                |
 | `npm run build`                   | `tsc` for `shared` then `api` → `dist/`                        |
 | `npm start`                       | Runs the built API from `dist/`                                |
 | `npm test`                        | Full Vitest suite (integration tests skip if infra is down)    |
@@ -244,83 +248,83 @@ All configuration is environment variables, validated with Zod at startup —
 a bad or missing value fails the boot with a message naming the field, never at
 runtime. See [apps/api/.env.example](apps/api/.env.example).
 
-| Variable                             | Default                 | Notes                                                                                              |
-| ------------------------------------ | ----------------------- | -------------------------------------------------------------------------------------------------- |
-| `APP_NAME`                           | `fixbridge`             | The only place a name lives.                                                                       |
-| `NODE_ENV`                           | `development`           | `development` \| `test` \| `production`                                                            |
-| `PORT`                               | `3000`                  |                                                                                                    |
-| `LOG_LEVEL`                          | `info`                  | pino level, or `silent`                                                                            |
-| `DATABASE_URL`                       | —                       | **required**, `postgres:`/`postgresql:`                                                            |
-| `REDIS_URL`                          | —                       | **required**, `redis:`/`rediss:`                                                                   |
-| `SHUTDOWN_TIMEOUT_MS`                | `10000`                 | Grace period before a forced exit                                                                  |
-| `TRUST_PROXY_HOPS`                   | `0`                     | Proxy hops to trust for `X-Forwarded-For`                                                          |
-| `JWT_SECRET`                         | —                       | **required**, at least 32 chars. Rejected in production if left at the `.env.example` placeholder. |
-| `JWT_ACCESS_TTL_SECONDS`             | `900`                   | Access token lifetime                                                                              |
-| `REFRESH_TOKEN_TTL_DAYS`             | `30`                    | Refresh token lifetime                                                                             |
-| `OTP_TTL_SECONDS`                    | `300`                   | How long a code stays valid                                                                        |
-| `OTP_MAX_VERIFY_ATTEMPTS`            | `5`                     | Wrong guesses before the code is destroyed                                                         |
-| `OTP_RATE_WINDOW_SECONDS`            | `900`                   | Rate-limit window                                                                                  |
-| `OTP_MAX_PER_PHONE`                  | `3`                     | OTP requests per phone per window                                                                  |
-| `OTP_MAX_PER_IP`                     | `5`                     | OTP requests per IP per window                                                                     |
-| `AUTH_FIXED_OTP`                     | unset                   | Dev-only bypass. **Refused in production.**                                                        |
-| `AUTH_FIXED_OTP_PHONE_PREFIX`        | `+9199999`              | Which phones the bypass applies to                                                                 |
-| `SEED_ADMIN_PHONE`                   | `+919999900001`         | Admin account created by `npm run seed`                                                            |
-| `PROVIDER_LISTING_THRESHOLD`         | `80`                    | Completeness score a technician needs to appear in search                                          |
-| `MAX_ADDRESSES_PER_USER`             | `5`                     | Saved addresses per customer                                                                       |
-| `DEFAULT_CITY_ID`                    | `1`                     | City used when a request omits `cityId`                                                            |
-| `OTP_RESEND_COOLDOWN_SECONDS`        | `60`                    | Minimum gap between OTP requests for one phone                                                     |
-| `S3_ENDPOINT`                        | unset                   | S3-compatible endpoint. MinIO locally; omit for real AWS S3.                                       |
-| `S3_ACCESS_KEY_ID`                   | —                       | **required**                                                                                       |
-| `S3_SECRET_ACCESS_KEY`               | —                       | **required**                                                                                       |
-| `S3_BUCKET`                          | `fixbridge-kyc`         | Private bucket for KYC documents. Never world-readable.                                            |
-| `S3_FORCE_PATH_STYLE`                | `true`                  | MinIO needs path-style; real S3 prefers virtual-host style                                         |
-| `STORAGE_UPLOAD_URL_TTL_SECONDS`     | `300`                   | Pre-signed PUT lifetime                                                                            |
-| `STORAGE_DOWNLOAD_URL_TTL_SECONDS`   | `300`                   | Pre-signed GET lifetime                                                                            |
-| `STORAGE_MAX_UPLOAD_BYTES`           | `10485760`              | 10 MB. Signed into the URL, so storage enforces it.                                                |
-| `SEED_OPS_PHONE`                     | `+919999900002`         | Ops-only reviewer account created by `npm run seed`                                                |
-| `SLOT_HORIZON_DAYS`                  | `14`                    | How far ahead slots are materialised                                                               |
-| `SLOT_INCREMENT_MINUTES`             | `60`                    | Slot length. A shorter template window produces nothing.                                           |
-| `BOOKING_REQUEST_TTL_MINUTES`        | `15`                    | Unanswered requests expire and release their slot                                                  |
-| `BOOKING_VISIT_FEE_PAISE`            | `4900`                  | Snapshotted onto each booking. Stored, never charged — Phase 8.                                    |
-| `BOOKING_OTP_LENGTH`                 | `4`                     | Handshake code length. Spoken aloud, in person.                                                    |
-| `BOOKING_OTP_MAX_ATTEMPTS`           | `5`                     | Then the booking locks, and stays locked                                                           |
-| `OUTBOX_POLL_INTERVAL_MS`            | `2000`                  | Dispatcher poll interval                                                                           |
-| `OUTBOX_BATCH_SIZE`                  | `50`                    | Events claimed per pass                                                                            |
-| `OUTBOX_MAX_ATTEMPTS`                | `8`                     | Then the event is parked, not dropped                                                              |
-| `OUTBOX_BACKOFF_BASE_SECONDS`        | `5`                     | Retry N waits `base × 2^(N−1)`, capped                                                             |
-| `OUTBOX_BACKOFF_MAX_SECONDS`         | `3600`                  | Backoff ceiling                                                                                    |
-| `JOBS_ENABLED`                       | `true`                  | In-process background jobs. Off in tests.                                                          |
-| `BOOKING_EXPIRY_JOB_INTERVAL_MS`     | `60000`                 | How often stale requests are swept                                                                 |
-| `SLOT_HORIZON_JOB_INTERVAL_MS`       | `21600000`              | How often the horizon is extended. Also runs once at boot.                                         |
-| `PAYMENT_GATEWAY`                    | `fake`                  | `fake` \| `razorpay`. **Refused in production.**                                                   |
-| `RAZORPAY_KEY_ID`                    | unset                   | Required when the gateway is `razorpay`. Never logged.                                             |
-| `RAZORPAY_KEY_SECRET`                | unset                   | Required. Signs checkout callbacks.                                                                |
-| `RAZORPAY_WEBHOOK_SECRET`            | unset                   | Required. Signs webhook bodies.                                                                    |
-| `COMMISSION_DEFAULT_BPS`             | `1200`                  | 12%. Last rung of the service → cluster → city → global chain.                                     |
-| `COLLECT_FEE_AT_BOOKING`             | `false`                 | Upfront visit fee. Built and tested; off for the pilot.                                            |
-| `PAYOUT_MINIMUM_PAISE`               | `10000`                 | ₹100. Below this a payout rolls into the next batch.                                               |
-| `WALLET_LEDGER_PAGE_SIZE`            | `50`                    | Ledger lines returned by the wallet endpoint                                                       |
-| `REVIEW_WINDOW_DAYS`                 | `7`                     | How long after payment a job can be rated                                                          |
-| `COMPLAINT_WINDOW_DAYS`              | `14`                    | How long after a job ends a complaint can be raised                                                |
-| `TRUST_WEIGHT_*`                     | 35/20/20/15/10          | Rating · acceptance · reliability · complaints · recency. Tunable without a deploy.                |
-| `TRUST_RATING_HALF_LIFE_DAYS`        | `90`                    | A review's influence halves after this                                                             |
-| `TRUST_RECENCY_HALF_LIFE_DAYS`       | `90`                    | "Recently active" halves after this many idle days                                                 |
-| `TRUST_COMPLAINT_ZERO_AT`            | `6`                     | Weighted complaint load at which that component hits zero                                          |
-| `BADGE_SILVER_MIN_SCORE` / `_JOBS`   | `70` / `10`             | SILVER needs both                                                                                  |
-| `BADGE_GOLD_MIN_SCORE` / `_JOBS`     | `85` / `30`             | GOLD needs both                                                                                    |
-| `SUSPEND_TRUST_BELOW` / `_MIN_JOBS`  | `30` / `10`             | Low-trust suspension, only with enough jobs to mean it                                             |
-| `SUSPEND_CANCELLATION_COUNT`         | `3`                     | Provider cancellations inside the window                                                           |
-| `SUSPEND_CANCELLATION_WINDOW_DAYS`   | `7`                     | …the window                                                                                        |
-| `SUSPEND_DURATION_DAYS`              | `7`                     | How long an automatic suspension lasts before it lapses                                            |
-| `TRUST_RECOMPUTE_JOB_INTERVAL_MS`    | `21600000`              | 6h. Rescores everybody so recency decays without an event                                          |
-| `NOTIFY_WHATSAPP_TRANSPORT`          | `console`               | `console` · `fake` · `whatsapp_cloud`. Production refuses `fake`.                                  |
-| `NOTIFY_SMS_TRANSPORT`               | `console`               | `console` · `fake` · `msg91`. Production refuses `fake`.                                           |
-| `WHATSAPP_*` / `MSG91_*`             | unset                   | Required only when that transport is selected. See docs/notifications.md.                          |
-| `QUIET_HOURS_START_IST` / `_END_IST` | `22` / `7`              | Standard messages are held inside this window, never dropped. Equal = off.                         |
-| `NOTIFY_MAX_ATTEMPTS`                | `5`                     | External send attempts before a delivery is parked for ops                                         |
-| `NOTIFY_RELEASE_JOB_INTERVAL_MS`     | `300000`                | How often held messages are checked for release                                                    |
-| `NOTIFICATION_PAGE_SIZE`             | `20`                    | Inbox page size                                                                                    |
-| `ADMIN_ORIGIN`                       | `http://localhost:5173` | Legacy standalone-console origin. Retained so one can still be run; unused now the console is at `/admin`. |
+| Variable                             | Default                 | Notes                                                                                                        |
+| ------------------------------------ | ----------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `APP_NAME`                           | `fixbridge`             | The only place a name lives.                                                                                 |
+| `NODE_ENV`                           | `development`           | `development` \| `test` \| `production`                                                                      |
+| `PORT`                               | `3000`                  |                                                                                                              |
+| `LOG_LEVEL`                          | `info`                  | pino level, or `silent`                                                                                      |
+| `DATABASE_URL`                       | —                       | **required**, `postgres:`/`postgresql:`                                                                      |
+| `REDIS_URL`                          | —                       | **required**, `redis:`/`rediss:`                                                                             |
+| `SHUTDOWN_TIMEOUT_MS`                | `10000`                 | Grace period before a forced exit                                                                            |
+| `TRUST_PROXY_HOPS`                   | `0`                     | Proxy hops to trust for `X-Forwarded-For`                                                                    |
+| `JWT_SECRET`                         | —                       | **required**, at least 32 chars. Rejected in production if left at the `.env.example` placeholder.           |
+| `JWT_ACCESS_TTL_SECONDS`             | `900`                   | Access token lifetime                                                                                        |
+| `REFRESH_TOKEN_TTL_DAYS`             | `30`                    | Refresh token lifetime                                                                                       |
+| `OTP_TTL_SECONDS`                    | `300`                   | How long a code stays valid                                                                                  |
+| `OTP_MAX_VERIFY_ATTEMPTS`            | `5`                     | Wrong guesses before the code is destroyed                                                                   |
+| `OTP_RATE_WINDOW_SECONDS`            | `900`                   | Rate-limit window                                                                                            |
+| `OTP_MAX_PER_PHONE`                  | `3`                     | OTP requests per phone per window                                                                            |
+| `OTP_MAX_PER_IP`                     | `5`                     | OTP requests per IP per window                                                                               |
+| `AUTH_FIXED_OTP`                     | unset                   | Dev-only bypass. **Refused in production.**                                                                  |
+| `AUTH_FIXED_OTP_PHONE_PREFIX`        | `+9199999`              | Which phones the bypass applies to                                                                           |
+| `SEED_ADMIN_PHONE`                   | `+919999900001`         | Admin account created by `npm run seed`                                                                      |
+| `PROVIDER_LISTING_THRESHOLD`         | `80`                    | Completeness score a technician needs to appear in search                                                    |
+| `MAX_ADDRESSES_PER_USER`             | `5`                     | Saved addresses per customer                                                                                 |
+| `DEFAULT_CITY_ID`                    | `1`                     | City used when a request omits `cityId`                                                                      |
+| `OTP_RESEND_COOLDOWN_SECONDS`        | `60`                    | Minimum gap between OTP requests for one phone                                                               |
+| `S3_ENDPOINT`                        | unset                   | S3-compatible endpoint. MinIO locally; omit for real AWS S3.                                                 |
+| `S3_ACCESS_KEY_ID`                   | —                       | **required**                                                                                                 |
+| `S3_SECRET_ACCESS_KEY`               | —                       | **required**                                                                                                 |
+| `S3_BUCKET`                          | `fixbridge-kyc`         | Private bucket for KYC documents. Never world-readable.                                                      |
+| `S3_FORCE_PATH_STYLE`                | `true`                  | MinIO needs path-style; real S3 prefers virtual-host style                                                   |
+| `STORAGE_UPLOAD_URL_TTL_SECONDS`     | `300`                   | Pre-signed PUT lifetime                                                                                      |
+| `STORAGE_DOWNLOAD_URL_TTL_SECONDS`   | `300`                   | Pre-signed GET lifetime                                                                                      |
+| `STORAGE_MAX_UPLOAD_BYTES`           | `10485760`              | 10 MB. Signed into the URL, so storage enforces it.                                                          |
+| `SEED_OPS_PHONE`                     | `+919999900002`         | Ops-only reviewer account created by `npm run seed`                                                          |
+| `SLOT_HORIZON_DAYS`                  | `14`                    | How far ahead slots are materialised                                                                         |
+| `SLOT_INCREMENT_MINUTES`             | `60`                    | Slot length. A shorter template window produces nothing.                                                     |
+| `BOOKING_REQUEST_TTL_MINUTES`        | `15`                    | Unanswered requests expire and release their slot                                                            |
+| `BOOKING_VISIT_FEE_PAISE`            | `4900`                  | Snapshotted onto each booking. Stored, never charged — Phase 8.                                              |
+| `BOOKING_OTP_LENGTH`                 | `4`                     | Handshake code length. Spoken aloud, in person.                                                              |
+| `BOOKING_OTP_MAX_ATTEMPTS`           | `5`                     | Then the booking locks, and stays locked                                                                     |
+| `OUTBOX_POLL_INTERVAL_MS`            | `2000`                  | Dispatcher poll interval                                                                                     |
+| `OUTBOX_BATCH_SIZE`                  | `50`                    | Events claimed per pass                                                                                      |
+| `OUTBOX_MAX_ATTEMPTS`                | `8`                     | Then the event is parked, not dropped                                                                        |
+| `OUTBOX_BACKOFF_BASE_SECONDS`        | `5`                     | Retry N waits `base × 2^(N−1)`, capped                                                                       |
+| `OUTBOX_BACKOFF_MAX_SECONDS`         | `3600`                  | Backoff ceiling                                                                                              |
+| `JOBS_ENABLED`                       | `true`                  | In-process background jobs. Off in tests.                                                                    |
+| `BOOKING_EXPIRY_JOB_INTERVAL_MS`     | `60000`                 | How often stale requests are swept                                                                           |
+| `SLOT_HORIZON_JOB_INTERVAL_MS`       | `21600000`              | How often the horizon is extended. Also runs once at boot.                                                   |
+| `PAYMENT_GATEWAY`                    | `fake`                  | `fake` \| `razorpay`. **Refused in production.**                                                             |
+| `RAZORPAY_KEY_ID`                    | unset                   | Required when the gateway is `razorpay`. Never logged.                                                       |
+| `RAZORPAY_KEY_SECRET`                | unset                   | Required. Signs checkout callbacks.                                                                          |
+| `RAZORPAY_WEBHOOK_SECRET`            | unset                   | Required. Signs webhook bodies.                                                                              |
+| `COMMISSION_DEFAULT_BPS`             | `1200`                  | 12%. Last rung of the service → cluster → city → global chain.                                               |
+| `COLLECT_FEE_AT_BOOKING`             | `false`                 | Upfront visit fee. Built and tested; off for the pilot.                                                      |
+| `PAYOUT_MINIMUM_PAISE`               | `10000`                 | ₹100. Below this a payout rolls into the next batch.                                                         |
+| `WALLET_LEDGER_PAGE_SIZE`            | `50`                    | Ledger lines returned by the wallet endpoint                                                                 |
+| `REVIEW_WINDOW_DAYS`                 | `7`                     | How long after payment a job can be rated                                                                    |
+| `COMPLAINT_WINDOW_DAYS`              | `14`                    | How long after a job ends a complaint can be raised                                                          |
+| `TRUST_WEIGHT_*`                     | 35/20/20/15/10          | Rating · acceptance · reliability · complaints · recency. Tunable without a deploy.                          |
+| `TRUST_RATING_HALF_LIFE_DAYS`        | `90`                    | A review's influence halves after this                                                                       |
+| `TRUST_RECENCY_HALF_LIFE_DAYS`       | `90`                    | "Recently active" halves after this many idle days                                                           |
+| `TRUST_COMPLAINT_ZERO_AT`            | `6`                     | Weighted complaint load at which that component hits zero                                                    |
+| `BADGE_SILVER_MIN_SCORE` / `_JOBS`   | `70` / `10`             | SILVER needs both                                                                                            |
+| `BADGE_GOLD_MIN_SCORE` / `_JOBS`     | `85` / `30`             | GOLD needs both                                                                                              |
+| `SUSPEND_TRUST_BELOW` / `_MIN_JOBS`  | `30` / `10`             | Low-trust suspension, only with enough jobs to mean it                                                       |
+| `SUSPEND_CANCELLATION_COUNT`         | `3`                     | Provider cancellations inside the window                                                                     |
+| `SUSPEND_CANCELLATION_WINDOW_DAYS`   | `7`                     | …the window                                                                                                  |
+| `SUSPEND_DURATION_DAYS`              | `7`                     | How long an automatic suspension lasts before it lapses                                                      |
+| `TRUST_RECOMPUTE_JOB_INTERVAL_MS`    | `21600000`              | 6h. Rescores everybody so recency decays without an event                                                    |
+| `NOTIFY_WHATSAPP_TRANSPORT`          | `console`               | `console` · `fake` · `whatsapp_cloud`. Production refuses `fake`.                                            |
+| `NOTIFY_SMS_TRANSPORT`               | `console`               | `console` · `fake` · `msg91`. Production refuses `fake`.                                                     |
+| `WHATSAPP_*` / `MSG91_*`             | unset                   | Required only when that transport is selected. See docs/notifications.md.                                    |
+| `QUIET_HOURS_START_IST` / `_END_IST` | `22` / `7`              | Standard messages are held inside this window, never dropped. Equal = off.                                   |
+| `NOTIFY_MAX_ATTEMPTS`                | `5`                     | External send attempts before a delivery is parked for ops                                                   |
+| `NOTIFY_RELEASE_JOB_INTERVAL_MS`     | `300000`                | How often held messages are checked for release                                                              |
+| `NOTIFICATION_PAGE_SIZE`             | `20`                    | Inbox page size                                                                                              |
+| `ADMIN_ORIGIN`                       | `http://localhost:5173` | Legacy standalone-console origin. Retained so one can still be run; unused now the console is at `/admin`.   |
 | `WEB_ORIGIN`                         | `http://localhost:3000` | CORS origin for the web app. A browser convenience, not a security boundary — the role checks are the guard. |
 
 > `TRUST_PROXY_HOPS` is a security control, not a formality. Trusting

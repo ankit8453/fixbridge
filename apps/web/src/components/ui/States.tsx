@@ -1,6 +1,5 @@
-'use client';
-
 import { type ReactNode } from 'react';
+import { Loader2, Inbox } from 'lucide-react';
 import { ApiError } from '../../lib/api';
 import { useT } from '../../i18n/useT';
 import { Button } from './Button';
@@ -9,10 +8,10 @@ export function Spinner({ label }: { label?: string }) {
   const t = useT();
 
   return (
-    <div role="status" className="flex items-center gap-2 py-6 text-base text-slate-500">
-      <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
+    <div role="status" className="flex items-center gap-2 py-6 text-base text-muted">
+      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" strokeWidth={2.5} />
       {/* Never a bare spinner — "loading" with no subject reads identically to
-          a broken screen, and on a slow connection every load is candidate. */}
+          a broken screen, and on a slow connection every load is a candidate. */}
       <span>{label ?? t('common.loading')}</span>
     </div>
   );
@@ -22,9 +21,10 @@ export function EmptyState({ title, hint }: { title?: string; hint?: string }) {
   const t = useT();
 
   return (
-    <div className="rounded-xl border border-dashed border-slate-300 px-4 py-8 text-center">
+    <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-slate-300 px-4 py-8 text-center">
+      <Inbox className="h-6 w-6 text-slate-400" aria-hidden="true" strokeWidth={1.5} />
       <p className="text-base font-medium text-slate-700">{title ?? t('common.emptyGeneric')}</p>
-      {hint ? <p className="mt-1 text-sm text-slate-500">{hint}</p> : null}
+      {hint ? <p className="text-sm text-muted">{hint}</p> : null}
     </div>
   );
 }
@@ -35,8 +35,7 @@ export function EmptyState({ title, hint }: { title?: string; hint?: string }) {
  * The API stamps `X-Request-Id` on every response and puts it in the error
  * envelope precisely so a failure can be traced to a server log — printing it
  * here is the difference between a support message that says "booking broke"
- * and one an engineer can act on with a single grep. Same reasoning as
- * admin's `ErrorState`.
+ * and one an engineer can act on with a single grep.
  */
 export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
   const t = useT();
@@ -63,7 +62,7 @@ export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () =>
         </ul>
       ) : null}
       {onRetry ? (
-        <Button variant="secondary" className="mt-3" onClick={onRetry}>
+        <Button variant="secondary" size="sm" className="mt-3" onClick={onRetry}>
           {t('common.retry')}
         </Button>
       ) : null}

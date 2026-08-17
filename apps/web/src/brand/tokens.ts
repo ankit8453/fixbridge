@@ -2,23 +2,30 @@ import { createElement, type ReactElement } from 'react';
 import { DEFAULT_APP_NAME } from '@fixbridge/shared';
 
 /**
- * The one file that changes when the brand is decided.
+ * The one file that changes when the brand is decided, and the one file that
+ * changes to retune the design system's palette.
  *
- * Nothing else in this app may hardcode a name, a colour or a wordmark —
- * every surface imports from here. `.ts` rather than `.tsx` is deliberate:
- * `<BrandLogo>` is built with `createElement` instead of JSX so this stays a
- * single importable module without a build-time distinction between "the
- * data" and "the component that renders it" — a future rebrand is a data
- * change, not a component rewrite.
+ * Nothing else in this app may hardcode a name or a colour — every surface
+ * imports from here, and `<BrandStyleVars>` (rendered once in `RootLayout`)
+ * is what actually gets these values onto the page: it writes them as CSS
+ * custom properties, and `tailwind.config.ts`'s `brand`/`success`/`warning`/
+ * `danger`/`muted`/`surface`/`border` colours all point at those variable
+ * names rather than a literal hex. A rebrand or a palette retune is a data
+ * change in this one module, never a grep across components.
  *
- * Copy (tagline, meta description, etc.) is NOT duplicated here. Real user-
- * facing text belongs in src/locales/{hi,en}.json under the `brand.*`
+ * `.ts` rather than `.tsx` is deliberate: `<BrandLogo>` is built with
+ * `createElement` instead of JSX so this stays a single importable module
+ * without a build-time split between "the data" and "the component that
+ * renders it".
+ *
+ * Copy (tagline, meta description, etc.) is NOT duplicated here. Real
+ * user-facing text belongs in `src/locales/{hi,en}.json` under the `brand.*`
  * namespace, same key discipline as the API's i18n — this module only names
- * which keys those are, so a page can write `t('brand.tagline')` without
- * knowing the string lives in two places.
+ * which keys those are (`BRAND_COPY_KEYS`), so a page can write
+ * `t('brand.tagline')` without knowing the string lives in two places.
  */
 
-export const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? DEFAULT_APP_NAME;
+export const APP_NAME = import.meta.env.VITE_APP_NAME ?? DEFAULT_APP_NAME;
 
 /** First character, uppercased, for the placeholder wordmark — see BrandLogo. */
 export const APP_INITIAL = APP_NAME.charAt(0).toUpperCase();
@@ -35,16 +42,39 @@ export const brandColors = {
   accent: '#e08a2c',
 } as const;
 
-/** Theme-color for the browser chrome / PWA splash — see src/app/manifest.ts. */
+/**
+ * Semantic tokens — brand-neutral by design. These name a *meaning*
+ * (something succeeded, something needs attention, something failed), not a
+ * hue, which is what lets `StatusPill`/`Badge`/form errors reuse the same
+ * three colours everywhere instead of every screen picking its own shade of
+ * red. Chosen at a contrast ratio that holds up as text-on-white AND as the
+ * foreground on their own tinted background (see `Badge`/`StatusPill`).
+ */
+export const semanticColors = {
+  success: '#15803d',
+  successForeground: '#f0fdf4',
+  warning: '#b45309',
+  warningForeground: '#fffbeb',
+  danger: '#b91c1c',
+  dangerForeground: '#fef2f2',
+  // "Muted" is a text tone (de-emphasised copy — timestamps, hints), not a
+  // status; kept here anyway so every "quiet" colour in the app traces back
+  // to one token instead of components each picking their own slate shade.
+  muted: '#64748b',
+  mutedForeground: '#f8fafc',
+  surface: '#ffffff',
+  border: '#e2e8f0',
+} as const;
+
+/** Theme-color for the browser chrome / PWA splash — see public/manifest.webmanifest. */
 export const THEME_COLOR = brandColors.primary;
 
 /**
  * i18n key anchors for brand-adjacent copy.
  *
  * Referencing these constants instead of writing the string keys inline means
- * a rename of the namespace (unlikely, but see the API's own `payable.*`
- * comment style) is a one-line change here rather than a grep-and-replace
- * across every marketing page some other agent writes.
+ * a rename of the namespace is a one-line change here rather than a
+ * grep-and-replace across every marketing page some other agent writes.
  */
 export const BRAND_COPY_KEYS = {
   tagline: 'brand.tagline',
@@ -54,16 +84,28 @@ export const BRAND_COPY_KEYS = {
 /**
  * Writes the palette above onto `:root` as CSS custom properties.
  *
- * Tailwind's `brand`/`brand-accent` colours (tailwind.config.ts) point at
- * these variable names rather than literal hex values, because Tailwind's
- * config is frozen at build time and this module is the only place allowed to
- * decide the actual colour. Render this once, near the top of the root
- * layout's `<body>` — a `<style>` tag rather than inline styles on `<html>`
- * because CSS custom properties inherit to every descendant for free, and a
- * dedicated tag is trivially cacheable/inspectable in devtools.
+ * Render this once, near the top of the app (`RootLayout`) — a `<style>` tag
+ * rather than inline styles on `<html>` because CSS custom properties
+ * inherit to every descendant for free, and a dedicated tag is trivially
+ * cacheable/inspectable in devtools.
  */
 export function BrandStyleVars(): ReactElement {
-  const css = `:root{--color-brand-primary:${brandColors.primary};--color-brand-primary-foreground:${brandColors.primaryForeground};--color-brand-accent:${brandColors.accent};}`;
+  const css =
+    `:root{` +
+    `--color-brand-primary:${brandColors.primary};` +
+    `--color-brand-primary-foreground:${brandColors.primaryForeground};` +
+    `--color-brand-accent:${brandColors.accent};` +
+    `--color-success:${semanticColors.success};` +
+    `--color-success-foreground:${semanticColors.successForeground};` +
+    `--color-warning:${semanticColors.warning};` +
+    `--color-warning-foreground:${semanticColors.warningForeground};` +
+    `--color-danger:${semanticColors.danger};` +
+    `--color-danger-foreground:${semanticColors.dangerForeground};` +
+    `--color-muted:${semanticColors.muted};` +
+    `--color-muted-foreground:${semanticColors.mutedForeground};` +
+    `--color-surface:${semanticColors.surface};` +
+    `--color-border:${semanticColors.border};` +
+    `}`;
   return createElement('style', { dangerouslySetInnerHTML: { __html: css } });
 }
 
@@ -71,10 +113,11 @@ export function BrandStyleVars(): ReactElement {
  * The wordmark placeholder.
  *
  * A monogram square rather than an empty box or a literal "LOGO" string —
- * this renders on every page from day one (nav, PWA splash preview, etc.) and
- * a component that looks broken is a worse placeholder than one that looks
- * deliberately plain. Swapping in a real mark later means replacing this
- * function's body; nothing that calls `<BrandLogo />` needs to change.
+ * this renders on every page from day one (nav, PWA splash preview, the
+ * `/design` showcase) and a component that looks broken is a worse
+ * placeholder than one that looks deliberately plain. Swapping in a real
+ * mark later means replacing this function's body; nothing that calls
+ * `<BrandLogo />` needs to change.
  */
 export function BrandLogo({ size = 32 }: { size?: number }): ReactElement {
   return createElement(
