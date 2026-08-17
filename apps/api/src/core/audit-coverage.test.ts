@@ -1,7 +1,7 @@
 import type { Express } from 'express';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../app';
-import { AUDITED_ADMIN_ROUTES, AUDIT_ACTIONS } from './audit';
+import { ADMIN_ONLY_ROUTES, AUDITED_ADMIN_ROUTES, AUDIT_ACTIONS } from './audit';
 import { parseConfig } from './config';
 import { createContext, type AppContext } from './context';
 
@@ -128,6 +128,36 @@ describe('audit coverage', () => {
 
     expect(missing, 'admin mutations with no audit action registered').toEqual([]);
     expect(stale, 'registry entries whose route no longer exists').toEqual([]);
+  });
+
+  /**
+   * The ops/admin split cannot rot either.
+   *
+   * `ADMIN_ONLY_ROUTES` names the handful of endpoints an ops user must never
+   * reach. If one of them is renamed and the registry is not updated, the
+   * entry silently stops matching anything and the route quietly becomes
+   * ops-reachable again — a permission that fails open. This catches that.
+   */
+  it('lists only real routes as admin-only', () => {
+    if (unavailable) return;
+
+    const discovered = adminMutations().map((route) => `${route.method} ${route.path}`);
+    const stale = ADMIN_ONLY_ROUTES.filter((route) => !discovered.includes(route));
+
+    expect(stale, 'admin-only entries whose route no longer exists').toEqual([]);
+  });
+
+  /**
+   * Every admin-only route is also an audited one.
+   *
+   * These are the money and config actions. An irreversible action that nobody
+   * is recorded as having taken is the worst combination in the system, so the
+   * two registries have to agree on this subset.
+   */
+  it('audits every admin-only route', () => {
+    const unaudited = ADMIN_ONLY_ROUTES.filter((route) => !(route in AUDITED_ADMIN_ROUTES));
+
+    expect(unaudited).toEqual([]);
   });
 
   /** Every registered action is a real one — no typos, no invented strings. */

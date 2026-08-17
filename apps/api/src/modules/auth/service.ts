@@ -492,6 +492,34 @@ export async function unblockUser(deps: AuthDeps, userId: string): Promise<AuthU
   return toAuthUser(user);
 }
 
+/**
+ * Issues a session for an already-authenticated user id.
+ *
+ * The ops console's two-step sign-in proves who somebody is across two requests
+ * — password, then OTP — so by the time a session is due, the caller holds a
+ * user id rather than a phone and a code. This is the same `issueSession` every
+ * other path uses, exposed so that flow does not have to reimplement token
+ * minting and quietly diverge from it.
+ */
+export async function issueSessionForUser(
+  deps: AuthDeps,
+  userId: string,
+  deviceId: string,
+  info: RequestContextInfo,
+): Promise<AuthSession> {
+  const user = await findUserById(deps.context.prisma, userId);
+
+  if (!user) {
+    throw AppError.unauthorized('That account no longer exists', {
+      messageKey: 'errors.auth.tokenInvalid',
+    });
+  }
+
+  assertActive(user);
+
+  return issueSession(deps, user, deviceId, info);
+}
+
 export async function getCurrentUser(deps: AuthDeps, userId: string): Promise<AuthUser> {
   const user = await findUserById(deps.context.prisma, userId);
 

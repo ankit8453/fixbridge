@@ -1,0 +1,48 @@
+{
+  "brand": {
+    "tagline": "Verified technicians, upfront pricing, OTP-secured visits.",
+    "metaDescription": "Book verified electricians, plumbers and other technicians in your city — the price is agreed before work starts."
+  },
+  "common": {
+    "loading": "Loading…",
+    "retry": "Try again",
+    "errorGeneric": "Something went wrong.",
+    "errorRequestId": "Quote this code to support",
+    "emptyGeneric": "Nothing here yet.",
+    "offline": "You are not connected to the internet.",
+    "cancel": "Cancel",
+    "save": "Save",
+    "close": "Close"
+  },
+  "nav": {
+    "marketing": "Home",
+    "app": "Customer",
+    "partner": "Partner",
+    "admin": "Admin",
+    "switchSurface": "Switch section",
+    "logout": "Log out"
+  },
+  "locale": {
+    "toggleToEnglish": "English",
+    "toggleToHindi": "हिंदी",
+    "current": "Language: English"
+  },
+  "auth": {
+    "phoneLabel": "Phone number",
+    "phonePlaceholder": "9876543210",
+    "otpLabel": "6-digit code",
+    "sendCode": "Send code",
+    "verifyCode": "Sign in",
+    "resend": "Resend code",
+    "devHint": "Dev mode: enter code 000000",
+    "sessionExpired": "Your session has expired. Please sign in again.",
+    "restoring": "Checking your session…"
+  },
+  "pwa": {
+    "shortName": "Booking"
+  },
+  "pagination": {
+    "previous": "Previous",
+    "next": "Next"
+  }
+}

@@ -7,19 +7,19 @@
   "workspaces": [
     "packages/shared",
     "apps/api",
-    "apps/admin"
+    "apps/web"
   ],
   "engines": {
     "node": ">=20.11.0"
   },
   "scripts": {
-    "build": "npm run build --workspace @fixbridge/shared && npm run build --workspace @fixbridge/api && npm run build --workspace @fixbridge/admin",
+    "build": "npm run build --workspace @fixbridge/shared && npm run build --workspace @fixbridge/api && npm run build --workspace @fixbridge/web",
     "start:dev": "npm run build --workspace @fixbridge/shared && npm run start:dev --workspace @fixbridge/api",
     "start": "npm run start --workspace @fixbridge/api",
-    "dev:admin": "npm run dev --workspace @fixbridge/admin",
-    "test": "npm run build --workspace @fixbridge/shared && npm run test --workspace @fixbridge/api && npm run test --workspace @fixbridge/admin",
-    "test:unit": "npm run build --workspace @fixbridge/shared && npm run test:unit --workspace @fixbridge/api && npm run test --workspace @fixbridge/admin",
-    "typecheck": "npm run build --workspace @fixbridge/shared && npm run typecheck --workspace @fixbridge/api && npm run typecheck --workspace @fixbridge/admin",
+    "dev:web": "npm run dev --workspace @fixbridge/web",
+    "test": "npm run build --workspace @fixbridge/shared && npm run test --workspace @fixbridge/api && npm run test --workspace @fixbridge/web",
+    "test:unit": "npm run build --workspace @fixbridge/shared && npm run test:unit --workspace @fixbridge/api && npm run test --workspace @fixbridge/web",
+    "typecheck": "npm run build --workspace @fixbridge/shared && npm run typecheck --workspace @fixbridge/api && npm run typecheck --workspace @fixbridge/web",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
@@ -42,5 +42,17 @@
     "prettier": "3.9.6",
     "typescript": "5.9.3",
     "typescript-eslint": "8.67.0"
+  },
+  "overrides": {
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "@types/react": "19.1.17",
+    "@types/react-dom": "19.1.7",
+    "@fixbridge/admin": {
+      "react": "18.3.1",
+      "react-dom": "18.3.1",
+      "@types/react": "18.3.18",
+      "@types/react-dom": "18.3.5"
+    }
   }
 }

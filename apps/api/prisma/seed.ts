@@ -1,5 +1,6 @@
 import { PrismaClient, Role } from '@prisma/client';
 import { maskPhone, normalizePhone } from '../src/modules/auth/phone';
+import { hashPassword } from '../src/modules/auth/password';
 import { seedBookings } from './seeds/bookings';
 import { seedCategories } from './seeds/categories';
 import { seedCustomer } from './seeds/customer';
@@ -69,7 +70,31 @@ async function seedAdminUser(cityId: number): Promise<void> {
     });
   }
 
+  await setStaffPassword(user.id);
+
   console.log(`admin ready: ${maskPhone(phone)} roles=[${ADMIN_ROLES.join(', ')}]`);
+}
+
+/**
+ * A known dev password for the staff accounts, and only ever a dev one.
+ *
+ * The config schema refuses `SEED_STAFF_PASSWORD` outright when
+ * `NODE_ENV=production`, so this cannot follow a deployment by being forgotten
+ * — the same structural guard as the fixed OTP. Unset, no password is written
+ * and the account simply cannot use the console's password step, which is the
+ * right default for anything that is not a developer's laptop.
+ *
+ * The role grant happens before this is called: a database trigger refuses a
+ * password on an account that is not ops or admin.
+ */
+async function setStaffPassword(userId: string): Promise<void> {
+  const password = process.env.SEED_STAFF_PASSWORD;
+  if (!password) return;
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash: await hashPassword(password), passwordUpdatedAt: new Date() },
+  });
 }
 
 /**
@@ -98,6 +123,8 @@ async function seedOpsUser(cityId: number): Promise<string> {
     update: {},
     create: { userId: user.id, role: Role.ops },
   });
+
+  await setStaffPassword(user.id);
 
   console.log(`ops ready: ${maskPhone(phone)} roles=[ops]`);
 

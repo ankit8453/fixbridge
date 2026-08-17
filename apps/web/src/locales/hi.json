@@ -1,0 +1,48 @@
+{
+  "brand": {
+    "tagline": "सत्यापित कारीगर, तय कीमत, भरोसे के साथ।",
+    "metaDescription": "अपने शहर में सत्यापित इलेक्ट्रीशियन, प्लंबर और अन्य कारीगर बुक करें — कीमत काम शुरू होने से पहले तय होती है।"
+  },
+  "common": {
+    "loading": "लोड हो रहा है…",
+    "retry": "दोबारा कोशिश करें",
+    "errorGeneric": "कुछ गड़बड़ हो गई।",
+    "errorRequestId": "यह कोड सहायता को बताएं",
+    "emptyGeneric": "यहाँ अभी कुछ नहीं है।",
+    "offline": "आप इंटरनेट से जुड़े नहीं हैं।",
+    "cancel": "रद्द करें",
+    "save": "सेव करें",
+    "close": "बंद करें"
+  },
+  "nav": {
+    "marketing": "होम",
+    "app": "ग्राहक",
+    "partner": "कारीगर",
+    "admin": "एडमिन",
+    "switchSurface": "सेक्शन बदलें",
+    "logout": "लॉगआउट"
+  },
+  "locale": {
+    "toggleToEnglish": "English",
+    "toggleToHindi": "हिंदी",
+    "current": "भाषा: हिंदी"
+  },
+  "auth": {
+    "phoneLabel": "फ़ोन नंबर",
+    "phonePlaceholder": "9876543210",
+    "otpLabel": "6 अंकों का कोड",
+    "sendCode": "कोड भेजें",
+    "verifyCode": "लॉगिन करें",
+    "resend": "कोड दोबारा भेजें",
+    "devHint": "डेव मोड: कोड 000000 डालें",
+    "sessionExpired": "आपका सेशन खत्म हो गया है। कृपया दोबारा लॉगिन करें।",
+    "restoring": "आपका सेशन जांचा जा रहा है…"
+  },
+  "pwa": {
+    "shortName": "बुकिंग"
+  },
+  "pagination": {
+    "previous": "पिछला",
+    "next": "अगला"
+  }
+}

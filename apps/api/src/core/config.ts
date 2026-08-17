@@ -45,7 +45,15 @@ const baseConfigSchema = z.object({
   /** The brand name is not decided — this is the single source of truth for it. */
   APP_NAME: z.string().min(1).default(DEFAULT_APP_NAME),
   NODE_ENV: z.enum(NODE_ENVS).default('development'),
-  PORT: z.coerce.number().int().min(1).max(65535).default(3000),
+  /**
+   * 3001, not 3000.
+   *
+   * Phase 12's web app owns `:3000` — it is the origin a person's browser
+   * actually visits, and Next's dev server, its docs and every tutorial assume
+   * that port. Moving the API is the cheaper of the two: nothing bookmarks it,
+   * and production sets `PORT` explicitly anyway.
+   */
+  PORT: z.coerce.number().int().min(1).max(65535).default(3001),
   LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
   DATABASE_URL: urlWithProtocols(['postgres:', 'postgresql:'], 'PostgreSQL'),
   REDIS_URL: urlWithProtocols(['redis:', 'rediss:'], 'Redis'),
@@ -100,6 +108,30 @@ const baseConfigSchema = z.object({
 
   /** Phone for the admin/ops account created by `npm run seed`. */
   SEED_ADMIN_PHONE: z.string().min(1).default('+919999900001'),
+
+  /**
+   * The dev password for the seeded ops and admin accounts.
+   *
+   * A development convenience with the same shape of guard as `AUTH_FIXED_OTP`:
+   * the refinement below refuses it outright in production, so a seeded, known
+   * password cannot reach a real deployment by being forgotten. Staff passwords
+   * in production are set by an operator, never by a seed.
+   */
+  SEED_STAFF_PASSWORD: z.string().min(12).optional(),
+
+  /**
+   * Sign-in attempts before the ops console locks somebody out, per identifier
+   * and per IP.
+   *
+   * Two separate budgets because they stop different attacks: one attacker
+   * guessing many passwords for one known ops account, and one attacker trying
+   * one common password against many accounts. A limit on either alone leaves
+   * the other wide open. Tighter than the OTP limits because a password is
+   * guessable in a way a phone is not.
+   */
+  ADMIN_LOGIN_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(100).default(5),
+  ADMIN_LOGIN_MAX_PER_IP: z.coerce.number().int().min(1).max(1_000).default(20),
+  ADMIN_LOGIN_WINDOW_SECONDS: z.coerce.number().int().min(60).max(86_400).default(900),
 
   /* ---- profiles ---- */
 
@@ -382,6 +414,16 @@ const baseConfigSchema = z.object({
    * router so a new endpoint cannot miss it.
    */
   ADMIN_ORIGIN: z.string().min(1).default('http://localhost:5173'),
+
+  /**
+   * The customer/partner web app's origin.
+   *
+   * Same reasoning and the same non-guarantee as `ADMIN_ORIGIN` above: CORS is a
+   * browser convenience, not a security boundary. It matters more here only
+   * because this origin talks to nearly every endpoint rather than to one
+   * router.
+   */
+  WEB_ORIGIN: z.string().min(1).default('http://localhost:3000'),
 });
 
 /**
@@ -493,6 +535,21 @@ export const configSchema = baseConfigSchema.superRefine((config, ctx) => {
       code: 'custom',
       path: ['AUTH_FIXED_OTP'],
       message: 'must not be set when NODE_ENV=production — it would bypass OTP verification',
+    });
+  }
+
+  /**
+   * A seeded staff password is a known password. In production that is a
+   * published credential for the accounts that can move money, so the process
+   * refuses to start holding one — the same structural guard as the fixed OTP
+   * rather than a runtime check somebody can forget.
+   */
+  if (config.SEED_STAFF_PASSWORD !== undefined) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['SEED_STAFF_PASSWORD'],
+      message:
+        'must not be set when NODE_ENV=production — it would seed a known password on staff accounts',
     });
   }
 

@@ -7,7 +7,8 @@
     "otpSent": "We have sent a 6-digit code to your phone. It is valid for {{minutes}} minutes.",
     "loggedIn": "Signed in successfully.",
     "loggedOut": "Signed out successfully.",
-    "preferencesSaved": "Your preference has been saved."
+    "preferencesSaved": "Your preference has been saved.",
+    "adminCodeSent": "Password accepted. A code has been sent to your phone."
   },
   "customers": {
     "profileUpdated": "Your profile has been saved.",
@@ -150,7 +151,10 @@
       "sessionRevoked": "Your access has been withdrawn. Please contact support.",
       "refreshInvalid": "Your session is no longer valid. Please sign in again.",
       "forbidden": "You do not have permission to do this.",
-      "accountBlocked": "This account has been blocked. Please contact support."
+      "accountBlocked": "This account has been blocked. Please contact support.",
+      "adminCredentialsInvalid": "That ID or password was not accepted.",
+      "adminChallengeExpired": "That sign-in attempt has expired. Please start again.",
+      "adminTooManyAttempts": "Too many attempts. Please try again shortly."
     },
     "categories": {
       "notFound": "That service is not available.",

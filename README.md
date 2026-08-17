@@ -46,7 +46,7 @@ npm run seed
 npm run start:dev
 
 # 6. Verify
-curl http://localhost:3000/health
+curl http://localhost:3001/health
 ```
 
 Expected:
@@ -72,15 +72,15 @@ admin (`+919999900001`, roles `admin` + `ops`) sits inside that prefix.
 
 ```bash
 # Any phone works; this one is the seeded admin.
-curl -X POST http://localhost:3000/api/v1/auth/otp/request \
+curl -X POST http://localhost:3001/api/v1/auth/otp/request \
   -H 'Content-Type: application/json' -d '{"phone":"+919999900001"}'
 
-curl -X POST http://localhost:3000/api/v1/auth/otp/verify \
+curl -X POST http://localhost:3001/api/v1/auth/otp/verify \
   -H 'Content-Type: application/json' \
   -d '{"phone":"+919999900001","otp":"000000","deviceId":"my-laptop-001"}'
 # → { "accessToken": "...", "refreshToken": "...", "user": { "roles": ["admin","ops"] } }
 
-curl http://localhost:3000/api/v1/auth/me -H "Authorization: Bearer $ACCESS_TOKEN"
+curl http://localhost:3001/api/v1/auth/me -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
 For a phone **outside** that prefix the real OTP is generated and written to the
@@ -92,19 +92,41 @@ with `NODE_ENV=production`, so the process cannot start.
 
 Full endpoint reference: [docs/API.md](docs/API.md).
 
-### The ops console
+### The web app
 
-Run the console locally with:
+All four surfaces — the marketing site, the customer app, the partner app and
+the ops console — are one Next.js application:
 
 ```bash
-npm run dev:admin
+npm run dev:web
 ```
 
-It starts on http://localhost:5173. Sign in with the seeded ops account
-(`+919999900002`, admin `+919999900001`) and OTP `000000`. From there you can
-browse and work verification, complaints, payouts, disputes, ledger history,
-and every action is audited. See [docs/admin-guide.md](docs/admin-guide.md) for
-the ops runbook.
+It starts on http://localhost:3000, which is why the API moved to :3001 in
+Phase 12: the browser-facing app should own the port people actually visit.
+
+| Surface     | Path       | Who                                     |
+| ----------- | ---------- | --------------------------------------- |
+| Marketing   | `/`        | public, indexed, Hindi-first            |
+| Customer    | `/app`     | any signed-in user                      |
+| Partner     | `/partner` | technicians                             |
+| Ops console | `/admin`   | ops / admin only, noindex, English-only |
+
+### The ops console
+
+The console lives at `/admin` inside the web app. It was a standalone Vite SPA in
+Phase 11 and was folded in during Phase 12, so there is one deployment and one
+session layer rather than two.
+
+Sign in with the seeded ops account (`+919999900002`, admin `+919999900001`) and
+OTP `000000`. From there you can work verification, complaints, payouts,
+disputes and ledger history, and every action is audited. See
+[docs/admin-guide.md](docs/admin-guide.md) for the ops runbook.
+
+> **`ops` and `admin` are not the same.** Phase 12 split them on
+> reversibility: `ops` does the judgment work all day, while refunds, marking a
+> payout paid, dues settlements and the city entry-approval flag are `admin`
+> only. A hired ops assistant should never hold a credential that can move money
+> out of the platform.
 
 ---
 
@@ -194,7 +216,7 @@ Run from the repo root.
 | Command                           | Does                                                           |
 | --------------------------------- | -------------------------------------------------------------- |
 | `npm run start:dev`               | Builds `shared`, then runs the API with `tsx watch`            |
-| `npm run dev:admin`               | Runs the ops console on :5173                                  |
+| `npm run dev:web`                 | Runs the web app — all four surfaces — on :3000                 |
 | `npm run build`                   | `tsc` for `shared` then `api` → `dist/`                        |
 | `npm start`                       | Runs the built API from `dist/`                                |
 | `npm test`                        | Full Vitest suite (integration tests skip if infra is down)    |
@@ -298,7 +320,8 @@ runtime. See [apps/api/.env.example](apps/api/.env.example).
 | `NOTIFY_MAX_ATTEMPTS`                | `5`                     | External send attempts before a delivery is parked for ops                                         |
 | `NOTIFY_RELEASE_JOB_INTERVAL_MS`     | `300000`                | How often held messages are checked for release                                                    |
 | `NOTIFICATION_PAGE_SIZE`             | `20`                    | Inbox page size                                                                                    |
-| `ADMIN_ORIGIN`                       | `http://localhost:5173` | CORS origin allowed to call the admin API                                                          |
+| `ADMIN_ORIGIN`                       | `http://localhost:5173` | Legacy standalone-console origin. Retained so one can still be run; unused now the console is at `/admin`. |
+| `WEB_ORIGIN`                         | `http://localhost:3000` | CORS origin for the web app. A browser convenience, not a security boundary — the role checks are the guard. |
 
 > `TRUST_PROXY_HOPS` is a security control, not a formality. Trusting
 > `X-Forwarded-For` when nothing sets it lets any caller spoof their IP and walk

@@ -37,6 +37,17 @@ export default defineConfig({
       AUTH_FIXED_OTP_PHONE_PREFIX: '+9199999',
       OTP_RATE_WINDOW_SECONDS: '900',
       /**
+       * Pinned because the rate-limit tests assert exact thresholds.
+       *
+       * A developer raising these in their own `.env` to stop fighting the
+       * limiter while working — which is a reasonable thing to do, and now
+       * documented in `.env.example` — would otherwise make four auth tests fail
+       * on their machine and nowhere else. The suite states its own assumptions
+       * rather than inheriting whatever the machine happens to have.
+       */
+      OTP_MAX_PER_PHONE: '3',
+      OTP_MAX_VERIFY_ATTEMPTS: '5',
+      /**
        * Off by default here: suites sign the same phone in repeatedly, and a
        * real 60-second gap between requests would make them sleep. The cooldown
        * has its own dedicated test that switches it back on.

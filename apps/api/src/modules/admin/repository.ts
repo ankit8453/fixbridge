@@ -485,9 +485,19 @@ export async function listParkedDeliveries(
 /* Audit log                                                                  */
 /* -------------------------------------------------------------------------- */
 
-export async function listAuditLogs(prisma: PrismaClient, query: ListAuditQuery) {
+export async function listAuditLogs(
+  prisma: PrismaClient,
+  /**
+   * `actorUserId` is the **forced** scope an ops viewer is pinned to, and it
+   * deliberately overrides the caller-supplied `actor_user_id` filter rather
+   * than combining with it. A scope you can widen by passing a query parameter
+   * is not a scope.
+   */
+  query: ListAuditQuery & { actorUserId?: string },
+) {
   const where: Prisma.AuditLogWhereInput = {
     ...(query.actor_user_id ? { actorUserId: query.actor_user_id } : {}),
+    ...(query.actorUserId ? { actorUserId: query.actorUserId } : {}),
     ...(query.action ? { action: query.action } : {}),
     ...(query.target_type ? { targetType: query.target_type } : {}),
     ...(query.target_id ? { targetId: query.target_id } : {}),

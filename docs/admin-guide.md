@@ -239,8 +239,8 @@ docker compose up -d          # Postgres, Redis, MinIO
 npm install
 npm run migrate:deploy
 npm run seed
-npm run start:dev             # the API, on :3000
-npm run dev:admin             # the console, on :5173
+npm run start:dev             # the API, on :3001
+npm run dev:web               # the web app, on :3000 — console at /admin
 ```
 
 Sign in with `+919999900002` (ops) or `+919999900001` (admin) and the code

@@ -6,7 +6,7 @@ and `providers` (Phase 3), `verification` (Phase 4), `search` (Phase 5),
 `reviews`, `complaints` and trust (Phase 9), and `notifications` (Phase 10).
 Only `/api/v1/admin` remains mounted but empty.
 
-**Base URL (local):** `http://localhost:3000`
+**Base URL (local):** `http://localhost:3001`
 **API prefix for domain modules:** `/api/v1`
 
 ---
@@ -105,7 +105,7 @@ Rate limited: **5 per phone / 15 min**, **30 per IP / 15 min**, and a
 > first message.
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/auth/otp/request \
+curl -X POST http://localhost:3001/api/v1/auth/otp/request \
   -H 'Content-Type: application/json' \
   -H 'Accept-Language: en' \
   -d '{"phone":"99999 00077"}'
@@ -146,7 +146,7 @@ with the `customer` role — there is no separate signup endpoint.
 `A-Za-z0-9._:-`). The refresh token is bound to it.
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/auth/otp/verify \
+curl -X POST http://localhost:3001/api/v1/auth/otp/verify \
   -H 'Content-Type: application/json' \
   -d '{"phone":"+919999900077","otp":"000000","deviceId":"demo-device-0001"}'
 ```
@@ -192,7 +192,7 @@ curl -X POST http://localhost:3000/api/v1/auth/otp/verify \
 The current user. Requires a Bearer access token.
 
 ```bash
-curl http://localhost:3000/api/v1/auth/me \
+curl http://localhost:3001/api/v1/auth/me \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
@@ -230,7 +230,7 @@ two things to do.
 Sets the language every message this person receives renders in.
 
 ```bash
-curl -X PATCH http://localhost:3000/api/v1/auth/me \
+curl -X PATCH http://localhost:3001/api/v1/auth/me \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"preferredLanguage":"en"}'
@@ -260,7 +260,7 @@ every token for that `(user, device)` is revoked immediately and a security
 warning is logged. Both the thief and the real user are signed out of that device.
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/auth/refresh \
+curl -X POST http://localhost:3001/api/v1/auth/refresh \
   -H 'Content-Type: application/json' \
   -d '{"refreshToken":"L4r_4oeBZDJhrqMwb5tpdYqxEZCspxFPCQbS4TNHkv0","deviceId":"demo-device-0001"}'
 ```
@@ -284,7 +284,7 @@ already-revoked token still returns `200`, so logout cannot be used to probe
 which tokens exist. The access token remains valid until it expires (≤15 min).
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/auth/logout \
+curl -X POST http://localhost:3001/api/v1/auth/logout \
   -H 'Content-Type: application/json' \
   -d '{"refreshToken":"…"}'
 ```
@@ -297,7 +297,7 @@ Demo route proving the `requireRoles` guard. Delete it when real admin endpoints
 land in Phase 11.
 
 ```bash
-curl http://localhost:3000/api/v1/auth/admin-only \
+curl http://localhost:3001/api/v1/auth/admin-only \
   -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Accept-Language: en'
 ```
 
@@ -348,7 +348,7 @@ Public and unauthenticated — an app shows the taxonomy before anyone signs in.
 | `cityId`    | `1` (Jabalpur) | Only categories offered in that city |
 
 ```bash
-curl 'http://localhost:3000/api/v1/categories?cityId=1' -H 'Accept-Language: en'
+curl 'http://localhost:3001/api/v1/categories?cityId=1' -H 'Accept-Language: en'
 ```
 
 **`200 OK`**
@@ -412,7 +412,7 @@ it is how a client knows to open the setup screen.
 Creates the profile lazily on first call.
 
 ```bash
-curl -X PATCH http://localhost:3000/api/v1/customers/me \
+curl -X PATCH http://localhost:3001/api/v1/customers/me \
   -H "Authorization: Bearer $ACCESS" -H 'Content-Type: application/json' \
   -d '{"displayName":"Asha Verma","email":"asha@example.com"}'
 ```
@@ -449,7 +449,7 @@ user (`MAX_ADDRESSES_PER_USER`).
 **Create**
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/customers/me/addresses \
+curl -X POST http://localhost:3001/api/v1/customers/me/addresses \
   -H "Authorization: Bearer $ACCESS" -H 'Content-Type: application/json' \
   -d '{
         "label": "home",
@@ -514,7 +514,7 @@ Any authenticated user. Grants the `technician` role and opens an empty profile.
 Idempotent — a second call returns `200` with `alreadyRegistered: true`.
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/providers/me/register \
+curl -X POST http://localhost:3001/api/v1/providers/me/register \
   -H "Authorization: Bearer $ACCESS" -H 'Content-Type: application/json' \
   -d '{"displayName":"Ramesh Vishwakarma"}'
 ```
@@ -635,7 +635,7 @@ Blocking a user delists them regardless of everything above.
 ### `PATCH /api/v1/providers/me`
 
 ```bash
-curl -X PATCH http://localhost:3000/api/v1/providers/me \
+curl -X PATCH http://localhost:3001/api/v1/providers/me \
   -H "Authorization: Bearer $ACCESS" -H 'Content-Type: application/json' \
   -d '{
         "displayName": "Ramesh Vishwakarma",
@@ -697,7 +697,7 @@ Recurring weekly windows. Phase 6 expands these into bookable slots.
   then `13:00–17:00`) are **not** an overlap.
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/providers/me/availability \
+curl -X POST http://localhost:3001/api/v1/providers/me/availability \
   -H "Authorization: Bearer $ACCESS" -H 'Content-Type: application/json' \
   -d '{"dayOfWeek":1,"startTime":"18:00","endTime":"22:00"}'
 ```
@@ -751,7 +751,7 @@ Design rationale, the ranking formula and the query plan are in
 | `page`, `page_size`              | —        | Default `1` / `10`, max page size 25                                |
 
 ```bash
-curl 'http://localhost:3000/api/v1/search/providers?lat=23.1618&lng=79.9492&page_size=2' \
+curl 'http://localhost:3001/api/v1/search/providers?lat=23.1618&lng=79.9492&page_size=2' \
   -H 'Accept-Language: en'
 ```
 
@@ -817,7 +817,7 @@ calls this as the customer types, then fires `/providers` with the chosen
 | `limit`     | —        | Default 8, max 20                    |
 
 ```bash
-curl 'http://localhost:3000/api/v1/search/resolve?q=motor%20jal%20gayi' \
+curl 'http://localhost:3001/api/v1/search/resolve?q=motor%20jal%20gayi' \
   -H 'Accept-Language: en'
 ```
 
@@ -873,7 +873,7 @@ then confirm.
 Role `technician`.
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/verification/documents/upload-url \
+curl -X POST http://localhost:3001/api/v1/verification/documents/upload-url \
   -H "Authorization: Bearer $ACCESS" -H 'Content-Type: application/json' \
   -d '{"docType":"id_proof","contentType":"image/png","sizeBytes":10240}'
 ```
@@ -945,7 +945,7 @@ Role `technician`. The body is validated by that level's own schema.
 `relationship`: `past_employer` · `shop_owner` · `senior_technician` · `other`.
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/verification/levels/0/submit \
+curl -X POST http://localhost:3001/api/v1/verification/levels/0/submit \
   -H "Authorization: Bearer $ACCESS" -H 'Content-Type: application/json' \
   -d '{"idType":"aadhaar","idLast4":"4321",
        "idProofDocumentId":"…","selfieDocumentId":"…"}'
@@ -1013,7 +1013,7 @@ Answers an ops request. Only valid from `needs_info`; moves the case back to
 `in_review`.
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/verification/cases/$CASE/info \
+curl -X POST http://localhost:3001/api/v1/verification/cases/$CASE/info \
   -H "Authorization: Bearer $ACCESS" -H 'Content-Type: application/json' \
   -d '{"notes":"Re-uploaded in daylight.","documentIds":["…"]}'
 ```
@@ -1073,7 +1073,7 @@ Moves `submitted → in_review`. Records who picked it up.
 #### `POST /api/v1/admin/verification/cases/:caseId/decide`
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/admin/verification/cases/$CASE/decide \
+curl -X POST http://localhost:3001/api/v1/admin/verification/cases/$CASE/decide \
   -H "Authorization: Bearer $OPS" -H 'Content-Type: application/json' \
   -d '{"decision":"request_info","notes":"The selfie is too dark to compare."}'
 ```
@@ -1142,7 +1142,7 @@ a time before they sign in, and this is the step right after a search.
 | `to`        | ✅       | ISO instant, exclusive. Span ≤ `SLOT_HORIZON_DAYS` |
 
 ```bash
-curl 'http://localhost:3000/api/v1/providers/195e4019-.../slots?from=2026-08-16T00:00:00Z&to=2026-08-18T00:00:00Z'
+curl 'http://localhost:3001/api/v1/providers/195e4019-.../slots?from=2026-08-16T00:00:00Z&to=2026-08-18T00:00:00Z'
 ```
 
 **`200 OK`**
@@ -1837,7 +1837,7 @@ question about `notification_deliveries`, which Phase 11 reads directly.
 ### `GET /api/v1/notifications`
 
 ```bash
-curl "http://localhost:3000/api/v1/notifications?page=1&page_size=20&unread_only=false" \
+curl "http://localhost:3001/api/v1/notifications?page=1&page_size=20&unread_only=false" \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
@@ -1904,7 +1904,7 @@ Unauthenticated. Not under `/api/v1`.
 | `503` | Either check returned `fail`. Same shape, with `status: "degraded"`. |
 
 ```bash
-curl -i http://localhost:3000/health
+curl -i http://localhost:3001/health
 ```
 
 ```

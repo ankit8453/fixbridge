@@ -89,6 +89,20 @@ model User {
   /// Hindi by default, because Jabalpur is. Every asynchronous message renders
   /// in this language; the `Accept-Language` header only governs live requests.
   preferredLanguage Language @default(hi) @map("preferred_language")
+
+  /// Set **only** for `ops` and `admin`, and only as a first factor.
+  ///
+  /// Phase 2 said there would never be a password column, and for customers and
+  /// technicians there still is not — a phone is the one credential everybody in
+  /// this market already has. Phase 12 added this one exception: an ops person
+  /// signs in dozens of times a day at a desk, and an SMS round-trip each time
+  /// ends with somebody staying permanently logged in on a shared machine.
+  ///
+  /// The OTP still follows it. The account that can refund a customer and mark a
+  /// payout paid does not get weaker authentication than the customer's — see
+  /// `modules/auth/password.ts`.
+  passwordHash      String?   @map("password_hash") @db.VarChar(400)
+  passwordUpdatedAt DateTime? @map("password_updated_at") @db.Timestamptz(3)
   createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
 

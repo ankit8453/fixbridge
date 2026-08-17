@@ -1,0 +1,408 @@
+{
+  "partner": {
+    "common": {
+      "loading": "Loading…",
+      "save": "Save",
+      "saving": "Saving…",
+      "saved": "Saved",
+      "delete": "Remove",
+      "cancel": "Cancel",
+      "confirm": "Confirm",
+      "submitting": "Submitting…",
+      "noteLabel": "Note"
+    },
+    "nav": {
+      "home": "Home",
+      "jobs": "Jobs",
+      "earnings": "Earnings",
+      "trust": "Trust",
+      "slots": "Hours",
+      "label": "Partner navigation"
+    },
+    "gate": {
+      "title": "Become a partner",
+      "pitch": "Get job requests near you, set your own prices, get paid weekly.",
+      "bullet1": "Work when you want — weekday evenings, weekends, whatever suits you",
+      "bullet2": "Low commission, transparent pricing",
+      "bullet3": "Badges that build trust with customers",
+      "nameLabel": "Your name",
+      "nameHint": "This is what customers will see",
+      "namePlaceholder": "e.g. Ramesh Vishwakarma",
+      "submit": "Register as a partner",
+      "submitting": "Registering…"
+    },
+    "checklist": {
+      "title": "Profile checklist",
+      "live": "Live in search",
+      "notLive": "Not live yet",
+      "score": "{{score}} / 100 (need {{threshold}} to be considered)",
+      "required": "required",
+      "hardGateHint": "You will not appear in search until every required item above is done — the score alone is not enough.",
+      "item": {
+        "displayName": "Your name",
+        "baseLocation": "Base location",
+        "skills": "At least one skill",
+        "priceCard": "At least one price",
+        "availability": "At least one available time",
+        "bio": "A short bio",
+        "yearsExperience": "Years of experience",
+        "photoDocument": "A photo of yourself"
+      }
+    },
+    "home": {
+      "title": "Partner home",
+      "completeProfile": "Complete your profile",
+      "editProfile": "Edit profile",
+      "tileJobs": "Jobs",
+      "tileEarnings": "Earnings",
+      "tileTrust": "Trust score",
+      "tileSlots": "Working hours",
+      "tileVerification": "Verification",
+      "tileNotifications": "Notifications"
+    },
+    "onboarding": {
+      "title": "Complete your profile",
+      "sectionBasics": "Basic details",
+      "sectionLocation": "Location & area",
+      "sectionSkills": "Skills",
+      "sectionPricing": "Prices",
+      "sectionAvailability": "Working hours",
+      "sectionPhoto": "Photo",
+      "photoHint": "A clear photo of your face helps customers trust you and adds to your score.",
+      "photoUploadLabel": "Upload photo",
+      "photoOnFile": "Photo uploaded"
+    },
+    "basics": {
+      "nameLabel": "Name",
+      "bioLabel": "About you",
+      "bioHint": "A line or two about your work — customers read this before booking",
+      "experienceLabel": "Years of experience"
+    },
+    "location": {
+      "useMyLocation": "Use my current location",
+      "locating": "Finding your location…",
+      "geoUnsupported": "This phone/browser cannot share location. Enter it manually.",
+      "geoDenied": "Location permission was not given. Please allow it and try again.",
+      "captured": "Location saved: {{lat}}, {{lng}}",
+      "notSet": "Location not set yet",
+      "radiusLabel": "How far will you travel?",
+      "radiusHint": "Jobs beyond this distance will not be shown to you",
+      "radiusValue": "{{km}} km"
+    },
+    "skills": {
+      "emptyHint": "Pick every kind of work you actually do — customers search by these"
+    },
+    "pricing": {
+      "categoryLabel": "For which skill?",
+      "titleLabel": "Price name",
+      "titlePlaceholder": "e.g. Wiring per point",
+      "typeLabel": "Price type",
+      "type": {
+        "fixed": "Fixed price",
+        "starting_from": "Starting from",
+        "inspection_based": "Depends on inspection"
+      },
+      "amountLabel": "Amount (₹)",
+      "amountHint": "In rupees, e.g. 500",
+      "add": "Add price",
+      "adding": "Adding…",
+      "active": "Active",
+      "inactive": "Paused",
+      "pause": "Pause",
+      "resume": "Resume",
+      "inspectionBased": "Quoted after inspection",
+      "emptyHint": "No prices added yet",
+      "needSkillFirst": "Add a skill first — a price has to belong to one"
+    },
+    "availability": {
+      "presetButton": "Weekday evenings + all of Sunday",
+      "presetApplying": "Setting up…",
+      "presetHint": "One tap sets Mon–Fri 6–10pm and Sunday 9am–6pm. Existing hours are kept, clashing ones are skipped.",
+      "addOne": "Add one time slot",
+      "dayLabel": "Day",
+      "startLabel": "Start",
+      "endLabel": "End",
+      "add": "Add",
+      "adding": "Adding…",
+      "dayEmpty": "No hours set",
+      "inactive": "paused",
+      "errorEndBeforeStart": "End time must be after start time",
+      "errorOverlap": "This clashes with a time you already have",
+      "errorInvalid": "Please enter a valid time",
+      "day": {
+        "sun": "Sunday",
+        "mon": "Monday",
+        "tue": "Tuesday",
+        "wed": "Wednesday",
+        "thu": "Thursday",
+        "fri": "Friday",
+        "sat": "Saturday"
+      }
+    },
+    "upload": {
+      "choose": "Choose file",
+      "uploading": "Uploading…",
+      "done": "Uploaded",
+      "badType": "Only JPG, PNG, WEBP or PDF files are accepted",
+      "putFailed": "Upload failed — check your connection and try again"
+    },
+    "verification": {
+      "title": "Verification center",
+      "badgeTitle": "Your badge",
+      "badgeEarnedHint": "You have passed every level — your profile shows the VERIFIED badge to customers.",
+      "badgeRemainingHint": "{{count}} more level(s) to reach VERIFIED",
+      "badge": {
+        "NONE": "Not verified",
+        "VERIFIED": "VERIFIED",
+        "SILVER": "SILVER",
+        "GOLD": "GOLD"
+      },
+      "levelName": {
+        "identity": "Identity",
+        "background": "Background",
+        "skill": "Skill",
+        "references": "References"
+      },
+      "levelTitle": "Level {{n}}: {{name}}",
+      "status": {
+        "notStarted": "Not started",
+        "submitted": "Submitted",
+        "in_review": "Under review",
+        "needs_info": "More info needed",
+        "passed": "Passed",
+        "failed": "Not passed"
+      },
+      "passedHint": "This level is done.",
+      "pendingHint": "This is being reviewed. We will let you know if we need anything else.",
+      "idTypeLabel": "ID type",
+      "idType": {
+        "aadhaar": "Aadhaar",
+        "pan": "PAN",
+        "dl": "Driving licence",
+        "voter": "Voter ID"
+      },
+      "idLast4Label": "Last 4 digits",
+      "idLast4Hint": "Only the last 4 digits — never send the full number",
+      "idProofUpload": "Upload ID photo",
+      "selfieUpload": "Upload a selfie",
+      "submitLevel": "Submit",
+      "consentText": "I agree to a background check being carried out.",
+      "skillRouteLabel": "How should we check your skill?",
+      "route": {
+        "certificate": "Upload a certificate",
+        "tradeTest": "Request a trade test",
+        "fieldAudit": "Request a field visit"
+      },
+      "certificateUpload": "Upload certificate",
+      "notesLabel": "Notes",
+      "notesHint": "Tell us how and when to reach you for this",
+      "referenceN": "Reference {{n}}",
+      "referenceName": "Name",
+      "referencePhone": "Phone number",
+      "referenceRelationship": "How do they know you?",
+      "relationship": {
+        "past_employer": "Past employer",
+        "shop_owner": "Shop owner",
+        "senior_technician": "Senior technician",
+        "other": "Other"
+      },
+      "replyLabel": "Your reply",
+      "replyDocUpload": "Add a document (optional)",
+      "replySubmit": "Send reply",
+      "showHistory": "Show history",
+      "hideHistory": "Hide history",
+      "event": {
+        "submitted": "Submitted for review",
+        "moved_to_review": "Picked up for review",
+        "info_requested": "More information requested",
+        "info_provided": "You replied",
+        "passed": "Passed",
+        "failed": "Not passed",
+        "adapter_result_received": "Automated check completed"
+      }
+    },
+    "jobs": {
+      "title": "Jobs",
+      "historyLink": "History",
+      "historyTitle": "Job history",
+      "historyEmpty": "No finished jobs yet",
+      "activeSection": "In progress",
+      "requestedSection": "New requests",
+      "emptyInbox": "No new requests right now",
+      "noProblemNote": "No details given",
+      "expiring": "Expiring",
+      "status": {
+        "REQUESTED": "New request",
+        "ACCEPTED": "Accepted",
+        "REJECTED": "Rejected",
+        "EXPIRED": "Expired",
+        "EN_ROUTE": "On the way",
+        "ARRIVED": "Arrived",
+        "IN_PROGRESS": "In progress",
+        "WORK_DONE": "Work done",
+        "CANCELLED_BY_CUSTOMER": "Cancelled by customer",
+        "CANCELLED_BY_PROVIDER": "Cancelled by you",
+        "CLOSED_QUOTE_DECLINED": "Customer declined the price"
+      }
+    },
+    "job": {
+      "title": "Job details",
+      "timeLabel": "Time",
+      "problemLabel": "Problem",
+      "addressLabel": "Address",
+      "customerLabel": "Customer",
+      "accept": "Accept",
+      "accepting": "Accepting…",
+      "reject": "Reject",
+      "rejectTitle": "Why are you rejecting this job?",
+      "rejectReason": {
+        "too_far": "Too far",
+        "busy": "Already busy",
+        "wrong_skill": "Not my skill",
+        "other": "Other"
+      },
+      "cancelBooking": "Cancel this job",
+      "cancelTitle": "Why are you cancelling?",
+      "cancelReason": {
+        "emergency": "Personal emergency",
+        "vehicle_issue": "Vehicle trouble",
+        "wrong_skill": "Not my skill",
+        "other": "Other"
+      },
+      "onTheWayTitle": "On the way",
+      "markEnRoute": "I'm on my way",
+      "markingEnRoute": "Updating…",
+      "enRouteConfirmed": "Customer has been told you're on the way.",
+      "enterStartOtp": "Ask the customer for the 4-digit code and enter it here to start the job",
+      "quotesTitle": "Quotations sent",
+      "noQuotesYet": "No quotation sent yet",
+      "quoteVersion": "Version {{v}}",
+      "quoteStatus": {
+        "sent": "Awaiting customer",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "superseded": "Replaced",
+        "withdrawn": "Withdrawn"
+      },
+      "withdrawQuote": "Withdraw",
+      "newQuoteTitle": "Send a quotation",
+      "finishTitle": "Finish the job",
+      "priceAgreed": "Price agreed with the customer.",
+      "priceNotAgreedHint": "Send a quotation and get it approved before finishing — unless this job has a fixed price.",
+      "enterEndOtp": "Ask the customer for the finishing code and enter it here",
+      "payableTitle": "Amount to collect",
+      "payableApprovedQuotation": "Agreed quotation",
+      "payablePriceCard": "Fixed price",
+      "payableVisitFee": "Visit fee",
+      "totalPayable": "Total",
+      "waived": "waived",
+      "cashCollectButton": "Cash collected",
+      "cashConfirmTitle": "Confirm cash received",
+      "cashConfirmHint": "Only confirm this if you have actually received this amount in cash from the customer.",
+      "cashConfirm": "Yes, I received this",
+      "cashConfirming": "Recording…",
+      "alreadyPaid": "This job has already been paid for."
+    },
+    "otp": {
+      "enteredLabel": "Code entered",
+      "attemptsLeft": "{{count}} attempts left",
+      "checking": "Checking…",
+      "backspace": "Backspace",
+      "clear": "Clear",
+      "clearShort": "C"
+    },
+    "quote": {
+      "labourLabel": "Labour charge (₹)",
+      "labourHint": "Leave as 0 if this job is only parts",
+      "kindLabel": "Type",
+      "kind": {
+        "part": "Part",
+        "labour_extra": "Extra labour"
+      },
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "e.g. Door gasket",
+      "qtyLabel": "Qty",
+      "unitPriceLabel": "Unit price (₹)",
+      "unitPricePlaceholder": "0",
+      "addPart": "+ Add a part",
+      "addLabourExtra": "+ Add extra labour",
+      "noteLabel": "Note for the customer (optional)",
+      "runningTotal": "Total",
+      "send": "Send quotation",
+      "sending": "Sending…",
+      "error": {
+        "empty": "The total must be more than ₹0",
+        "too_many_items": "A quotation can have at most 50 lines",
+        "bad_qty": "Quantity must be a whole number from 1 to 999",
+        "bad_unit": "Unit price must be between ₹0.01 and ₹50,000",
+        "line_too_large": "A single line cannot exceed ₹2,00,000",
+        "total_too_large": "The total cannot exceed ₹2,00,000",
+        "bad_labour": "Labour charge must be zero or more"
+      }
+    },
+    "earnings": {
+      "title": "Earnings",
+      "payable": "We owe you",
+      "dues": "You owe us",
+      "duesExplanation": "This is the commission on cash jobs you have collected — it comes out of your next payout, or you can settle it directly with ops.",
+      "netTitle": "Balance",
+      "net": "Net",
+      "pendingPayout": "Pending payout",
+      "none": "None",
+      "payoutMinimum": "Minimum payout",
+      "payoutMinimumHint": "Payouts are sent once your balance reaches {{amount}}",
+      "payoutsTitle": "Recent payouts",
+      "noPayouts": "No payouts yet",
+      "utr": "Bank reference (UTR)",
+      "payoutStatus": {
+        "pending": "Pending",
+        "paid": "Paid",
+        "failed": "Failed"
+      },
+      "ledgerTitle": "Recent activity",
+      "noLedger": "Nothing here yet",
+      "viewJob": "View job",
+      "ledger": {
+        "cashCollected": "Cash job — commission owed to us",
+        "paymentCaptured": "Online payment received",
+        "duesSettled": "Dues settled",
+        "payout": "Payout sent to your bank",
+        "refund": "A refund was issued",
+        "other": "Account adjustment"
+      }
+    },
+    "trust": {
+      "title": "Trust score",
+      "suspendedTitle": "Your account is suspended",
+      "suspendedUntil": "Suspended until {{date}}",
+      "suspensionReason": "Reason",
+      "suspendedContactHint": "If you think this is a mistake, ask ops to look at it — they can lift a suspension early.",
+      "settledJobs": "{{count}} completed jobs",
+      "nextBandTitle": "On the way to {{band}}",
+      "nextBandAlmost": "You already qualify — this should update soon.",
+      "nextBandJobs": "{{count}} more completed job(s) needed",
+      "nextBandScore": "{{points}} more point(s) needed",
+      "componentsTitle": "What makes up your score",
+      "noDataYet": "Not enough data yet",
+      "trendTitle": "Recent history"
+    },
+    "slots": {
+      "title": "Working hours",
+      "hint": "These are your open hours for the next 7 days. Tap one to take it off sale.",
+      "empty": "No open hours in the next 7 days — check your availability settings",
+      "justBlockedTitle": "Just blocked",
+      "undo": "Undo"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "empty": "No notifications yet",
+      "markAllRead": "Mark all {{count}} as read",
+      "markRead": "Mark as read",
+      "criticality": {
+        "critical": "Important",
+        "normal": "Update",
+        "low": "Info"
+      }
+    }
+  }
+}

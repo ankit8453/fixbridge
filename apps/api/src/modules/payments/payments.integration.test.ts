@@ -28,7 +28,7 @@ const PHONES = {
   technician: '+919999908001',
   otherTechnician: '+919999908002',
   customer: '+919999908010',
-  ops: '+919999908020',
+  money: '+919999908020',
 };
 
 const WRIGHT_TOWN = { lat: 23.1618, lng: 79.9492 };
@@ -281,13 +281,24 @@ beforeAll(async () => {
   );
 
   const customer = await signIn(app, PHONES.customer, 'device-pay-cust');
-  const ops = await signIn(app, PHONES.ops, 'device-pay-ops');
+  const money = await signIn(app, PHONES.money, 'device-pay-ops');
 
-  await context.prisma.userRole.upsert({
-    where: { userId_role: { userId: ops.user.id, role: 'ops' } },
-    update: {},
-    create: { userId: ops.user.id, role: 'ops' },
-  });
+  /**
+   * Both roles, because this suite's actor is whoever runs money.
+   *
+   * Phase 12 split ops from admin on reversibility: refunds, marking a payout
+   * paid and recording a dues settlement all became `admin`, while reading the
+   * platform's position stayed `ops`. This file exercises both, and it is about
+   * ledger correctness rather than authorization — the enumerated ops-is-refused
+   * test lives with the admin module, where it can walk the whole route list.
+   */
+  for (const role of ['ops', 'admin'] as const) {
+    await context.prisma.userRole.upsert({
+      where: { userId_role: { userId: money.user.id, role } },
+      update: {},
+      create: { userId: money.user.id, role },
+    });
+  }
 
   const addressId = fixtureUuid('a01');
   await context.prisma.$executeRaw`
@@ -306,7 +317,7 @@ beforeAll(async () => {
     technicianId: tech.userId,
     otherTechnicianId: other.userId,
     customerId: customer.user.id,
-    opsId: ops.user.id,
+    opsId: money.user.id,
     addressId,
     cityId: city.id,
     categoryId: category.id,
@@ -1211,12 +1222,12 @@ describe('Phase 8 — payments, ledger and payouts', () => {
       let balance = await ledger.providerBalance(context.prisma, fixture.technicianId);
       expect(balance.duesPaise).toBe(owed);
 
-      const ops = await signIn(app, PHONES.ops, 'device-pay-ops');
+      const money = await signIn(app, PHONES.money, 'device-pay-ops');
 
       // Half now.
       await request(app)
         .post('/api/v1/admin/payments/dues/settle')
-        .set(auth(ops.accessToken))
+        .set(auth(money.accessToken))
         .send({ providerId: fixture.technicianId, amountPaise: perJob })
         .expect(200);
 
@@ -1226,7 +1237,7 @@ describe('Phase 8 — payments, ledger and payouts', () => {
       // More than is owed is refused.
       const tooMuch = await request(app)
         .post('/api/v1/admin/payments/dues/settle')
-        .set(auth(ops.accessToken))
+        .set(auth(money.accessToken))
         .send({ providerId: fixture.technicianId, amountPaise: owed });
 
       expect(tooMuch.status).toBe(400);
@@ -1234,7 +1245,7 @@ describe('Phase 8 — payments, ledger and payouts', () => {
       // And the rest.
       await request(app)
         .post('/api/v1/admin/payments/dues/settle')
-        .set(auth(ops.accessToken))
+        .set(auth(money.accessToken))
         .send({ providerId: fixture.technicianId, amountPaise: owed - perJob })
         .expect(200);
 
@@ -1275,13 +1286,13 @@ describe('Phase 8 — payments, ledger and payouts', () => {
       const { paymentId } = await payOnline(bookingId, customer);
 
       const commission = Math.floor((payablePaise * 1_200) / 10_000);
-      const ops = await signIn(app, PHONES.ops, 'device-pay-ops');
+      const money = await signIn(app, PHONES.money, 'device-pay-ops');
 
       // Give back ₹50.
       const refundAmount = 5_000;
       const requested = await request(app)
         .post(`/api/v1/admin/payments/${paymentId}/refund`)
-        .set(auth(ops.accessToken))
+        .set(auth(money.accessToken))
         .send({ amountPaise: refundAmount, reason: 'Part of the job was redone' })
         .expect(202);
 
@@ -1321,12 +1332,12 @@ describe('Phase 8 — payments, ledger and payouts', () => {
       const { bookingId, payablePaise, customer } = await completedBooking();
       const { paymentId } = await payOnline(bookingId, customer);
 
-      const ops = await signIn(app, PHONES.ops, 'device-pay-ops');
+      const money = await signIn(app, PHONES.money, 'device-pay-ops');
 
       // No amount means "everything still refundable".
       const requested = await request(app)
         .post(`/api/v1/admin/payments/${paymentId}/refund`)
-        .set(auth(ops.accessToken))
+        .set(auth(money.accessToken))
         .send({})
         .expect(202);
 
@@ -1357,11 +1368,11 @@ describe('Phase 8 — payments, ledger and payouts', () => {
       const { bookingId, payablePaise, customer } = await completedBooking();
       const { paymentId } = await payOnline(bookingId, customer);
 
-      const ops = await signIn(app, PHONES.ops, 'device-pay-ops');
+      const money = await signIn(app, PHONES.money, 'device-pay-ops');
 
       const response = await request(app)
         .post(`/api/v1/admin/payments/${paymentId}/refund`)
-        .set(auth(ops.accessToken))
+        .set(auth(money.accessToken))
         .send({ amountPaise: payablePaise + 1 });
 
       expect(response.status).toBe(400);
@@ -1378,19 +1389,24 @@ describe('Phase 8 — payments, ledger and payouts', () => {
         .send({})
         .expect(201);
 
-      const ops = await signIn(app, PHONES.ops, 'device-pay-ops');
+      const money = await signIn(app, PHONES.money, 'device-pay-ops');
 
       // We never held that money. Refunding it would mean paying out our own.
       const response = await request(app)
         .post(`/api/v1/admin/payments/${cash.body.payment.id}/refund`)
-        .set(auth(ops.accessToken))
+        .set(auth(money.accessToken))
         .send({});
 
       expect(response.status).toBe(409);
       expect(response.body.error.code).toBe('REFUND_NOT_POSSIBLE');
     }, 30_000);
 
-    it('lets only ops start a refund', async () => {
+    /**
+     * A customer cannot refund themselves — which sounds obvious until you
+     * notice a refund is the one money movement whose beneficiary is the person
+     * asking for it.
+     */
+    it('refuses a refund to the customer it would pay', async () => {
       if (unavailableReason || !context || !fixture || !app) return;
 
       const { bookingId, customer } = await completedBooking();
@@ -1515,11 +1531,11 @@ describe('Phase 8 — payments, ledger and payouts', () => {
       const commission = Math.floor((payablePaise * 1_200) / 10_000);
       const owed = payablePaise - commission;
 
-      const ops = await signIn(app, PHONES.ops, 'device-pay-ops');
+      const money = await signIn(app, PHONES.money, 'device-pay-ops');
 
       const drafted = await request(app)
         .post('/api/v1/admin/payments/payout-batches')
-        .set(auth(ops.accessToken))
+        .set(auth(money.accessToken))
         .send({})
         .expect(201);
 
@@ -1528,14 +1544,14 @@ describe('Phase 8 — payments, ledger and payouts', () => {
 
       const batch = await request(app)
         .get(`/api/v1/admin/payments/payout-batches/${drafted.body.batchId}`)
-        .set(auth(ops.accessToken))
+        .set(auth(money.accessToken))
         .expect(200);
 
       const payoutId = batch.body.batch.payouts[0].id as string;
 
       await request(app)
         .post(`/api/v1/admin/payments/payouts/${payoutId}/paid`)
-        .set(auth(ops.accessToken))
+        .set(auth(money.accessToken))
         .send({ utrRef: 'UTR123456789' })
         .expect(200);
 
@@ -1553,29 +1569,29 @@ describe('Phase 8 — payments, ledger and payouts', () => {
       const { bookingId, customer } = await completedBooking();
       await payOnline(bookingId, customer);
 
-      const ops = await signIn(app, PHONES.ops, 'device-pay-ops');
+      const money = await signIn(app, PHONES.money, 'device-pay-ops');
       const drafted = await request(app)
         .post('/api/v1/admin/payments/payout-batches')
-        .set(auth(ops.accessToken))
+        .set(auth(money.accessToken))
         .send({})
         .expect(201);
 
       const batch = await request(app)
         .get(`/api/v1/admin/payments/payout-batches/${drafted.body.batchId}`)
-        .set(auth(ops.accessToken))
+        .set(auth(money.accessToken))
         .expect(200);
 
       const payoutId = batch.body.batch.payouts[0].id as string;
 
       await request(app)
         .post(`/api/v1/admin/payments/payouts/${payoutId}/paid`)
-        .set(auth(ops.accessToken))
+        .set(auth(money.accessToken))
         .send({ utrRef: 'UTR111' })
         .expect(200);
 
       const second = await request(app)
         .post(`/api/v1/admin/payments/payouts/${payoutId}/paid`)
-        .set(auth(ops.accessToken))
+        .set(auth(money.accessToken))
         .send({ utrRef: 'UTR222' });
 
       expect(second.status).toBe(409);
@@ -1771,21 +1787,21 @@ describe('Phase 8 — payments, ledger and payouts', () => {
       expect(wallet.body.wallet.payablePaise).toBe(owed);
 
       // Payout.
-      const ops = await signIn(app, PHONES.ops, 'device-e2e-ops');
+      const money = await signIn(app, PHONES.money, 'device-e2e-ops');
       const drafted = await request(app)
         .post('/api/v1/admin/payments/payout-batches')
-        .set(auth(ops.accessToken))
+        .set(auth(money.accessToken))
         .send({})
         .expect(201);
 
       const batch = await request(app)
         .get(`/api/v1/admin/payments/payout-batches/${drafted.body.batchId}`)
-        .set(auth(ops.accessToken))
+        .set(auth(money.accessToken))
         .expect(200);
 
       await request(app)
         .post(`/api/v1/admin/payments/payouts/${batch.body.batch.payouts[0].id}/paid`)
-        .set(auth(ops.accessToken))
+        .set(auth(money.accessToken))
         .send({ utrRef: 'UTRE2E0001' })
         .expect(200);
 
@@ -1825,10 +1841,10 @@ describe('Phase 8 — payments, ledger and payouts', () => {
       // They are not owed anything: the customer already paid them, in full.
       expect(wallet.body.wallet.payablePaise).toBe(0);
 
-      const ops = await signIn(app, PHONES.ops, 'device-cash-ops');
+      const money = await signIn(app, PHONES.money, 'device-cash-ops');
       await request(app)
         .post('/api/v1/admin/payments/dues/settle')
-        .set(auth(ops.accessToken))
+        .set(auth(money.accessToken))
         .send({
           providerId: fixture.technicianId,
           amountPaise: commission,

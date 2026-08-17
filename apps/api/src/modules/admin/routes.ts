@@ -2,7 +2,7 @@ import { Router, type Request, type RequestHandler } from 'express';
 import { AUDIT_ACTIONS, auditActor, type AuditEntry } from '../../core/audit';
 import { getContext } from '../../core/context';
 import { AppError } from '../../core/errors';
-import { authenticate } from '../../core/middleware/authenticate';
+import { authenticate, getAuthUser } from '../../core/middleware/authenticate';
 import { requireRoles } from '../../core/middleware/require-roles';
 import * as auth from '../auth/service';
 import { platformPosition } from '../payments/ledger';
@@ -409,8 +409,17 @@ router.get(
   }),
 );
 
+/**
+ * Admin only: this changes the rules everybody else operates inside.
+ *
+ * Turning entry approval on puts a human in the path of every technician signup
+ * in a city. That is a policy decision about how the marketplace runs, not a
+ * judgment call about one person, so it sits with the same role that holds the
+ * money — see `ADMIN_ONLY_ROUTES`.
+ */
 router.patch(
   '/cities/:cityId',
+  requireRoles('admin'),
   handle(async (req, res) => {
     const { cityId } = cityIdParamSchema.parse(req.params);
     const input = updateCitySchema.parse(req.body);
@@ -429,14 +438,38 @@ router.patch(
  *
  * An audit row only ever comes into existence alongside the thing it describes.
  * A "create audit entry" endpoint would make the whole table deniable.
+ *
+ * ## Ops sees their own work; admin sees everyone's
+ *
+ * The audit log is a supervision tool, and a supervision tool everybody can read
+ * about everybody is a different thing — it turns into a way for colleagues to
+ * check up on each other, which is not what it is for. An ops user can review
+ * and account for their own decisions, which is the legitimate need; reviewing
+ * somebody else's is the supervisor's job.
+ *
+ * Forced server-side rather than filtered in the console, because a filter the
+ * client applies is not a permission.
  */
 router.get(
   '/audit-logs',
   handle(async (req, res) => {
     const query = listAuditQuerySchema.parse(req.query);
-    const { rows, total } = await repo.listAuditLogs(getContext(req).prisma, query);
+    const viewer = getAuthUser(req);
+    const isAdmin = viewer.roles.includes('admin');
 
-    res.status(200).json({ entries: rows, page: query.page, pageSize: query.page_size, total });
+    const { rows, total } = await repo.listAuditLogs(getContext(req).prisma, {
+      ...query,
+      ...(isAdmin ? {} : { actorUserId: viewer.id }),
+    });
+
+    res.status(200).json({
+      entries: rows,
+      page: query.page,
+      pageSize: query.page_size,
+      total,
+      /** So the console can say "your actions" rather than implying it is everything. */
+      scope: isAdmin ? 'all' : 'own',
+    });
   }),
 );
 

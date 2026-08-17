@@ -180,8 +180,24 @@ export const opsRouter = Router();
 
 opsRouter.use(authenticate, requireRoles('ops', 'admin'));
 
+/**
+ * Money leaves the platform here, so these four are **admin only**.
+ *
+ * The line between `ops` and `admin` is reversibility, not seniority. A hired
+ * ops assistant does the judgment work all day — verification, complaints,
+ * suspensions, unlocks — and should be able to do all of it without ever holding
+ * a credential that can refund a customer or declare a payout paid. Those are
+ * either irreversible or they assert that money already moved, and they happen a
+ * handful of times a week.
+ *
+ * The set is enumerated in `ADMIN_ONLY_ROUTES` and a test walks the real router
+ * stack asserting an ops token is refused on exactly these and allowed elsewhere.
+ */
+const adminOnly = requireRoles('admin');
+
 opsRouter.post(
   '/:paymentId/refund',
+  adminOnly,
   handle(async (req, res) => {
     const { paymentId } = paymentIdParamSchema.parse(req.params);
     const input = refundSchema.parse(req.body);
@@ -263,6 +279,7 @@ opsRouter.get(
 /** Ops made the transfer by hand and typed the reference back in. */
 opsRouter.post(
   '/payouts/:payoutId/paid',
+  adminOnly,
   handle(async (req, res) => {
     const { payoutId } = payoutIdParamSchema.parse(req.params);
     const input = markPaidSchema.parse(req.body);
@@ -286,6 +303,7 @@ opsRouter.post(
 
 opsRouter.post(
   '/payouts/:payoutId/failed',
+  adminOnly,
   handle(async (req, res) => {
     const { payoutId } = payoutIdParamSchema.parse(req.params);
     const input = failPayoutSchema.parse(req.body);
@@ -308,6 +326,7 @@ opsRouter.post(
 /** A technician paid back what they owed on cash jobs. */
 opsRouter.post(
   '/dues/settle',
+  adminOnly,
   handle(async (req, res) => {
     const input = settleDuesSchema.parse(req.body);
 

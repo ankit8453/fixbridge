@@ -28,7 +28,9 @@ describe('parseConfig', () => {
 
     expect(config.APP_NAME).toBe('fixbridge');
     expect(config.NODE_ENV).toBe('development');
-    expect(config.PORT).toBe(3000);
+    // 3001 since Phase 12: the web app owns :3000, which is the port a person's
+    // browser actually visits.
+    expect(config.PORT).toBe(3001);
     expect(config.LOG_LEVEL).toBe('info');
     expect(config.SHUTDOWN_TIMEOUT_MS).toBe(10_000);
   });

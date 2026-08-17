@@ -124,6 +124,49 @@ export const AUDITED_ADMIN_ROUTES: Record<string, AuditAction> = {
 };
 
 /* -------------------------------------------------------------------------- */
+/* The ops / admin split                                                      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The routes `ops` may **not** touch — `admin` only.
+ *
+ * Phase 11 treated the two roles as near-equivalent, which was wrong. The line
+ * is not seniority, it is **reversibility**:
+ *
+ *   `ops` does the judgment work. Verification decisions, complaints, review
+ *   moderation, OTP unlock, suspension, block/unblock, queue retries. All of it
+ *   consequential, all of it reversible by another human, and all of it needed
+ *   dozens of times a day by whoever is actually running the marketplace.
+ *
+ *   `admin` holds the money and the config. A refund, a payout marked paid, a
+ *   dues settlement and the entry-approval flag are either irreversible or they
+ *   change the rules everybody else operates under. These happen a handful of
+ *   times a week and are worth a second person.
+ *
+ * A hired ops assistant should be able to do their whole job without ever
+ * holding a credential that can move money out of the platform. That is the
+ * whole point of the split, and it is why it is enumerated here rather than
+ * sprinkled across route files: a test walks the real router stack and asserts
+ * an `ops` token is refused on exactly this set and allowed everywhere else.
+ */
+export const ADMIN_ONLY_ROUTES: readonly string[] = [
+  // Money that leaves the platform, or that says money already did.
+  'POST /api/v1/admin/payments/:paymentId/refund',
+  'POST /api/v1/admin/payments/payouts/:payoutId/paid',
+  'POST /api/v1/admin/payments/payouts/:payoutId/failed',
+  'POST /api/v1/admin/payments/dues/settle',
+  // Config: the rules everybody else operates inside.
+  'PATCH /api/v1/admin/cities/:cityId',
+];
+
+const ADMIN_ONLY = new Set(ADMIN_ONLY_ROUTES);
+
+/** Whether a given method+path is admin-only. Used by the route guard and tests. */
+export function isAdminOnlyRoute(method: string, path: string): boolean {
+  return ADMIN_ONLY.has(`${method.toUpperCase()} ${path}`);
+}
+
+/* -------------------------------------------------------------------------- */
 /* Writing a row                                                              */
 /* -------------------------------------------------------------------------- */
 

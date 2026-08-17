@@ -1,0 +1,408 @@
+{
+  "partner": {
+    "common": {
+      "loading": "लोड हो रहा है…",
+      "save": "सेव करें",
+      "saving": "सेव हो रहा है…",
+      "saved": "सेव हो गया",
+      "delete": "हटाएं",
+      "cancel": "रद्द करें",
+      "confirm": "पक्का करें",
+      "submitting": "भेजा जा रहा है…",
+      "noteLabel": "नोट"
+    },
+    "nav": {
+      "home": "होम",
+      "jobs": "जॉब",
+      "earnings": "कमाई",
+      "trust": "भरोसा",
+      "slots": "समय",
+      "label": "कारीगर मेनू"
+    },
+    "gate": {
+      "title": "कारीगर बनें",
+      "pitch": "अपने आस-पास के जॉब पाएं, अपनी कीमत खुद तय करें, हर हफ्ते पैसा पाएं।",
+      "bullet1": "जब मन करे तब काम करें — शाम को, छुट्टी के दिन, जैसे आपको सही लगे",
+      "bullet2": "कम कमीशन, साफ हिसाब",
+      "bullet3": "बैज कमाएं, ग्राहकों का भरोसा बढ़ाएं",
+      "nameLabel": "आपका नाम",
+      "nameHint": "यह नाम ग्राहकों को दिखेगा",
+      "namePlaceholder": "जैसे रमेश विश्वकर्मा",
+      "submit": "कारीगर बनकर रजिस्टर करें",
+      "submitting": "रजिस्टर हो रहा है…"
+    },
+    "checklist": {
+      "title": "प्रोफ़ाइल चेकलिस्ट",
+      "live": "सर्च में दिख रहे हैं",
+      "notLive": "अभी सर्च में नहीं दिख रहे",
+      "score": "{{score}} / 100 (लिस्ट होने के लिए {{threshold}} चाहिए)",
+      "required": "ज़रूरी",
+      "hardGateHint": "ऊपर बताई हर ज़रूरी चीज़ पूरी होने तक आप सर्च में नहीं दिखेंगे — सिर्फ स्कोर काफी नहीं है।",
+      "item": {
+        "displayName": "आपका नाम",
+        "baseLocation": "आपकी लोकेशन",
+        "skills": "कम से कम एक काम/स्किल",
+        "priceCard": "कम से कम एक कीमत",
+        "availability": "कम से कम एक खाली समय",
+        "bio": "अपने बारे में छोटा सा परिचय",
+        "yearsExperience": "काम का अनुभव (साल)",
+        "photoDocument": "आपकी फ़ोटो"
+      }
+    },
+    "home": {
+      "title": "कारीगर होम",
+      "completeProfile": "प्रोफ़ाइल पूरी करें",
+      "editProfile": "प्रोफ़ाइल बदलें",
+      "tileJobs": "जॉब",
+      "tileEarnings": "कमाई",
+      "tileTrust": "भरोसा स्कोर",
+      "tileSlots": "काम के घंटे",
+      "tileVerification": "वेरिफिकेशन",
+      "tileNotifications": "सूचनाएं"
+    },
+    "onboarding": {
+      "title": "प्रोफ़ाइल पूरी करें",
+      "sectionBasics": "बुनियादी जानकारी",
+      "sectionLocation": "लोकेशन और इलाका",
+      "sectionSkills": "आपका काम",
+      "sectionPricing": "कीमतें",
+      "sectionAvailability": "काम के घंटे",
+      "sectionPhoto": "फ़ोटो",
+      "photoHint": "साफ़ फ़ोटो से ग्राहकों को भरोसा होता है और आपका स्कोर भी बढ़ता है।",
+      "photoUploadLabel": "फ़ोटो अपलोड करें",
+      "photoOnFile": "फ़ोटो अपलोड हो गई"
+    },
+    "basics": {
+      "nameLabel": "नाम",
+      "bioLabel": "अपने बारे में",
+      "bioHint": "अपने काम के बारे में एक-दो लाइन लिखें — ग्राहक बुक करने से पहले इसे पढ़ते हैं",
+      "experienceLabel": "काम का अनुभव (साल)"
+    },
+    "location": {
+      "useMyLocation": "मेरी अभी की लोकेशन लें",
+      "locating": "लोकेशन खोजी जा रही है…",
+      "geoUnsupported": "यह फ़ोन/ब्राउज़र लोकेशन नहीं दे पा रहा। खुद टाइप करें।",
+      "geoDenied": "लोकेशन की परमिशन नहीं मिली। कृपया परमिशन दें और दोबारा कोशिश करें।",
+      "captured": "लोकेशन सेव हो गई: {{lat}}, {{lng}}",
+      "notSet": "अभी लोकेशन सेट नहीं है",
+      "radiusLabel": "आप कितनी दूर तक जाएंगे?",
+      "radiusHint": "इससे ज़्यादा दूर के जॉब आपको नहीं दिखाए जाएंगे",
+      "radiusValue": "{{km}} किमी"
+    },
+    "skills": {
+      "emptyHint": "आप जो भी काम करते हैं वो सब चुनें — ग्राहक इन्हीं से खोजते हैं"
+    },
+    "pricing": {
+      "categoryLabel": "किस काम के लिए?",
+      "titleLabel": "कीमत का नाम",
+      "titlePlaceholder": "जैसे वायरिंग प्रति पॉइंट",
+      "typeLabel": "कीमत का तरीका",
+      "type": {
+        "fixed": "तय कीमत",
+        "starting_from": "इतने से शुरू",
+        "inspection_based": "देखने के बाद बताएंगे"
+      },
+      "amountLabel": "राशि (₹)",
+      "amountHint": "रुपयों में लिखें, जैसे 500",
+      "add": "कीमत जोड़ें",
+      "adding": "जोड़ा जा रहा है…",
+      "active": "चालू",
+      "inactive": "बंद",
+      "pause": "बंद करें",
+      "resume": "फिर से चालू करें",
+      "inspectionBased": "देखने के बाद कीमत बताई जाएगी",
+      "emptyHint": "अभी कोई कीमत नहीं जोड़ी है",
+      "needSkillFirst": "पहले एक काम/स्किल जोड़ें — कीमत उसी से जुड़ती है"
+    },
+    "availability": {
+      "presetButton": "हफ्ते की शामें + पूरा इतवार",
+      "presetApplying": "सेट हो रहा है…",
+      "presetHint": "एक टैप में सोम–शुक्र शाम 6–10 और इतवार सुबह 9–शाम 6 सेट हो जाएगा। जो समय पहले से है वो रहेगा, टकराने वाला छोड़ दिया जाएगा।",
+      "addOne": "एक समय जोड़ें",
+      "dayLabel": "दिन",
+      "startLabel": "शुरू",
+      "endLabel": "खत्म",
+      "add": "जोड़ें",
+      "adding": "जोड़ा जा रहा है…",
+      "dayEmpty": "कोई समय सेट नहीं है",
+      "inactive": "बंद",
+      "errorEndBeforeStart": "खत्म होने का समय शुरू होने के समय के बाद होना चाहिए",
+      "errorOverlap": "यह समय आपके पहले से सेट समय से टकरा रहा है",
+      "errorInvalid": "सही समय डालें",
+      "day": {
+        "sun": "इतवार",
+        "mon": "सोमवार",
+        "tue": "मंगलवार",
+        "wed": "बुधवार",
+        "thu": "गुरुवार",
+        "fri": "शुक्रवार",
+        "sat": "शनिवार"
+      }
+    },
+    "upload": {
+      "choose": "फ़ाइल चुनें",
+      "uploading": "अपलोड हो रहा है…",
+      "done": "अपलोड हो गया",
+      "badType": "सिर्फ JPG, PNG, WEBP या PDF फ़ाइल चलेगी",
+      "putFailed": "अपलोड नहीं हुआ — नेटवर्क चेक करके दोबारा कोशिश करें"
+    },
+    "verification": {
+      "title": "वेरिफिकेशन सेंटर",
+      "badgeTitle": "आपका बैज",
+      "badgeEarnedHint": "आपने सारे स्तर पास कर लिए हैं — ग्राहकों को आपकी प्रोफ़ाइल पर VERIFIED बैज दिखेगा।",
+      "badgeRemainingHint": "VERIFIED बैज तक {{count}} स्तर और बाकी हैं",
+      "badge": {
+        "NONE": "अभी वेरिफाइड नहीं",
+        "VERIFIED": "VERIFIED",
+        "SILVER": "SILVER",
+        "GOLD": "GOLD"
+      },
+      "levelName": {
+        "identity": "पहचान",
+        "background": "बैकग्राउंड जांच",
+        "skill": "काम की जांच",
+        "references": "रेफरेंस"
+      },
+      "levelTitle": "स्तर {{n}}: {{name}}",
+      "status": {
+        "notStarted": "अभी शुरू नहीं किया",
+        "submitted": "भेज दिया",
+        "in_review": "जांच हो रही है",
+        "needs_info": "और जानकारी चाहिए",
+        "passed": "पास हो गया",
+        "failed": "पास नहीं हुआ"
+      },
+      "passedHint": "यह स्तर पूरा हो गया है।",
+      "pendingHint": "इसकी जांच हो रही है। कुछ और चाहिए होगा तो हम बता देंगे।",
+      "idTypeLabel": "आईडी का प्रकार",
+      "idType": {
+        "aadhaar": "आधार",
+        "pan": "पैन",
+        "dl": "ड्राइविंग लाइसेंस",
+        "voter": "वोटर आईडी"
+      },
+      "idLast4Label": "आखिरी 4 अंक",
+      "idLast4Hint": "सिर्फ आखिरी 4 अंक — पूरा नंबर कभी न भेजें",
+      "idProofUpload": "आईडी की फ़ोटो अपलोड करें",
+      "selfieUpload": "अपनी सेल्फ़ी अपलोड करें",
+      "submitLevel": "भेजें",
+      "consentText": "मैं बैकग्राउंड जांच के लिए राज़ी हूं।",
+      "skillRouteLabel": "आपका काम कैसे जांचें?",
+      "route": {
+        "certificate": "सर्टिफिकेट अपलोड करें",
+        "tradeTest": "टेस्ट के लिए कहें",
+        "fieldAudit": "मौके पर जांच के लिए कहें"
+      },
+      "certificateUpload": "सर्टिफिकेट अपलोड करें",
+      "notesLabel": "नोट",
+      "notesHint": "आपसे इस बारे में कब और कैसे संपर्क करें, बताएं",
+      "referenceN": "रेफरेंस {{n}}",
+      "referenceName": "नाम",
+      "referencePhone": "फ़ोन नंबर",
+      "referenceRelationship": "यह व्यक्ति आपको कैसे जानता है?",
+      "relationship": {
+        "past_employer": "पुराना मालिक/ठेकेदार",
+        "shop_owner": "दुकान मालिक",
+        "senior_technician": "सीनियर कारीगर",
+        "other": "अन्य"
+      },
+      "replyLabel": "आपका जवाब",
+      "replyDocUpload": "एक दस्तावेज़ जोड़ें (वैकल्पिक)",
+      "replySubmit": "जवाब भेजें",
+      "showHistory": "इतिहास दिखाएं",
+      "hideHistory": "इतिहास छुपाएं",
+      "event": {
+        "submitted": "जांच के लिए भेजा",
+        "moved_to_review": "जांच शुरू हुई",
+        "info_requested": "और जानकारी मांगी गई",
+        "info_provided": "आपने जवाब दिया",
+        "passed": "पास हो गया",
+        "failed": "पास नहीं हुआ",
+        "adapter_result_received": "ऑटोमेटिक जांच पूरी हुई"
+      }
+    },
+    "jobs": {
+      "title": "जॉब",
+      "historyLink": "इतिहास",
+      "historyTitle": "पुराने जॉब",
+      "historyEmpty": "अभी तक कोई जॉब पूरा नहीं हुआ",
+      "activeSection": "चालू जॉब",
+      "requestedSection": "नई रिक्वेस्ट",
+      "emptyInbox": "अभी कोई नई रिक्वेस्ट नहीं है",
+      "noProblemNote": "कोई जानकारी नहीं दी गई",
+      "expiring": "खत्म हो रही है",
+      "status": {
+        "REQUESTED": "नई रिक्वेस्ट",
+        "ACCEPTED": "स्वीकार किया",
+        "REJECTED": "मना किया",
+        "EXPIRED": "समय खत्म",
+        "EN_ROUTE": "रास्ते में",
+        "ARRIVED": "पहुंच गए",
+        "IN_PROGRESS": "काम चल रहा है",
+        "WORK_DONE": "काम पूरा हुआ",
+        "CANCELLED_BY_CUSTOMER": "ग्राहक ने रद्द किया",
+        "CANCELLED_BY_PROVIDER": "आपने रद्द किया",
+        "CLOSED_QUOTE_DECLINED": "ग्राहक ने कीमत मना की"
+      }
+    },
+    "job": {
+      "title": "जॉब की जानकारी",
+      "timeLabel": "समय",
+      "problemLabel": "दिक्कत",
+      "addressLabel": "पता",
+      "customerLabel": "ग्राहक",
+      "accept": "स्वीकार करें",
+      "accepting": "स्वीकार हो रहा है…",
+      "reject": "मना करें",
+      "rejectTitle": "आप यह जॉब क्यों मना कर रहे हैं?",
+      "rejectReason": {
+        "too_far": "बहुत दूर है",
+        "busy": "पहले से व्यस्त हूं",
+        "wrong_skill": "मेरा काम नहीं है",
+        "other": "अन्य"
+      },
+      "cancelBooking": "यह जॉब रद्द करें",
+      "cancelTitle": "आप क्यों रद्द कर रहे हैं?",
+      "cancelReason": {
+        "emergency": "घर में इमरजेंसी",
+        "vehicle_issue": "गाड़ी में खराबी",
+        "wrong_skill": "मेरा काम नहीं है",
+        "other": "अन्य"
+      },
+      "onTheWayTitle": "रास्ते में",
+      "markEnRoute": "मैं निकल रहा हूं",
+      "markingEnRoute": "अपडेट हो रहा है…",
+      "enRouteConfirmed": "ग्राहक को बता दिया गया है कि आप रास्ते में हैं।",
+      "enterStartOtp": "ग्राहक से 4 अंकों का कोड पूछें और काम शुरू करने के लिए यहां डालें",
+      "quotesTitle": "भेजे गए क्वोटेशन",
+      "noQuotesYet": "अभी कोई क्वोटेशन नहीं भेजा",
+      "quoteVersion": "वर्शन {{v}}",
+      "quoteStatus": {
+        "sent": "ग्राहक का जवाब बाकी है",
+        "approved": "मंज़ूर हो गया",
+        "rejected": "मना कर दिया",
+        "superseded": "बदल दिया गया",
+        "withdrawn": "वापस ले लिया"
+      },
+      "withdrawQuote": "वापस लें",
+      "newQuoteTitle": "क्वोटेशन भेजें",
+      "finishTitle": "काम खत्म करें",
+      "priceAgreed": "ग्राहक से कीमत तय हो गई है।",
+      "priceNotAgreedHint": "काम खत्म करने से पहले क्वोटेशन भेजकर मंज़ूर करवाएं — अगर इस जॉब की कीमत पहले से तय (fixed) नहीं है।",
+      "enterEndOtp": "ग्राहक से काम खत्म होने का कोड पूछें और यहां डालें",
+      "payableTitle": "लेने वाली राशि",
+      "payableApprovedQuotation": "मंज़ूर हुआ क्वोटेशन",
+      "payablePriceCard": "तय कीमत",
+      "payableVisitFee": "विज़िट फ़ीस",
+      "totalPayable": "कुल",
+      "waived": "माफ़",
+      "cashCollectButton": "नकद मिल गया",
+      "cashConfirmTitle": "नकद मिलने की पुष्टि करें",
+      "cashConfirmHint": "तभी पक्का करें जब ग्राहक से यह राशि असल में नकद मिल चुकी हो।",
+      "cashConfirm": "हां, मुझे यह मिल गया",
+      "cashConfirming": "दर्ज हो रहा है…",
+      "alreadyPaid": "इस जॉब का भुगतान पहले ही हो चुका है।"
+    },
+    "otp": {
+      "enteredLabel": "डाला गया कोड",
+      "attemptsLeft": "{{count}} कोशिशें बाकी",
+      "checking": "जांचा जा रहा है…",
+      "backspace": "पीछे हटाएं",
+      "clear": "साफ़ करें",
+      "clearShort": "C"
+    },
+    "quote": {
+      "labourLabel": "मज़दूरी (₹)",
+      "labourHint": "अगर सिर्फ पार्ट्स का काम है तो 0 रहने दें",
+      "kindLabel": "प्रकार",
+      "kind": {
+        "part": "पार्ट",
+        "labour_extra": "अतिरिक्त मज़दूरी"
+      },
+      "descriptionLabel": "विवरण",
+      "descriptionPlaceholder": "जैसे दरवाज़े की गैसकेट",
+      "qtyLabel": "मात्रा",
+      "unitPriceLabel": "एक की कीमत (₹)",
+      "unitPricePlaceholder": "0",
+      "addPart": "+ पार्ट जोड़ें",
+      "addLabourExtra": "+ अतिरिक्त मज़दूरी जोड़ें",
+      "noteLabel": "ग्राहक के लिए नोट (वैकल्पिक)",
+      "runningTotal": "कुल राशि",
+      "send": "क्वोटेशन भेजें",
+      "sending": "भेजा जा रहा है…",
+      "error": {
+        "empty": "कुल राशि ₹0 से ज़्यादा होनी चाहिए",
+        "too_many_items": "एक क्वोटेशन में ज़्यादा से ज़्यादा 50 लाइनें हो सकती हैं",
+        "bad_qty": "मात्रा 1 से 999 के बीच पूरी संख्या होनी चाहिए",
+        "bad_unit": "एक की कीमत ₹0.01 से ₹50,000 के बीच होनी चाहिए",
+        "line_too_large": "एक लाइन ₹2,00,000 से ज़्यादा नहीं हो सकती",
+        "total_too_large": "कुल राशि ₹2,00,000 से ज़्यादा नहीं हो सकती",
+        "bad_labour": "मज़दूरी शून्य या उससे ज़्यादा होनी चाहिए"
+      }
+    },
+    "earnings": {
+      "title": "कमाई",
+      "payable": "हमें आपको देना है",
+      "dues": "आपको हमें देना है",
+      "duesExplanation": "यह उन नकद जॉब का कमीशन है जो आपने वसूला है — यह आपके अगले भुगतान में से कट जाएगा, या आप सीधे ऑप्स टीम से चुका सकते हैं।",
+      "netTitle": "बकाया",
+      "net": "कुल मिलाकर",
+      "pendingPayout": "बाकी भुगतान",
+      "none": "कुछ नहीं",
+      "payoutMinimum": "कम से कम भुगतान राशि",
+      "payoutMinimumHint": "आपकी राशि {{amount}} पहुंचने पर भुगतान भेजा जाता है",
+      "payoutsTitle": "हाल के भुगतान",
+      "noPayouts": "अभी तक कोई भुगतान नहीं हुआ",
+      "utr": "बैंक रेफरेंस (UTR)",
+      "payoutStatus": {
+        "pending": "बाकी है",
+        "paid": "भुगतान हो गया",
+        "failed": "असफल"
+      },
+      "ledgerTitle": "हाल की गतिविधि",
+      "noLedger": "अभी यहां कुछ नहीं है",
+      "viewJob": "जॉब देखें",
+      "ledger": {
+        "cashCollected": "नकद जॉब — हमें कमीशन देना बाकी है",
+        "paymentCaptured": "ऑनलाइन भुगतान मिला",
+        "duesSettled": "बकाया चुका दिया",
+        "payout": "आपके बैंक में भुगतान भेजा गया",
+        "refund": "रिफंड जारी हुआ",
+        "other": "खाते में समायोजन"
+      }
+    },
+    "trust": {
+      "title": "भरोसा स्कोर",
+      "suspendedTitle": "आपका खाता सस्पेंड है",
+      "suspendedUntil": "{{date}} तक सस्पेंड",
+      "suspensionReason": "वजह",
+      "suspendedContactHint": "अगर आपको लगता है यह गलती से हुआ है, तो ऑप्स टीम से बात करें — वे सस्पेंशन जल्दी हटा सकते हैं।",
+      "settledJobs": "{{count}} जॉब पूरे हुए",
+      "nextBandTitle": "{{band}} की तरफ",
+      "nextBandAlmost": "आप पहले ही योग्य हैं — यह जल्दी अपडेट हो जाएगा।",
+      "nextBandJobs": "{{count}} और जॉब पूरे करने होंगे",
+      "nextBandScore": "{{points}} अंक और चाहिए",
+      "componentsTitle": "आपका स्कोर किससे बनता है",
+      "noDataYet": "अभी काफी जानकारी नहीं है",
+      "trendTitle": "हाल का इतिहास"
+    },
+    "slots": {
+      "title": "काम के घंटे",
+      "hint": "यह अगले 7 दिनों के आपके खाली घंटे हैं। किसी पर टैप करके उसे बंद करें (छुट्टी)।",
+      "empty": "अगले 7 दिनों में कोई खाली समय नहीं है — अपनी उपलब्धता सेटिंग जांचें",
+      "justBlockedTitle": "अभी बंद किया",
+      "undo": "वापस खोलें"
+    },
+    "notifications": {
+      "title": "सूचनाएं",
+      "empty": "अभी कोई सूचना नहीं है",
+      "markAllRead": "सभी {{count}} पढ़ी हुई मानें",
+      "markRead": "पढ़ी हुई मानें",
+      "criticality": {
+        "critical": "ज़रूरी",
+        "normal": "अपडेट",
+        "low": "जानकारी"
+      }
+    }
+  }
+}

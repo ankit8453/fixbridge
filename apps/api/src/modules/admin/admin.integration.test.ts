@@ -2,7 +2,7 @@ import type { Express } from 'express';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../../app';
-import { AUDIT_ACTIONS } from '../../core/audit';
+import { ADMIN_ONLY_ROUTES, AUDIT_ACTIONS } from '../../core/audit';
 import { registerOutboxSubscribers } from '../../core/background';
 import { parseConfig, type AppConfig } from '../../core/config';
 import { createContext, disposeContext, type AppContext } from '../../core/context';
@@ -324,6 +324,17 @@ interface Session {
 
 const opsSession = () => signIn(app as Express, PHONES.ops, 'device-admin-ops');
 
+/**
+ * The money-and-config session.
+ *
+ * Phase 12 split the roles on **reversibility**: ops does the judgment work,
+ * admin holds the actions that move money or change the rules. Tests exercising
+ * a refund, a payout marked paid, a dues settlement or the entry-approval flag
+ * need this one — and the fact that they used to pass with an ops token is
+ * precisely what the split was correcting.
+ */
+const adminSession = () => signIn(app as Express, PHONES.admin, 'device-admin-admin');
+
 async function drainOutbox(): Promise<void> {
   const ctx = context as AppContext;
 
@@ -413,9 +424,20 @@ async function settledBooking(): Promise<string> {
   return bookingId;
 }
 
-const auditRows = (action?: string) =>
+/**
+ * Audit rows written by one actor.
+ *
+ * Defaults to the ops user because most of the console's work is theirs; the
+ * money and config tests pass `adminId`, since Phase 12 moved those actions to
+ * the `admin` role. Scoping by actor rather than reading the whole table keeps
+ * each test's assertion about its own decision.
+ */
+const auditRows = (action?: string, actorUserId?: string) =>
   (context as AppContext).prisma.auditLog.findMany({
-    where: { actorUserId: (fixture as Fixture).opsId, ...(action ? { action } : {}) },
+    where: {
+      actorUserId: actorUserId ?? (fixture as Fixture).opsId,
+      ...(action ? { action } : {}),
+    },
     orderBy: { createdAt: 'desc' },
   });
 
@@ -492,8 +514,7 @@ describe('Phase 11 — the ops console API', () => {
         .expect(401);
     }, 30_000);
 
-    /** ops and admin are equal here; the split matters for role grants, later. */
-    it('lets both ops and admin in', async () => {
+    it('lets both ops and admin through the door', async () => {
       if (unavailableReason) return;
 
       const ops = await opsSession();
@@ -509,6 +530,123 @@ describe('Phase 11 — the ops console API', () => {
         .set(auth(admin.accessToken))
         .expect(200);
     }, 45_000);
+
+    /**
+     * The ops/admin split, enumerated from the registry rather than typed out.
+     *
+     * The line is reversibility: an ops assistant does the judgment work all day
+     * and should never hold a credential that can refund a customer or declare a
+     * payout paid. If somebody adds a money route and forgets the guard, this
+     * fails — the list it walks is the same one `ADMIN_ONLY_ROUTES` publishes.
+     *
+     * The bodies are deliberately empty. A `403` must come from the role guard
+     * *before* validation, so a well-formed body is not needed to prove the
+     * refusal — and if the guard were missing, a `400` here would fail this test
+     * just as loudly as a `200` would.
+     */
+    it('refuses an ops token on every admin-only route', async () => {
+      if (unavailableReason || !fixture) return;
+
+      const ops = await opsSession();
+      const server = app as Express;
+
+      for (const entry of ADMIN_ONLY_ROUTES) {
+        const [method, template] = entry.split(' ') as [string, string];
+
+        // Any syntactically valid id: the guard runs before the handler, so the
+        // target need not exist.
+        const path = template
+          .replace(':paymentId', fixture.technicianId)
+          .replace(':payoutId', fixture.technicianId)
+          .replace(':cityId', String(fixture.cityId));
+
+        const response =
+          method === 'PATCH'
+            ? await request(server).patch(path).set(auth(ops.accessToken)).send({})
+            : await request(server).post(path).set(auth(ops.accessToken)).send({});
+
+        expect(response.status, `${method} ${path} should be admin-only`).toBe(403);
+      }
+    }, 90_000);
+
+    /**
+     * The other half: the split must not have locked ops out of their own work.
+     *
+     * A permission change that quietly stops the queue being workable is a worse
+     * outcome than the one it was guarding against, and it is the failure nobody
+     * notices until a technician has been waiting three days.
+     */
+    it('still lets ops do the judgment work', async () => {
+      if (unavailableReason || !fixture) return;
+
+      const ops = await opsSession();
+      const server = app as Express;
+
+      // A payout batch is ops work — creating and reviewing one is not the same
+      // as declaring money paid.
+      await request(server)
+        .post('/api/v1/admin/payments/payout-batches')
+        .set(auth(ops.accessToken))
+        .send({})
+        .expect((response) => {
+          expect([200, 201]).toContain(response.status);
+        });
+
+      // And the queues they live in all day.
+      for (const path of [
+        '/api/v1/admin/verification/queue',
+        '/api/v1/admin/complaints',
+        '/api/v1/admin/reviews/reports',
+        '/api/v1/admin/queues/outbox',
+      ]) {
+        await request(server).get(path).set(auth(ops.accessToken)).expect(200);
+      }
+    }, 90_000);
+
+    /**
+     * The audit log is a supervision tool, not a way for colleagues to check up
+     * on each other. Ops can account for their own decisions; reviewing somebody
+     * else's is the supervisor's job — and the scoping is forced server-side,
+     * because a filter the client applies is not a permission.
+     */
+    it('shows ops only their own actions, and admin everything', async () => {
+      if (unavailableReason || !fixture) return;
+
+      const ops = await opsSession();
+      const admin = await signIn(app as Express, PHONES.admin, 'device-admin-admin');
+
+      const asOps = await request(app as Express)
+        .get('/api/v1/admin/audit-logs')
+        .set(auth(ops.accessToken))
+        .expect(200);
+
+      expect(asOps.body.scope).toBe('own');
+
+      const foreign = (asOps.body.entries as { actorUserId: string | null }[]).filter(
+        (entry) => entry.actorUserId !== fixture!.opsId,
+      );
+      expect(foreign, 'ops saw somebody else’s decisions').toEqual([]);
+
+      const asAdmin = await request(app as Express)
+        .get('/api/v1/admin/audit-logs')
+        .set(auth(admin.accessToken))
+        .expect(200);
+
+      expect(asAdmin.body.scope).toBe('all');
+
+      // Asking for another actor explicitly must not widen an ops view either.
+      const attempted = await request(app as Express)
+        .get('/api/v1/admin/audit-logs')
+        .query({ actor_user_id: fixture.adminId })
+        .set(auth(ops.accessToken))
+        .expect(200);
+
+      expect(
+        (attempted.body.entries as { actorUserId: string | null }[]).filter(
+          (entry) => entry.actorUserId !== fixture!.opsId,
+        ),
+      ).toEqual([]);
+    }, 90_000);
   });
 
   /* ---------------------------------------------------------------------- */
@@ -551,7 +689,7 @@ describe('Phase 11 — the ops console API', () => {
       if (unavailableReason || !fixture) return;
 
       const ctx = context as AppContext;
-      const ops = await opsSession();
+      const admin = await adminSession();
 
       /**
        * A payout that is already settled.
@@ -586,15 +724,15 @@ describe('Phase 11 — the ops console API', () => {
         },
       });
 
-      const before = (await auditRows()).length;
+      const before = (await auditRows(undefined, fixture.adminId)).length;
 
       await request(app as Express)
         .post(`/api/v1/admin/payments/payouts/${payoutId}/failed`)
-        .set(auth(ops.accessToken))
+        .set(auth(admin.accessToken))
         .send({ note: 'This should not stick.' })
         .expect(409);
 
-      expect((await auditRows()).length).toBe(before);
+      expect((await auditRows(undefined, fixture.adminId)).length).toBe(before);
 
       const marked = await ctx.prisma.auditLog.count({
         where: { action: AUDIT_ACTIONS.payoutMarkFailed, targetId: payoutId },
@@ -980,13 +1118,13 @@ describe('Phase 11 — the ops console API', () => {
       if (unavailableReason || !fixture) return;
 
       const ctx = context as AppContext;
-      const ops = await opsSession();
+      const admin = await adminSession();
 
       await settledBooking();
 
       const before = await request(app as Express)
         .get(`/api/v1/admin/providers/${fixture.technicianId}`)
-        .set(auth(ops.accessToken))
+        .set(auth(admin.accessToken))
         .expect(200);
 
       const owed = before.body.provider.balance.duesPaise;
@@ -994,7 +1132,7 @@ describe('Phase 11 — the ops console API', () => {
 
       await request(app as Express)
         .post('/api/v1/admin/payments/dues/settle')
-        .set(auth(ops.accessToken))
+        .set(auth(admin.accessToken))
         .send({
           providerId: fixture.technicianId,
           amountPaise: owed,
@@ -1004,7 +1142,7 @@ describe('Phase 11 — the ops console API', () => {
 
       const after = await request(app as Express)
         .get(`/api/v1/admin/providers/${fixture.technicianId}`)
-        .set(auth(ops.accessToken))
+        .set(auth(admin.accessToken))
         .expect(200);
 
       expect(after.body.provider.balance.duesPaise).toBe(0);
@@ -1026,7 +1164,7 @@ describe('Phase 11 — the ops console API', () => {
       expect(debits).toBe(credits);
       expect(debits).toBe(owed);
 
-      const rows = await auditRows(AUDIT_ACTIONS.duesSettle);
+      const rows = await auditRows(AUDIT_ACTIONS.duesSettle, fixture.adminId);
       expect(rows[0]!.payload).toMatchObject({ amountPaise: owed, memo: 'Paid by UPI, ref 4471' });
     }, 120_000);
 
@@ -1039,7 +1177,7 @@ describe('Phase 11 — the ops console API', () => {
       if (unavailableReason || !fixture) return;
 
       const ctx = context as AppContext;
-      const ops = await opsSession();
+      const admin = await adminSession();
 
       const batchId = fixtureUuid('b11');
       const payoutId = fixtureUuid('b12');
@@ -1066,12 +1204,12 @@ describe('Phase 11 — the ops console API', () => {
       // a run being signed off with somebody unpaid inside it.
       await request(app as Express)
         .post(`/api/v1/admin/payments/payout-batches/${batchId}/close`)
-        .set(auth(ops.accessToken))
+        .set(auth(admin.accessToken))
         .expect(409);
 
       await request(app as Express)
         .post(`/api/v1/admin/payments/payouts/${payoutId}/paid`)
-        .set(auth(ops.accessToken))
+        .set(auth(admin.accessToken))
         .send({ utrRef: 'HDFC0004471N2026' })
         .expect(200);
 
@@ -1079,7 +1217,7 @@ describe('Phase 11 — the ops console API', () => {
       expect(paid?.status).toBe('paid');
       expect(paid?.utrRef).toBe('HDFC0004471N2026');
 
-      const paidAudit = await auditRows(AUDIT_ACTIONS.payoutMarkPaid);
+      const paidAudit = await auditRows(AUDIT_ACTIONS.payoutMarkPaid, fixture.adminId);
       expect(paidAudit[0]!.payload).toMatchObject({ utrRef: 'HDFC0004471N2026' });
 
       // Paying a technician moves money out of what we owe them.
@@ -1096,16 +1234,16 @@ describe('Phase 11 — the ops console API', () => {
 
       await request(app as Express)
         .post(`/api/v1/admin/payments/payout-batches/${batchId}/close`)
-        .set(auth(ops.accessToken))
+        .set(auth(admin.accessToken))
         .expect(200);
 
       const closed = await ctx.prisma.payoutBatch.findUnique({ where: { id: batchId } });
       expect(closed?.status).toBe('completed');
-      expect(await auditRows(AUDIT_ACTIONS.payoutBatchClose)).toHaveLength(1);
+      expect(await auditRows(AUDIT_ACTIONS.payoutBatchClose, fixture.adminId)).toHaveLength(1);
 
       const batches = await request(app as Express)
         .get('/api/v1/admin/payout-batches')
-        .set(auth(ops.accessToken))
+        .set(auth(admin.accessToken))
         .expect(200);
 
       expect(batches.body.batches.some((row: { id: string }) => row.id === batchId)).toBe(true);
@@ -1429,14 +1567,23 @@ describe('Phase 11 — the ops console API', () => {
 
   describe('city settings', () => {
     /**
-     * The entry-approval flag. Off everywhere today, and the queue it feeds is
-     * simply empty when off — which is why the feature costs nothing until the
-     * first city where we do not know the trades personally.
+     * The entry-approval flag, and the two roles it needs.
+     *
+     * This is the split in one test, and the division of labour is the point:
+     * **admin** decides that a city needs a human in the path of every signup —
+     * a policy change about how the marketplace runs — and **ops** then works
+     * the queue that policy creates, one technician at a time. Neither could do
+     * the other's half, and that is deliberate.
+     *
+     * The flag is off everywhere today, and the queue it feeds is simply empty
+     * when off, which is why the feature costs nothing until the first city
+     * where we do not know the trades personally.
      */
-    it('turns entry approval on, and the queue fills', async () => {
+    it('turns entry approval on as admin, and ops works the queue it fills', async () => {
       if (unavailableReason || !fixture) return;
 
       const ctx = context as AppContext;
+      const admin = await adminSession();
       const ops = await opsSession();
 
       const emptyQueue = await request(app as Express)
@@ -1447,9 +1594,16 @@ describe('Phase 11 — the ops console API', () => {
 
       expect(emptyQueue.body.total).toBe(0);
 
+      // Ops cannot set the policy, however much of the queue they work.
       await request(app as Express)
         .patch(`/api/v1/admin/cities/${fixture.cityId}`)
         .set(auth(ops.accessToken))
+        .send({ requireEntryApproval: true })
+        .expect(403);
+
+      await request(app as Express)
+        .patch(`/api/v1/admin/cities/${fixture.cityId}`)
+        .set(auth(admin.accessToken))
         .send({ requireEntryApproval: true })
         .expect(200);
 
@@ -1462,6 +1616,7 @@ describe('Phase 11 — the ops console API', () => {
 
         expect(queue.body.total).toBeGreaterThan(0);
 
+        // …and approving an individual technician is squarely ops work.
         await request(app as Express)
           .post(`/api/v1/admin/providers/${fixture.technicianId}/approve-entry`)
           .set(auth(ops.accessToken))
@@ -1475,8 +1630,9 @@ describe('Phase 11 — the ops console API', () => {
         expect(approved?.entryApprovedAt).not.toBeNull();
         expect(approved?.entryApprovedById).toBe(fixture.opsId);
 
-        const rows = await auditRows(AUDIT_ACTIONS.cityUpdateSettings);
-        expect(rows).toHaveLength(1);
+        // Each half is recorded against the person who actually did it.
+        expect(await auditRows(AUDIT_ACTIONS.cityUpdateSettings, fixture.adminId)).toHaveLength(1);
+        expect(await auditRows(AUDIT_ACTIONS.providerApproveEntry, fixture.opsId)).toHaveLength(1);
       } finally {
         // Back off again: every other suite assumes the pilot's default.
         await ctx.prisma.city.update({

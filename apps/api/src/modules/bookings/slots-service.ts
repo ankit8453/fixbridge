@@ -7,7 +7,7 @@ import {
   type AvailabilityTemplateLike,
   type ExistingSlotLike,
 } from './slot-plan';
-import type { ProviderSlotsQuery, PublicSlot } from './types';
+import type { OwnSlot, ProviderSlotsQuery, PublicSlot } from './types';
 
 export interface SlotGenerationResult {
   providerId: string;
@@ -121,6 +121,51 @@ export async function listPublicSlots(
     id: slot.id,
     startsAt: slot.startsAt.toISOString(),
     endsAt: slot.endsAt.toISOString(),
+  }));
+}
+
+/**
+ * A technician's **own** calendar, including the parts nobody else may see.
+ *
+ * `listPublicSlots` deliberately returns only `open` slots, because which hours
+ * are booked and when somebody took an afternoon off is nobody else's business.
+ * That same discretion made the technician's own calendar unusable: Phase 6 gave
+ * them a block button and no way to see what they had blocked, so un-blocking
+ * was only possible in the same browser session that blocked it.
+ *
+ * The fix is a separate endpoint rather than a flag on the public one — an
+ * `?includeBlocked=true` that gated on the caller's identity would be one
+ * forgotten check away from publishing everybody's day.
+ */
+export async function listOwnSlots(
+  context: AppContext,
+  providerId: string,
+  query: ProviderSlotsQuery,
+): Promise<OwnSlot[]> {
+  const spanDays = (query.to.getTime() - query.from.getTime()) / (24 * 60 * 60 * 1000);
+
+  if (spanDays > context.config.SLOT_HORIZON_DAYS) {
+    throw AppError.badRequest(`The window may span at most ${context.config.SLOT_HORIZON_DAYS} days`, {
+      messageKey: 'errors.bookings.windowTooWide',
+    });
+  }
+
+  const slots = await repo.listProviderSlots(context.prisma, providerId, query.from, query.to, [
+    'open',
+    'blocked',
+    'booked',
+  ]);
+
+  return slots.map((slot) => ({
+    id: slot.id,
+    startsAt: slot.startsAt.toISOString(),
+    endsAt: slot.endsAt.toISOString(),
+    status: slot.status,
+    /**
+     * The booking id only for their own booked slots, so the week view can link
+     * straight to the job. It is their booking; there is nothing to withhold.
+     */
+    bookingId: slot.bookingId,
   }));
 }
 

@@ -1011,3 +1011,114 @@ describe('Phase 3 — seeded fixtures', () => {
     expect(Number(clusters[0]?.count ?? 0)).toBe(5);
   });
 });
+
+/* -------------------------------------------------------------------------- */
+/* Phase 12 — the public profile and the owner's own calendar                 */
+/* -------------------------------------------------------------------------- */
+
+describe('Phase 12 — the public provider profile', () => {
+  /**
+   * Added because the web app made an old assumption obviously wrong: until
+   * Phase 12 a customer could only see a technician by searching for one, which
+   * breaks the moment somebody forwards a link — and a forwarded WhatsApp link
+   * is the pilot's entire distribution story.
+   */
+  const listedProvider = async (): Promise<string | null> => {
+    const row = await (context as AppContext).prisma.providerProfile.findFirst({
+      where: {
+        isListed: true,
+        user: { status: 'active' },
+        verification: { badge: { in: ['VERIFIED', 'SILVER', 'GOLD'] } },
+        OR: [{ suspendedUntil: null }, { suspendedUntil: { lte: new Date() } }],
+      },
+      select: { userId: true },
+    });
+
+    return row?.userId ?? null;
+  };
+
+  it('serves a profile to a stranger with no token at all', async () => {
+    if (unavailableReason || !context || !app) return;
+
+    const providerId = await listedProvider();
+    if (!providerId) return;
+
+    const response = await request(app)
+      .get(`/api/v1/providers/${providerId}`)
+      .expect(200);
+
+    const profile = response.body.profile as Record<string, unknown>;
+
+    expect(profile.providerId).toBe(providerId);
+    expect(profile.badge).toMatch(/VERIFIED|SILVER|GOLD/);
+    expect(Array.isArray(profile.skills)).toBe(true);
+  }, 45_000);
+
+  /**
+   * The same discretion search applies, on the endpoint that is easiest to
+   * scrape: no point, no phone, and nothing about how close somebody is to
+   * being listed.
+   */
+  it('leaks no coordinates, phone or completeness internals', async () => {
+    if (unavailableReason || !context || !app) return;
+
+    const providerId = await listedProvider();
+    if (!providerId) return;
+
+    const response = await request(app).get(`/api/v1/providers/${providerId}`).expect(200);
+    const serialised = JSON.stringify(response.body);
+
+    for (const forbidden of [
+      'baseLocation',
+      'base_location',
+      'latitude',
+      'longitude',
+      'phone',
+      'completenessScore',
+      'completeness',
+      'serviceRadiusKm',
+    ]) {
+      expect(serialised, `public profile leaked "${forbidden}"`).not.toContain(forbidden);
+    }
+
+    // A ten-digit run would be a phone number however it got there.
+    expect(/\d{10}/.test(serialised)).toBe(false);
+  }, 45_000);
+
+  /**
+   * A profile page that rendered somebody search refuses to show would be a way
+   * around the gates — and the 404 is deliberately the same for "suspended" as
+   * for "never existed", so the status code cannot be used to discover that a
+   * particular technician is in trouble.
+   */
+  it('hides a suspended technician behind the same 404 as a stranger', async () => {
+    if (unavailableReason || !context || !app) return;
+
+    const suspended = await context.prisma.providerProfile.findFirst({
+      where: { suspendedUntil: { gt: new Date() } },
+      select: { userId: true },
+    });
+
+    if (!suspended) return;
+
+    await request(app).get(`/api/v1/providers/${suspended.userId}`).expect(404);
+    await request(app)
+      .get('/api/v1/providers/00000000-0000-4000-8000-000000000000')
+      .expect(404);
+  }, 45_000);
+
+  /**
+   * The regression this route nearly caused.
+   *
+   * `/:providerId` is declared before the technician's own routes, so without a
+   * uuid pattern in the path it would capture `/providers/me` and reject it as a
+   * malformed id — breaking every technician's own profile. Zod validation after
+   * the match is too late; the pattern has to stop the match.
+   */
+  it('does not swallow /providers/me', async () => {
+    if (unavailableReason || !app) return;
+
+    // 401, not 400: it reached the authenticated route rather than the public one.
+    await request(app).get('/api/v1/providers/me').expect(401);
+  }, 30_000);
+});

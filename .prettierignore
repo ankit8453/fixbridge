@@ -3,6 +3,7 @@ dist/
 coverage/
 package-lock.json
 apps/api/prisma/migrations/
+apps/web/.next/
 
 # Phase prompts are inputs from the product owner — kept byte-for-byte as received.
 PHASE*_PROMPT.md

@@ -2,6 +2,7 @@ import js from '@eslint/js';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
+import nextPlugin from '@next/eslint-plugin-next';
 
 export default tseslint.config(
   {
@@ -11,6 +12,7 @@ export default tseslint.config(
       '**/coverage/**',
       '**/*.d.ts',
       'apps/api/prisma/migrations/**',
+      'apps/web/.next/**',
     ],
   },
   js.configs.recommended,
@@ -46,21 +48,47 @@ export default tseslint.config(
   },
   {
     /**
-     * The admin console runs in a browser, not in Node.
-     *
-     * Without this it would inherit the Node globals above and nothing else, so
-     * `window`, `localStorage` and `fetch` would be undefined identifiers. JSX
-     * is enabled here rather than repo-wide because the API must never start
-     * accepting it by accident.
+     * The web app runs the same source in two places: client components in the
+     * browser, server components/route handlers/middleware in Node (or the edge
+     * runtime, which is Node-shaped enough for lint purposes). Restricting
+     * globals to one or the other would make half of every file look like it
+     * references undefined identifiers, so both sets are allowed here — the
+     * TypeScript compiler is what actually catches a browser-only API reached
+     * for from server code (`lib.dom` is intentionally not in next.config's
+     * server tsconfig lib list).
      */
-    files: ['apps/admin/**/*.{ts,tsx}'],
+    files: ['apps/web/**/*.{ts,tsx}'],
     languageOptions: {
       globals: {
         ...globals.browser,
+        ...globals.node,
       },
       parserOptions: {
         ecmaFeatures: { jsx: true },
       },
+    },
+  },
+  {
+    /**
+     * `eslint-config-next` itself is NOT installed (see next.config.ts's
+     * `eslint.ignoreDuringBuilds` comment for why: one root flat config is
+     * the single lint gate for every workspace). But `next/image`,
+     * `next/script` and friends have real, Next-specific misuse footguns
+     * (an `<img>` where `next/image` would get responsive sizing and lazy
+     * loading for free, a script tag that blocks hydration) that the
+     * generic TypeScript rules above cannot see — so just the rules plugin
+     * is added, scoped to apps/web, rather than the full opinionated config.
+     */
+    files: ['apps/web/**/*.{ts,tsx}'],
+    plugins: { '@next/next': nextPlugin },
+    rules: {
+      ...nextPlugin.configs.recommended.rules,
+      ...nextPlugin.configs['core-web-vitals'].rules,
+      // This is an App-Router-only app with no `pages/` directory, ever —
+      // the rule's own Pages-Router detection logs a harmless "Pages
+      // directory cannot be found" note on every run because it looks for
+      // one relative to the ESLint root (the monorepo root, not apps/web).
+      '@next/next/no-html-link-for-pages': 'off',
     },
   },
   {

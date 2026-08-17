@@ -169,6 +169,16 @@ export type CreateDocumentInput = z.infer<typeof createDocumentSchema>;
 
 export const uuidParamSchema = z.object({ id: z.string().uuid() });
 
+/**
+ * The public profile's path parameter.
+ *
+ * A uuid, strictly — which is what stops `GET /providers/:providerId` from
+ * swallowing `/providers/me/...`. Express matches in declaration order, so the
+ * public route is mounted first and simply fails to parse anything that is not
+ * an id, leaving `/me` to the routes below it.
+ */
+export const providerIdParamSchema = z.object({ providerId: z.string().uuid() });
+
 /* -------------------------------------------------------------------------- */
 /* Responses                                                                  */
 /* -------------------------------------------------------------------------- */

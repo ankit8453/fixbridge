@@ -233,6 +233,28 @@ export const providerSlotRouter = Router();
 
 providerSlotRouter.use(authenticate, requireRoles('technician'));
 
+/**
+ * A technician's own week, blocked and booked hours included.
+ *
+ * Phase 6 gave them a block button and no way to see what they had blocked, so
+ * un-blocking only worked in the browser session that did the blocking — the
+ * calendar was write-only. Added in Phase 12 because the partner web app made
+ * that immediately, obviously broken.
+ *
+ * Separate from the public `/providers/:id/slots` rather than a flag on it: an
+ * `?includeBlocked=true` gated on the caller's identity is one forgotten check
+ * away from publishing everybody's day.
+ */
+providerSlotRouter.get(
+  '/',
+  handle(async (req, res) => {
+    const query = providerSlotsQuerySchema.parse(req.query);
+    const own = await slots.listOwnSlots(getContext(req), getAuthUser(req).id, query);
+
+    res.status(200).json({ slots: own });
+  }),
+);
+
 providerSlotRouter.post(
   '/:slotId/block',
   handle(async (req, res) => {

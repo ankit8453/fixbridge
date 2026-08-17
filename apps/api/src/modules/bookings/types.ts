@@ -1,3 +1,4 @@
+import type { SlotStatus } from '@prisma/client';
 import { z } from 'zod';
 import type { PayableView, QuotationView } from '../quotations/types';
 import {
@@ -138,4 +139,18 @@ export interface PublicSlot {
   id: string;
   startsAt: string;
   endsAt: string;
+}
+
+/**
+ * A slot as its **owner** sees it.
+ *
+ * Carries the two things `PublicSlot` deliberately withholds from strangers —
+ * the status, and the booking sitting in it. A technician looking at their own
+ * week needs to tell "I blocked this" from "somebody booked this", and the
+ * public shape cannot express either without leaking both to everyone.
+ */
+export interface OwnSlot extends PublicSlot {
+  status: SlotStatus;
+  /** Null unless the slot is booked. Lets the week view link straight to the job. */
+  bookingId: string | null;
 }
