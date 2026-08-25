@@ -5,6 +5,8 @@ import type {
   NotificationsResponse,
   OwnSlot,
   PaymentView,
+  PhotoUploadUrlResponse,
+  ProfilePhoto,
   ProviderPriceCardResponse,
   ProviderProfileResponse,
   QuotationView,
@@ -44,6 +46,28 @@ export const updateMyProfile = (input: {
   baseLocation?: { lat: number; lng: number };
 }): Promise<{ profile: ProviderProfileResponse }> =>
   apiRequest('/api/v1/providers/me', { method: 'PATCH', body: input });
+
+/* ---- profile photo ---- */
+
+/**
+ * The public-facing photo, which does **not** go through the KYC document
+ * endpoints — separate store, opposite privacy posture. Same three-step signed
+ * URL flow, so the bytes still never touch our API.
+ */
+export const requestPhotoUploadUrl = (input: {
+  contentType: string;
+  sizeBytes: number;
+}): Promise<PhotoUploadUrlResponse> =>
+  apiRequest('/api/v1/providers/me/photo/upload-url', { method: 'POST', body: input });
+
+export const confirmPhotoUpload = (
+  photoId: string,
+): Promise<{ photo: ProfilePhoto; message: string }> =>
+  apiRequest(`/api/v1/providers/me/photo/${photoId}/confirm`, { method: 'POST' });
+
+/** Null when the technician has never uploaded one. */
+export const fetchMyPhoto = (): Promise<{ photo: ProfilePhoto | null }> =>
+  apiRequest('/api/v1/providers/me/photo');
 
 export const addSkill = (
   categoryId: number,

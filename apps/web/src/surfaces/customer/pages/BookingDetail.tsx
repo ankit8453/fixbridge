@@ -20,7 +20,7 @@ import {
 import { PaymentPanel } from '@/surfaces/customer/components/bookings/PaymentPanel';
 import { ReviewForm } from '@/surfaces/customer/components/bookings/ReviewForm';
 import { canRaiseComplaint } from '@/surfaces/customer/components/bookings/ComplaintForm';
-import { Badge, Button, Card, DetailRow, QueryState } from '@/components/ui';
+import { Avatar, Badge, Button, Card, DetailRow, QueryState } from '@/components/ui';
 
 /**
  * `/app/bookings/:bookingId` — mission control: status timeline, provider
@@ -67,9 +67,33 @@ export default function BookingDetail() {
                 status={booking.status}
                 startOtp={booking.startOtp}
                 endOtp={booking.endOtp}
+                providerName={booking.counterpart.name}
+                providerPhotoUrl={booking.counterpart.photoUrl}
               />
 
               <Card title={t('app.booking.providerHeading')}>
+                {/*
+                  The same face again, at the top of the technician's card.
+                  Deliberate repetition rather than a choice between the two
+                  placements: the OTP box disappears once work is under way, and
+                  a customer scrolling back to check who they let in still needs
+                  a face to check against.
+
+                  `photoUrl` is only ever non-null once the booking is accepted
+                  AND ops approved the photo — the API withholds it otherwise, so
+                  there is nothing to gate on here.
+                */}
+                {booking.counterpart.photoUrl ? (
+                  <div className="mb-3 flex items-center gap-3">
+                    <Avatar
+                      name={booking.counterpart.name}
+                      src={booking.counterpart.photoUrl}
+                      size={48}
+                    />
+                    <p className="text-sm text-slate-600">{t('app.booking.photoCaption')}</p>
+                  </div>
+                ) : null}
+
                 <dl>
                   <DetailRow label={t('app.booking.providerName')}>
                     {booking.counterpart.name ?? t('app.find.unnamedProvider')}

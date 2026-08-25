@@ -5,6 +5,7 @@ import { enqueueOutbox } from '../../core/outbox';
 import { formatPaise } from '../search/service';
 import { isBillableBooking, type BookingStatus } from '../bookings/state-machine';
 import { resolveCommissionRate, splitCommission } from './commission';
+import * as coupons from '../coupons/service';
 import * as ledger from './ledger';
 import * as repo from './repository';
 import { applyPaymentEvent, PAYMENT_TOPICS, type PaymentStatusName } from './state-machine';
@@ -253,8 +254,36 @@ export async function startPayment(
 
   const commissionBps = await resolveCommissionForBooking(deps, booking.cityId, booking.categoryId);
 
+  /**
+   * The coupon, if the customer attached one.
+   *
+   * Only the **final bill** can carry one: an upfront visit fee is collected
+   * before there is a bill to discount, and a coupon against it would be a
+   * discount on a number the customer has not yet agreed to.
+   *
+   * The gateway order is created for the *discounted* amount — that is what the
+   * customer actually pays. What the technician earns is unaffected, because the
+   * capture journal below splits commission on the **pre-discount** gross, which
+   * is recorded on the payment row as `amountPaise` for exactly that reason.
+   */
+  const discount =
+    purpose === 'final_bill'
+      ? await coupons.findBookingDiscount(context.prisma, bookingId)
+      : null;
+
+  const chargePaise = booking.payablePaise - (discount?.discountPaise ?? 0);
+
+  if (chargePaise <= 0) {
+    // A coupon that covers the whole bill leaves nothing for the gateway to
+    // collect. Rare, and better refused loudly here than sent to Razorpay as a
+    // zero-rupee order it will reject with a message nobody can act on.
+    throw new AppError(409, 'BOOKING_NOT_BILLABLE', 'There is nothing left to collect', {
+      messageKey: 'errors.payments.notBillable',
+    });
+  }
+
   const order = await context.gateway.createOrder({
-    amountPaise: booking.payablePaise,
+    amountPaise: chargePaise,
     // A stable, meaningless-to-anyone-else reference the gateway echoes back.
     receipt: `bk_${bookingId.replace(/-/g, '').slice(0, 30)}`,
     notes: { bookingId, purpose },
@@ -264,8 +293,19 @@ export async function startPayment(
     const payment = await repo.createPayment(context.prisma, {
       bookingId,
       purpose,
+      /**
+       * `amountPaise` stays the **pre-discount** bill.
+       *
+       * This is the number the technician is paid on, so it is the one the
+       * payment row has to carry — the discounted figure is what the gateway
+       * collects and is recoverable as `amountPaise − discountPaise`. Storing
+       * the discounted amount here instead would silently move the coupon's
+       * cost onto the technician at every downstream split, which is the one
+       * thing this feature must never do.
+       */
       method: 'online',
       amountPaise: booking.payablePaise,
+      discountPaise: discount?.discountPaise ?? 0,
       commissionBpsSnapshot: commissionBps,
       gateway: context.gateway.name,
       gatewayOrderId: order.orderId,
@@ -384,6 +424,29 @@ export class PaymentAmountMismatchError extends Error {
  * The two credits are derived from one subtraction so they cannot fail to add
  * back to the gross — the journal balances by construction, and the database
  * checks it again anyway.
+ *
+ * ## With a coupon
+ *
+ * A platform-funded coupon changes only the **debit** side — what actually
+ * arrived, and who funded the rest:
+ *
+ * ```
+ *   debit  gateway_cash        gross − discount   (what the customer paid)
+ *   debit  marketing_discount  discount           (what the platform funded)
+ *   credit provider_payable    gross − cut        (unchanged — see below)
+ *   credit platform_revenue    cut                (unchanged)
+ * ```
+ *
+ * Both credits are computed from the **pre-discount gross**, so the technician
+ * is owed exactly what they would have been owed with no coupon at all. That is
+ * the single rule this feature exists to keep: the discount comes out of the
+ * platform's margin, never out of somebody's earnings. `marketing_discount` is
+ * an expense account, so the books balance and the cost is visible as a number
+ * rather than merely as revenue that came in lower than expected.
+ *
+ * Note the platform's net on a generous coupon can be negative — a discount
+ * larger than our commission is a real marketing loss, correctly recorded. That
+ * is precisely why `maxDiscountPaise` is mandatory.
  */
 export async function capturePayment(
   deps: PaymentDeps,
@@ -404,10 +467,18 @@ export async function capturePayment(
     return;
   }
 
-  // The gateway must agree with the frozen payable to the paisa. A mismatch is
-  // not something to reconcile automatically — it parks for ops.
-  if (input.amountPaise !== payment.amountPaise) {
-    throw new PaymentAmountMismatchError(payment.amountPaise, input.amountPaise);
+  /**
+   * The gateway must agree to the paisa with what we asked it to collect.
+   *
+   * That is the **discounted** figure, not the frozen payable: the order was
+   * created for `amountPaise − discountPaise`, so comparing against the gross
+   * would park every couponed payment as a mismatch. A genuine mismatch still
+   * parks for ops rather than being reconciled automatically.
+   */
+  const chargedPaise = payment.amountPaise - payment.discountPaise;
+
+  if (input.amountPaise !== chargedPaise) {
+    throw new PaymentAmountMismatchError(chargedPaise, input.amountPaise);
   }
 
   const outcome = applyPaymentEvent(payment.status as PaymentStatusName, 'captured');
@@ -432,14 +503,36 @@ export async function capturePayment(
       journalType: 'payment_captured',
       bookingId: payment.bookingId,
       paymentId: payment.id,
-      memo: `online capture ${split.grossPaise}p, commission ${split.commissionPaise}p`,
+      memo:
+        payment.discountPaise > 0
+          ? `online capture ${chargedPaise}p (${split.grossPaise}p less ${payment.discountPaise}p coupon, platform-funded), commission ${split.commissionPaise}p`
+          : `online capture ${split.grossPaise}p, commission ${split.commissionPaise}p`,
       entries: [
+        // What actually arrived at the gateway.
         {
           accountType: 'gateway_cash',
           ownerType: 'platform',
           direction: 'debit',
-          amountPaise: split.grossPaise,
+          amountPaise: chargedPaise,
         },
+        /**
+         * The part of the bill the platform paid on the customer's behalf.
+         *
+         * An expense, debited, so the two credits below can stay at their
+         * pre-discount values and the journal still balances. Omitted entirely
+         * when there is no coupon, so the overwhelming majority of journals are
+         * byte-identical to what Phase 8 posted.
+         */
+        ...(payment.discountPaise > 0
+          ? ([
+              {
+                accountType: 'marketing_discount' as const,
+                ownerType: 'platform' as const,
+                direction: 'debit' as const,
+                amountPaise: payment.discountPaise,
+              },
+            ] as const)
+          : []),
         ...(split.providerPaise > 0
           ? ([
               {
@@ -471,7 +564,11 @@ export async function capturePayment(
         aggregateId: payment.bookingId,
         payload: {
           paymentId: payment.id,
+          // The gross, so a consumer reading this sees the bill that was agreed.
           amountPaise: split.grossPaise,
+          // What the customer actually paid, and who funded the difference.
+          chargedPaise,
+          discountPaise: payment.discountPaise,
           commissionPaise: split.commissionPaise,
           providerPaise: split.providerPaise,
         } satisfies Prisma.InputJsonValue,
@@ -568,11 +665,28 @@ export async function recordCashCollected(
 
   try {
     const payment = await context.prisma.$transaction(async (tx) => {
+      /**
+       * A coupon cannot survive the switch to cash. Enforced here, server-side.
+       *
+       * The discount is funded out of our commission, which only works while the
+       * money passes through us. On cash the technician hands over the
+       * discounted amount themselves while commission is computed on the full
+       * price — so honouring the coupon would take it straight out of their
+       * earnings, which is the one thing this feature must never do.
+       *
+       * Dropping the redemption returns the coupon to the campaign's budget and
+       * to this customer's own allowance: they did not use it, so they keep it.
+       * The customer is told, because a discount that silently disappears from a
+       * bill is how somebody ends up paying more than the screen last showed.
+       */
+      const dropped = await coupons.dropCouponForCash(tx, bookingId);
+
       const created = await tx.payment.create({
         data: {
           bookingId,
           purpose: 'final_bill',
           method: 'cash',
+          // The full bill. Cash is always collected at the pre-discount amount.
           amountPaise: booking.payablePaise,
           commissionBpsSnapshot: commissionBps,
           // Cash is captured the moment it is handed over. There is no webhook
@@ -624,6 +738,9 @@ export async function recordCashCollected(
           paymentId: created.id,
           amountPaise: split.grossPaise,
           commissionPaise: split.commissionPaise,
+          // Present only when a coupon was dropped, so the customer's message
+          // can say why the amount is higher than the screen last showed.
+          couponDropped: dropped ? { code: dropped.code, discountPaise: dropped.discountPaise } : null,
           note: note ?? null,
         },
       });

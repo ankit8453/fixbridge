@@ -299,6 +299,34 @@ export interface BookingAddressSnapshot {
   lng: number;
 }
 
+/**
+ * The other party on a booking — the technician, from the customer's side.
+ *
+ * Extracted from an inline type on `BookingDetail` when the photo was added, so
+ * the privacy rules that govern these fields have somewhere to be written down.
+ * Every field here is progressively revealed by the API rather than always
+ * present: what a customer may see depends on how far the booking has got.
+ */
+export interface BookingCounterpart {
+  name: string | null;
+  /** Masked until the booking is accepted. */
+  phone: string | null;
+  phoneRevealed: boolean;
+  /**
+   * A short-lived signed URL for the technician's profile photo.
+   *
+   * Null unless the booking is **accepted or later** AND ops **approved** the
+   * photo — the API applies both gates and simply omits the URL otherwise, so
+   * this is never a value the client has to decide whether to trust. It is not a
+   * KYC document: those are private and never leave the ops console.
+   *
+   * Expect null often — no photo uploaded, or one still awaiting review — which
+   * is why every render site falls back to initials rather than treating a
+   * missing photo as an error.
+   */
+  photoUrl: string | null;
+}
+
 export interface BookingDetail {
   id: string;
   status: BookingStatus;
@@ -313,7 +341,7 @@ export interface BookingDetail {
   payablePaise: number | null;
   payable: PayableView | null;
   address: BookingAddressSnapshot | null;
-  counterpart: { name: string | null; phone: string | null; phoneRevealed: boolean };
+  counterpart: BookingCounterpart;
   /** Customer only, from ACCEPTED. */
   startOtp: string | null;
   /** Customer only, from IN_PROGRESS. */

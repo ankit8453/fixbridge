@@ -171,7 +171,9 @@
       "cancelNoteLabel": "Add details (optional)",
       "cancelNoteRequired": "A note is required for \"Other\".",
       "confirmCancel": "Yes, cancel",
-      "raiseComplaint": "Raise a complaint"
+      "raiseComplaint": "Raise a complaint",
+      "photoVerifyHint": "Check the photo and name before sharing your code",
+      "photoCaption": "Your technician for this job"
     },
     "quoteStatus": {
       "sent": "Awaiting decision",

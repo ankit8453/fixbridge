@@ -171,7 +171,9 @@
       "cancelNoteLabel": "और बताएं (वैकल्पिक)",
       "cancelNoteRequired": "\"अन्य\" चुनने पर वजह लिखना ज़रूरी है।",
       "confirmCancel": "हां, रद्द करें",
-      "raiseComplaint": "शिकायत दर्ज करें"
+      "raiseComplaint": "शिकायत दर्ज करें",
+      "photoVerifyHint": "कोड बताने से पहले फ़ोटो और नाम मिला लें",
+      "photoCaption": "इस काम के लिए आपके तकनीशियन"
     },
     "quoteStatus": {
       "sent": "फैसले का इंतज़ार",

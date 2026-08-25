@@ -121,6 +121,38 @@ export interface CategoryNode {
 /* Verification — apps/api/src/modules/verification/types.ts                  */
 /* -------------------------------------------------------------------------- */
 
+/* -------------------------------------------------------------------------- */
+/* Profile photo                                                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Where the technician's public-facing photo stands with ops.
+ *
+ * Not a document status — this is a separate store from KYC with the opposite
+ * privacy posture. A KYC document is evidence only a reviewer sees; this is the
+ * one file a customer is meant to see, and `approved` is what lets them.
+ */
+export type ProfilePhotoStatus = 'pending' | 'approved' | 'rejected';
+
+export interface ProfilePhoto {
+  status: ProfilePhotoStatus;
+  /**
+   * Short-lived signed URL. Present in every status, because the technician
+   * needs to see the photo ops refused in order to know what to replace.
+   */
+  url: string;
+  uploadedAt: string | null;
+  reviewedAt: string | null;
+  /** Ops' reason, verbatim. Only ever set when the status is `rejected`. */
+  rejectionNote: string | null;
+}
+
+export interface PhotoUploadUrlResponse {
+  photoId: string;
+  upload: { url: string; requiredHeaders: Record<string, string>; expiresInSeconds: number };
+  message: string;
+}
+
 export type VerificationDocStatus = 'awaiting_upload' | 'uploaded' | 'rejected';
 
 export interface VerificationDocumentResponse {

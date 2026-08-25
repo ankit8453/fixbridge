@@ -7,6 +7,7 @@ import { enforceSearchRateLimit } from '../search/service';
 import { bookingQuotationRouter } from '../quotations/routes';
 import { declineWorkSchema } from '../quotations/types';
 import { bookingPaymentRouter } from '../payments/routes';
+import { bookingCouponRouter } from '../coupons/routes';
 import { bookingReviewRouter } from '../reviews/routes';
 import { bookingComplaintRouter } from '../complaints/routes';
 import * as service from './service';
@@ -39,6 +40,9 @@ router.use(authenticate);
 // booking, mounted before the `/:bookingId` routes so the more specific path wins.
 router.use('/:bookingId/quotations', bookingQuotationRouter);
 router.use('/:bookingId/payments', bookingPaymentRouter);
+// A coupon reduces what this booking's payment collects, so it hangs off the
+// booking too — and is refused outright once that payment exists.
+router.use('/:bookingId/coupon', bookingCouponRouter);
 router.use('/:bookingId/reviews', bookingReviewRouter);
 router.use('/:bookingId/complaints', bookingComplaintRouter);
 

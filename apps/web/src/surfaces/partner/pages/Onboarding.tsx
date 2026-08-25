@@ -16,6 +16,7 @@ import { ChecklistCard } from '../components/ChecklistCard';
 import { DocumentUploader } from '../components/DocumentUploader';
 import { LocationForm } from '../components/LocationForm';
 import { PriceCardsEditor } from '../components/PriceCardsEditor';
+import { ProfilePhotoUploader } from '../components/ProfilePhotoUploader';
 import { ProfileBasicsForm } from '../components/ProfileBasicsForm';
 import { SkillsPicker } from '../components/SkillsPicker';
 import { fetchMyProfile } from '../lib/api';
@@ -106,20 +107,46 @@ export default function Onboarding() {
                   description={t('partner.onboarding.photoHint')}
                   action={<SectionIcon icon={Camera} />}
                 >
-                  <div className="flex max-w-2xl flex-col gap-3">
-                    <DocumentUploader
-                      docType="photo"
-                      label={t('partner.onboarding.photoUploadLabel')}
-                      onUploaded={() =>
-                        queryClient.invalidateQueries({ queryKey: partnerKeys.profile })
-                      }
-                    />
-                    {hasPhoto ? (
-                      <p className="inline-flex items-center gap-1.5 text-sm font-medium text-success">
-                        <CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={2.25} />
-                        {t('partner.onboarding.photoOnFile')}
+                  {/*
+                    Two photos, deliberately, because they are two different
+                    things and collapsing them is the mistake this feature
+                    exists to avoid.
+
+                    The first is the **public** one: the face a customer checks
+                    against the person at their door. It is moderated, and its
+                    state is shown, because until ops approves it no customer
+                    sees it.
+
+                    The second is the **KYC** one: private evidence for a
+                    reviewer, never served to a customer, and what the
+                    completeness score's `photoDocument` item actually counts.
+                    Removing it would quietly cost the technician those points
+                    with no way to earn them back.
+                  */}
+                  <div className="flex max-w-2xl flex-col gap-6">
+                    <ProfilePhotoUploader displayName={profile.displayName} />
+
+                    <div className="border-t border-slate-200 pt-5">
+                      <p className="mb-2.5 text-sm font-medium text-slate-700">
+                        {t('partner.photo.kycHeading')}
                       </p>
-                    ) : null}
+                      <p className="mb-3 text-xs text-slate-500">{t('partner.photo.kycHint')}</p>
+
+                      <DocumentUploader
+                        docType="photo"
+                        label={t('partner.onboarding.photoUploadLabel')}
+                        onUploaded={() =>
+                          queryClient.invalidateQueries({ queryKey: partnerKeys.profile })
+                        }
+                      />
+
+                      {hasPhoto ? (
+                        <p className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-success">
+                          <CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={2.25} />
+                          {t('partner.onboarding.photoOnFile')}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
                 </Panel>
               </div>

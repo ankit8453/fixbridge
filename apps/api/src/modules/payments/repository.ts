@@ -88,7 +88,10 @@ export interface CreatePaymentInput {
   bookingId: string;
   purpose: PaymentPurpose;
   method: 'online' | 'cash';
+  /** The pre-discount bill. Commission and payout are both computed from it. */
   amountPaise: number;
+  /** What a coupon took off, funded by the platform. Zero on nearly every row. */
+  discountPaise?: number;
   commissionBpsSnapshot: number;
   gateway?: 'fake' | 'razorpay' | null;
   gatewayOrderId?: string | null;
@@ -101,6 +104,7 @@ export function createPayment(prisma: PrismaClient, input: CreatePaymentInput): 
       purpose: input.purpose,
       method: input.method,
       amountPaise: input.amountPaise,
+      discountPaise: input.discountPaise ?? 0,
       commissionBpsSnapshot: input.commissionBpsSnapshot,
       gateway: input.gateway ?? null,
       gatewayOrderId: input.gatewayOrderId ?? null,

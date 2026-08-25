@@ -26,6 +26,8 @@ import { router as complaintsRouter, opsRouter as complaintsOpsRouter } from './
 import { router as trustRouter, opsRouter as trustOpsRouter } from './trust/routes';
 import { router as notificationsRouter } from './notifications/routes';
 import { router as adminRouter } from './admin/routes';
+// `bookingCouponRouter` is mounted by the bookings router, alongside payments.
+import { opsRouter as couponsOpsRouter } from './coupons/routes';
 
 export const API_PREFIX = '/api/v1';
 
@@ -77,5 +79,7 @@ export function registerModuleRoutes(app: Express): void {
   app.use(`${API_PREFIX}/admin/complaints`, complaintsOpsRouter);
   app.use(`${API_PREFIX}/admin/reviews`, reviewsOpsRouter);
   app.use(`${API_PREFIX}/admin/trust`, trustOpsRouter);
+  // Coupons: money config, so the mutations are admin-only inside the router.
+  app.use(`${API_PREFIX}/admin/coupons`, couponsOpsRouter);
   app.use(`${API_PREFIX}/admin`, adminRouter);
 }

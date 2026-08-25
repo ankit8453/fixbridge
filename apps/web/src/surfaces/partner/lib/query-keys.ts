@@ -9,6 +9,15 @@
  */
 export const partnerKeys = {
   profile: ['partner', 'profile'] as const,
+  /**
+   * The profile photo is its own key rather than part of `profile`.
+   *
+   * It carries a short-lived signed URL, so it has a much shorter useful life
+   * than the rest of the profile — folding it in would mean either re-fetching
+   * everything to refresh a URL, or serving an expired one from a cache entry
+   * that still looks fresh.
+   */
+  profilePhoto: ['partner', 'profile', 'photo'] as const,
   categories: ['partner', 'categories'] as const,
   verificationCases: ['partner', 'verification', 'cases'] as const,
   bookings: (side: 'provider') => ['partner', 'bookings', side] as const,

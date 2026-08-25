@@ -1,9 +1,20 @@
+import { useState } from 'react';
+
 /**
- * A circular avatar — a photo when there is one (verified providers get a
- * profile photo through the KYC flow), initials on a brand-tinted
+ * A circular avatar — a photo when there is one, initials on a brand-tinted
  * background otherwise. Never a broken-image icon: this app's audience is on
  * patchy 4G, where an image failing to load is the common case, not the
  * exception.
+ *
+ * The photo is a technician's **ops-approved profile photo**, which is a
+ * separate thing from the `photo` document in the KYC store — that one is
+ * private evidence for a reviewer and is never served to a customer. See
+ * `apps/api/src/modules/providers/profile-photo.ts`.
+ *
+ * `src` is typically a short-lived signed URL, which is exactly why the failure
+ * path below is not theoretical: a URL that has expired, or a request that
+ * failed on a weak connection, falls back to initials rather than leaving a
+ * broken image where a person's face should be.
  */
 export function Avatar({
   name,
@@ -14,6 +25,17 @@ export function Avatar({
   src?: string | null;
   size?: number;
 }) {
+  /**
+   * Which `src` failed, rather than a bare "it failed" boolean.
+   *
+   * A boolean would latch: one expired URL would pin this avatar to initials for
+   * as long as it stayed mounted, even after a fresh, working URL arrived on the
+   * next refetch — and these URLs are short-lived, so that refetch is routine.
+   * Recording the failing URL instead means a new `src` is always given a real
+   * attempt, with no effect and no key juggling by the caller.
+   */
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+
   const initials = (name ?? '')
     .trim()
     .split(/\s+/)
@@ -21,7 +43,7 @@ export function Avatar({
     .map((part) => part.charAt(0).toUpperCase())
     .join('');
 
-  if (src) {
+  if (src && failedSrc !== src) {
     return (
       <img
         src={src}
@@ -30,6 +52,7 @@ export function Avatar({
         height={size}
         className="shrink-0 rounded-full object-cover"
         style={{ width: size, height: size }}
+        onError={() => setFailedSrc(src)}
       />
     );
   }
