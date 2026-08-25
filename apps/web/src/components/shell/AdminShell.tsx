@@ -75,9 +75,11 @@ export function AdminShell({
             />
             {!collapsed ? <span className="truncate">{item.label}</span> : null}
             {!collapsed && item.badge ? (
-              <span className={`ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-semibold ${
-                active ? 'bg-brand text-brand-foreground' : 'bg-slate-200/60 text-slate-700'
-              }`}>
+              <span
+                className={`ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-semibold ${
+                  active ? 'bg-brand text-brand-foreground' : 'bg-slate-200/60 text-slate-700'
+                }`}
+              >
                 {item.badge}
               </span>
             ) : null}
@@ -98,7 +100,9 @@ export function AdminShell({
         <div className="flex min-h-touch items-center gap-2 px-5 py-4 border-b border-slate-100">
           <BrandLogo size={28} />
           {!collapsed ? (
-            <span className="truncate text-sm font-bold text-slate-800 tracking-tight">{APP_NAME}</span>
+            <span className="truncate text-sm font-bold text-slate-800 tracking-tight">
+              {APP_NAME}
+            </span>
           ) : null}
         </div>
         {nav}

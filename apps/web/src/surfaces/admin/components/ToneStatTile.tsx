@@ -17,9 +17,11 @@ import { Link } from 'react-router-dom';
 type Tone = 'neutral' | 'warn' | 'alert';
 
 const TONES: Record<Tone, string> = {
-  neutral: 'border-slate-200/60 border-l-slate-300 hover:border-slate-300/80 bg-white border-l-4 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.03)]',
+  neutral:
+    'border-slate-200/60 border-l-slate-300 hover:border-slate-300/80 bg-white border-l-4 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.03)]',
   warn: 'border-slate-200/60 border-l-amber-500 hover:border-slate-300/80 bg-white border-l-4 shadow-[0_4px_20px_-4px_rgba(245,158,11,0.06)]',
-  alert: 'border-slate-200/60 border-l-red-500 hover:border-slate-300/80 bg-white border-l-4 shadow-[0_4px_20px_-4px_rgba(239,68,68,0.06)]',
+  alert:
+    'border-slate-200/60 border-l-red-500 hover:border-slate-300/80 bg-white border-l-4 shadow-[0_4px_20px_-4px_rgba(239,68,68,0.06)]',
 };
 
 export function ToneStatTile({
@@ -39,8 +41,12 @@ export function ToneStatTile({
   const body = (
     <>
       <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</div>
-      <div className="mt-1 text-2xl font-extrabold tracking-tight text-slate-800 tabular-nums">{value}</div>
-      {hint ? <div className="mt-1.5 text-xs font-medium text-slate-400 leading-normal">{hint}</div> : null}
+      <div className="mt-1 text-2xl font-extrabold tracking-tight text-slate-800 tabular-nums">
+        {value}
+      </div>
+      {hint ? (
+        <div className="mt-1.5 text-xs font-medium text-slate-400 leading-normal">{hint}</div>
+      ) : null}
     </>
   );
 

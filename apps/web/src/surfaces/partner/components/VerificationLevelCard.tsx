@@ -209,8 +209,9 @@ function Level3Form({ onSubmitted }: { onSubmitted: (payload: unknown) => void }
 
   const normalizedPhones = refs.map((reference) => normalizedReferencePhone(reference.phone));
   const canSubmit =
-    refs.every((reference, index) => reference.name.trim().length >= 2 && normalizedPhones[index]) &&
-    new Set(normalizedPhones).size === refs.length;
+    refs.every(
+      (reference, index) => reference.name.trim().length >= 2 && normalizedPhones[index],
+    ) && new Set(normalizedPhones).size === refs.length;
 
   return (
     <div className="flex flex-col gap-4">

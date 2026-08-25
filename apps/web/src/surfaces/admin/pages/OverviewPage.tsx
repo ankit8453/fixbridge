@@ -95,7 +95,13 @@ function GMVChart({ today, g7d, g30d }: { today: number; g7d: number; g30d: numb
         </div>
 
         <div className="ml-12 h-full">
-          <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="overflow-visible">
+          <svg
+            width="100%"
+            height="100%"
+            viewBox={`0 0 ${width} ${height}`}
+            preserveAspectRatio="none"
+            className="overflow-visible"
+          >
             <defs>
               <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="var(--color-brand-primary)" stopOpacity="0.18" />
@@ -118,7 +124,13 @@ function GMVChart({ today, g7d, g30d }: { today: number; g7d: number; g30d: numb
               );
             })}
             <path d={areaPath} fill="url(#areaGradient)" />
-            <path d={linePath} fill="none" stroke="var(--color-brand-primary)" strokeWidth="3" strokeLinecap="round" />
+            <path
+              d={linePath}
+              fill="none"
+              stroke="var(--color-brand-primary)"
+              strokeWidth="3"
+              strokeLinecap="round"
+            />
             {coords.map((c, idx) => (
               <g key={idx}>
                 <circle
@@ -189,17 +201,24 @@ function DonutChart({ data }: { data: { label: string; value: number; color: str
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
           <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{total}</span>
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total</span>
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            Total
+          </span>
         </div>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-xs w-full">
-        {data.filter((item) => item.value > 0).map((item, idx) => (
-          <div key={idx} className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-            <span className="text-slate-600 truncate font-semibold">{item.label}</span>
-            <span className="ml-auto font-bold text-slate-800 tabular-nums">{item.value}</span>
-          </div>
-        ))}
+        {data
+          .filter((item) => item.value > 0)
+          .map((item, idx) => (
+            <div key={idx} className="flex items-center gap-2">
+              <span
+                className="w-2.5 h-2.5 rounded-full shrink-0"
+                style={{ backgroundColor: item.color }}
+              />
+              <span className="text-slate-600 truncate font-semibold">{item.label}</span>
+              <span className="ml-auto font-bold text-slate-800 tabular-nums">{item.value}</span>
+            </div>
+          ))}
       </div>
     </div>
   );
@@ -286,9 +305,13 @@ function Summary({ summary }: { summary: AdminSummary }) {
     let color = '#94a3b8';
     if (/failed|cancelled|suspended|blocked|severe|expired|parked/i.test(status)) {
       color = '#f87171';
-    } else if (/passed|paid|captured|resolved|completed|settled|active|published|work_done/i.test(status)) {
+    } else if (
+      /passed|paid|captured|resolved|completed|settled|active|published|work_done/i.test(status)
+    ) {
       color = '#34d399';
-    } else if (/pending|submitted|in_review|needs_info|queued|draft|held|processing|requested/i.test(status)) {
+    } else if (
+      /pending|submitted|in_review|needs_info|queued|draft|held|processing|requested/i.test(status)
+    ) {
       color = '#60a5fa';
     } else if (/accepted|en_route|arrived|in_progress/i.test(status)) {
       color = '#818cf8';
@@ -304,7 +327,9 @@ function Summary({ summary }: { summary: AdminSummary }) {
     <div className="space-y-6">
       {/* Queues grid */}
       <section>
-        <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">Attention Queues</h3>
+        <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+          Attention Queues
+        </h3>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {tiles.map((tile) => (
             <ToneStatTile key={tile.label} {...tile} />
@@ -320,7 +345,9 @@ function Summary({ summary }: { summary: AdminSummary }) {
         <Card className="lg:col-span-1 !p-5" title="Today's Booking Allocation">
           {bookingData.length === 0 ? (
             <div className="flex h-[230px] items-center justify-center">
-              <p className="text-sm text-slate-400 font-medium">No bookings in the last 24 hours.</p>
+              <p className="text-sm text-slate-400 font-medium">
+                No bookings in the last 24 hours.
+              </p>
             </div>
           ) : (
             <DonutChart data={bookingData} />
@@ -330,7 +357,9 @@ function Summary({ summary }: { summary: AdminSummary }) {
 
       {/* Money grid */}
       <section>
-        <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">Financial Metrics</h3>
+        <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+          Financial Metrics
+        </h3>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <ToneStatTile label="GMV today" value={formatPaise(money.gmvTodayPaise)} />
           <ToneStatTile label="GMV 7 days" value={formatPaise(money.gmv7dPaise)} />
@@ -357,7 +386,9 @@ function Summary({ summary }: { summary: AdminSummary }) {
       </section>
 
       <div className="flex items-center justify-between text-xs text-slate-400 font-medium pt-4 border-t border-slate-100">
-        <p>Generated <Timestamp value={summary.generatedAt} />.</p>
+        <p>
+          Generated <Timestamp value={summary.generatedAt} />.
+        </p>
         <p>Real-time data — cached disabled.</p>
       </div>
     </div>

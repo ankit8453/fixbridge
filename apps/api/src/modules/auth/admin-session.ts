@@ -81,7 +81,6 @@ export interface AdminSession {
   };
 }
 
-
 /** Both shapes of the same identity — see `AdminSession.user`. */
 function identityFor(
   admin: { id: string; email: string; name: string; role: 'admin' | 'subadmin' },

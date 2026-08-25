@@ -122,7 +122,7 @@ router.post(
     const admin = await adminLogin.adminLogin(
       context,
       { email: input.email, password: input.password },
-      { ip: req.ip ?? 'unknown' }
+      { ip: req.ip ?? 'unknown' },
     );
 
     /**

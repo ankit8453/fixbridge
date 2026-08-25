@@ -134,7 +134,7 @@ export async function sendQuotation(
       'QUOTATION_WRONG_ACTOR',
       'Only the assigned technician may send a quotation',
       {
-      messageKey: 'errors.quotations.providerOnly',
+        messageKey: 'errors.quotations.providerOnly',
       },
     );
   }

@@ -58,7 +58,7 @@ export default function AdminLogin() {
     <div className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-4 py-10">
       <Card title={t('auth.signInAs', { surface: t('nav.admin') })}>
         <form onSubmit={(event) => void submitLogin(event)} className="flex flex-col gap-4">
-          <Field label="Email">
+          <Field label={t('auth.admin.emailLabel')}>
             {(id) => (
               <TextInput
                 id={id}

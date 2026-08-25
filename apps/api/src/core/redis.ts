@@ -9,9 +9,15 @@ class MemoryRedisMock {
   private map = new Map<string, string>();
   private sets = new Map<string, Set<string>>();
 
-  on() { return this; }
-  once() { return this; }
-  quit() { return Promise.resolve('OK'); }
+  on() {
+    return this;
+  }
+  once() {
+    return this;
+  }
+  quit() {
+    return Promise.resolve('OK');
+  }
   disconnect() {}
 
   async set(key: string, val: string, px?: string, ttl?: number, nx?: string) {
@@ -66,6 +72,30 @@ class MemoryRedisMock {
   }
 }
 
+/**
+ * Narrowing helpers for the proxy below.
+ *
+ * ioredis surfaces errors as `unknown` to a strict consumer, and the two things
+ * this file cares about -- the message and a `code` -- both need a check before
+ * they can be read. Doing it in one place keeps the proxy readable and avoids
+ * the `any` casts that were here before, which would also have silently
+ * swallowed a genuinely different error shape.
+ */
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** True for the two failures that mean "Redis is gone", not "that command was wrong". */
+function isConnectionLost(error: unknown): boolean {
+  const code = (error as { code?: unknown } | null)?.code;
+  return code === 'ECONNREFUSED' || messageOf(error).includes('closed');
+}
+
+/** Reads a method off the in-memory mock without widening the whole object to any. */
+function mockMethod(mock: object, prop: string | symbol): (...args: unknown[]) => unknown {
+  return (mock as Record<string | symbol, (...args: unknown[]) => unknown>)[prop];
+}
+
 export function createRedisClient(config: AppConfig, logger: AppLogger): Redis {
   let useMock = false;
   const mock = new MemoryRedisMock();
@@ -89,38 +119,36 @@ export function createRedisClient(config: AppConfig, logger: AppLogger): Redis {
     logger.info('redis: connection closed');
     useMock = true;
   });
-  client.on('error', (error: any) => {
-    logger.warn({ err: error.message }, 'redis: connection error');
-    if (error.code === 'ECONNREFUSED' || error.message.includes('closed')) {
-      useMock = true;
-    }
+  client.on('error', (error: unknown) => {
+    logger.warn({ err: messageOf(error) }, 'redis: connection error');
+    if (isConnectionLost(error)) useMock = true;
   });
 
   return new Proxy(client, {
     get(target, prop, receiver) {
       if (useMock) {
         if (prop in mock) {
-          return (mock as any)[prop].bind(mock);
+          return mockMethod(mock, prop).bind(mock);
         }
       }
       const val = Reflect.get(target, prop, receiver);
       if (typeof val === 'function') {
-        return function (this: any, ...args: any[]) {
+        return function (this: unknown, ...args: unknown[]) {
           if (useMock) {
             if (prop in mock) {
-              return (mock as any)[prop](...args);
+              return mockMethod(mock, prop)(...args);
             }
             return Promise.resolve();
           }
           try {
             const res = val.apply(this || target, args);
             if (res instanceof Promise) {
-              return res.catch((err) => {
-                if (err.message.includes('closed') || err.code === 'ECONNREFUSED') {
+              return res.catch((err: unknown) => {
+                if (isConnectionLost(err)) {
                   logger.warn('redis: command failed, falling back to memory mock');
                   useMock = true;
                   if (prop in mock) {
-                    return (mock as any)[prop](...args);
+                    return mockMethod(mock, prop)(...args);
                   }
                   return Promise.resolve();
                 }
@@ -128,11 +156,11 @@ export function createRedisClient(config: AppConfig, logger: AppLogger): Redis {
               });
             }
             return res;
-          } catch (err: any) {
-            if (err.message.includes('closed') || err.code === 'ECONNREFUSED') {
+          } catch (err: unknown) {
+            if (isConnectionLost(err)) {
               useMock = true;
               if (prop in mock) {
-                return (mock as any)[prop](...args);
+                return mockMethod(mock, prop)(...args);
               }
               return Promise.resolve();
             }

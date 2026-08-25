@@ -293,9 +293,14 @@ export async function createBooking(
   }
 
   if (slot.providerId === customerId) {
-    throw new AppError(400, 'SELF_BOOKING_NOT_ALLOWED', 'You cannot book your own technician profile', {
-      messageKey: 'errors.bookings.selfBookingNotAllowed',
-    });
+    throw new AppError(
+      400,
+      'SELF_BOOKING_NOT_ALLOWED',
+      'You cannot book your own technician profile',
+      {
+        messageKey: 'errors.bookings.selfBookingNotAllowed',
+      },
+    );
   }
 
   if (!provider.skills.some((skill) => skill.categoryId === input.categoryId)) {

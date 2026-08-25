@@ -136,7 +136,7 @@ async function makeTechnician(
   });
 
   await ctx.prisma.providerProfile.update({
-    where: { userId: userId },
+    where: { userId },
     data: { baseLat: WRIGHT_TOWN.lat, baseLng: WRIGHT_TOWN.lng },
   });
 

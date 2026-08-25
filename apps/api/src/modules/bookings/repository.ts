@@ -8,18 +8,52 @@ import type { PlannedSlot } from './slot-plan';
 
 export type BookingWithEvents = Booking & { events: BookingEvent[] };
 
-/** Postgres raises this when the exclusion constraint refuses an overlap. */
+/**
+ * Raised by a GiST exclusion constraint. Kept because the guard reverts to one
+ * on any host with btree_gist -- see the note in core/geo-sql.ts.
+ */
 export const EXCLUSION_VIOLATION = '23P01';
 
+/** Raised by the partial unique index that replaced it on this host. */
+export const UNIQUE_VIOLATION = '23505';
+
+/**
+ * Both shapes of "somebody else already has that slot".
+ *
+ * The guard used to be an exclusion constraint raising 23P01 with the index
+ * name in the message. It is now a partial unique index, which raises 23505 --
+ * and Postgres names the KEY COLUMNS rather than the index, so the message
+ * reads `Key (provider_id, starts_at)=(...) already exists` and never contains
+ * `slots_no_double_booking` at all.
+ *
+ * Matching only the old shape meant a real double-booking stopped being a
+ * clean 409 and became a 500. It stayed hidden because `service.ts` takes a
+ * row lock before inserting, so the constraint is a backstop that rarely
+ * fires -- which is exactly why it has to be recognised when it does.
+ *
+ * Both codes are matched so this keeps working whichever guard is in place.
+ */
 export function isDoubleBookingError(error: unknown): boolean {
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    // Prisma surfaces exclusion violations as P2010 with the driver code inside.
+    // Prisma surfaces raw-SQL driver errors as P2010 with the code inside meta.
     const meta = error.meta as { code?: string } | undefined;
-    if (meta?.code === EXCLUSION_VIOLATION) return true;
+    if (meta?.code === EXCLUSION_VIOLATION || meta?.code === UNIQUE_VIOLATION) return true;
+    // A Prisma-level unique violation (not raw SQL) arrives as P2002.
+    if (error.code === 'P2002') {
+      const target = (error.meta as { target?: string[] | string } | undefined)?.target;
+      const fields = Array.isArray(target) ? target.join(',') : String(target ?? '');
+      if (fields.includes('provider_id') || fields.includes('providerId')) return true;
+    }
   }
 
   const message = error instanceof Error ? error.message : String(error);
-  return message.includes('slots_no_double_booking') || message.includes(EXCLUSION_VIOLATION);
+  return (
+    message.includes('slots_no_double_booking') ||
+    message.includes(EXCLUSION_VIOLATION) ||
+    // The key-columns form the unique index actually produces.
+    (message.includes(UNIQUE_VIOLATION) && message.includes('provider_id')) ||
+    /Key (provider_id, starts_at)/.test(message)
+  );
 }
 
 /* -------------------------------------------------------------------------- */

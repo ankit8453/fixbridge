@@ -2120,6 +2120,37 @@ CREATE INDEX "provider_verification_summaries_badge_provider_idx"
   ON "provider_verification_summaries" ("badge", "provider_id");
 
 -- ===========================================================================
+-- Deferred constraint triggers: the ledger actually has to balance.
+-- ===========================================================================
+--
+-- These were dropped by the migration squash and restored after a test caught
+-- it. Their functions were carried over but never attached, so for a while an
+-- unbalanced journal, a journal with no entries at all, and a payout batch
+-- header disagreeing with its own lines all committed silently. These are the
+-- money-correctness invariants; nothing above them in the stack re-checks.
+--
+-- DEFERRABLE INITIALLY DEFERRED is essential, not decoration. They fire at
+-- COMMIT rather than at statement time, which is what allows a journal and its
+-- entries to be written in one transaction -- checked immediately, a journal
+-- would always be momentarily unbalanced between its first and second entry.
+
+CREATE CONSTRAINT TRIGGER "ledger_entries_must_balance"
+  AFTER INSERT ON "ledger_entries"
+  DEFERRABLE INITIALLY DEFERRED
+  FOR EACH ROW EXECUTE FUNCTION ledger_entry_balance_check();
+
+-- Catches what the entry-side trigger cannot see: a journal with no entries.
+CREATE CONSTRAINT TRIGGER "ledger_journals_must_balance"
+  AFTER INSERT ON "ledger_journals"
+  DEFERRABLE INITIALLY DEFERRED
+  FOR EACH ROW EXECUTE FUNCTION ledger_journal_balance_check();
+
+CREATE CONSTRAINT TRIGGER "payout_batches_totals_match"
+  AFTER INSERT ON "payout_batches"
+  DEFERRABLE INITIALLY DEFERRED
+  FOR EACH ROW EXECUTE FUNCTION payout_batch_totals_match();
+
+-- ===========================================================================
 -- Staff refresh tokens.
 -- ===========================================================================
 --

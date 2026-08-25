@@ -47,15 +47,12 @@
     "wrongSurfaceTitle": "You're signed in, but not here",
     "wrongSurfaceBody": "This account does not have access to this section.",
     "admin": {
-      "loginIdLabel": "Staff ID (phone number)",
       "passwordLabel": "Password",
       "signIn": "Sign in",
-      "otpLabel": "Verification code",
-      "verify": "Verify",
-      "codeSentTo": "Code sent to {{phone}}",
       "registerBlockedTitle": "Admin accounts are not self-service",
       "registerBlockedBody": "Admin accounts are created by an existing admin from the ops console — this keeps a leaked password from being enough, on its own, to grant refund or payout powers. Contact your administrator to be added.",
-      "backToLogin": "Back to sign in"
+      "backToLogin": "Back to sign in",
+      "emailLabel": "Email"
     }
   },
   "notFound": {

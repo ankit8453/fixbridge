@@ -108,10 +108,7 @@ export async function searchProviders(
    * Taking the max of the two is therefore correct whether or not a cap is
    * supplied, and when one is supplied and is smaller, the box tightens.
    */
-  const boxRadiusMetres = Math.max(
-    MAX_SERVICE_RADIUS_METRES,
-    filters.maxDistanceMetres ?? 0,
-  );
+  const boxRadiusMetres = Math.max(MAX_SERVICE_RADIUS_METRES, filters.maxDistanceMetres ?? 0);
 
   const box = boundingBox(PROVIDER_BASE, filters.lat, filters.lng, boxRadiusMetres);
 
