@@ -17,7 +17,11 @@
       "earnings": "Earnings",
       "trust": "Trust",
       "slots": "Hours",
-      "label": "Partner navigation"
+      "label": "Partner navigation",
+      "history": "Job history",
+      "verification": "Verification",
+      "notifications": "Notifications",
+      "profile": "My profile"
     },
     "gate": {
       "title": "Become a partner",
@@ -29,7 +33,10 @@
       "nameHint": "This is what customers will see",
       "namePlaceholder": "e.g. Ramesh Vishwakarma",
       "submit": "Register as a partner",
-      "submitting": "Registering…"
+      "submitting": "Registering…",
+      "formTitle": "Start earning",
+      "formHint": "Takes a minute. You can fill in the rest of your profile afterwards.",
+      "freeNote": "Free to join. You only pay commission on jobs you complete."
     },
     "checklist": {
       "title": "Profile checklist",
@@ -47,7 +54,9 @@
         "bio": "A short bio",
         "yearsExperience": "Years of experience",
         "photoDocument": "A photo of yourself"
-      }
+      },
+      "doneCount": "{{done}} of {{total}} done",
+      "nextUp": "Next:"
     },
     "home": {
       "title": "Partner home",
@@ -58,7 +67,19 @@
       "tileTrust": "Trust score",
       "tileSlots": "Working hours",
       "tileVerification": "Verification",
-      "tileNotifications": "Notifications"
+      "tileNotifications": "Notifications",
+      "greeting": "Hello, {{name}}",
+      "subtitleIncomplete": "Finish the required items below to start appearing in customer searches.",
+      "subtitleLive": "Your profile is live. Keep your prices and hours up to date.",
+      "quickLinks": "Quick links",
+      "statListed": "Search listing",
+      "statListedHintLive": "Customers near you can find you",
+      "statListedHintNot": "Finish the required items to go live",
+      "statCompleteness": "Profile score",
+      "statBadge": "Verification",
+      "statBadgeHint": "{{count}} level(s) passed",
+      "statSkills": "Skills",
+      "statSkillsHint": "{{count}} price(s) set"
     },
     "onboarding": {
       "title": "Complete your profile",
@@ -70,7 +91,13 @@
       "sectionPhoto": "Photo",
       "photoHint": "A clear photo of your face helps customers trust you and adds to your score.",
       "photoUploadLabel": "Upload photo",
-      "photoOnFile": "Photo uploaded"
+      "photoOnFile": "Photo uploaded",
+      "subtitle": "The fuller your profile, the more customers find you.",
+      "sectionBasicsHint": "Your name and a short introduction",
+      "sectionLocationHint": "Where you are based and how far you travel",
+      "sectionSkillsHint": "The work you take on",
+      "sectionPricingHint": "What you charge for each kind of work",
+      "sectionAvailabilityHint": "When customers can book you"
     },
     "basics": {
       "nameLabel": "Name",
@@ -87,10 +114,12 @@
       "notSet": "Location not set yet",
       "radiusLabel": "How far will you travel?",
       "radiusHint": "Jobs beyond this distance will not be shown to you",
-      "radiusValue": "{{km}} km"
+      "radiusValue": "{{km}} km",
+      "setTitle": "Your location is set"
     },
     "skills": {
-      "emptyHint": "Pick every kind of work you actually do — customers search by these"
+      "emptyHint": "Pick every kind of work you actually do — customers search by these",
+      "selectedCount": "{{count}} selected"
     },
     "pricing": {
       "categoryLabel": "For which skill?",
@@ -112,7 +141,9 @@
       "resume": "Resume",
       "inspectionBased": "Quoted after inspection",
       "emptyHint": "No prices added yet",
-      "needSkillFirst": "Add a skill first — a price has to belong to one"
+      "needSkillFirst": "Add a skill first — a price has to belong to one",
+      "addTitle": "Add a new price",
+      "emptyDescription": "Customers see these prices before they book. Add at least one."
     },
     "availability": {
       "presetButton": "Weekday evenings + all of Sunday",
@@ -137,14 +168,17 @@
         "thu": "Thursday",
         "fri": "Friday",
         "sat": "Saturday"
-      }
+      },
+      "presetTitle": "Set your usual week in one tap"
     },
     "upload": {
       "choose": "Choose file",
       "uploading": "Uploading…",
       "done": "Uploaded",
       "badType": "Only JPG, PNG, WEBP or PDF files are accepted",
-      "putFailed": "Upload failed — check your connection and try again"
+      "putFailed": "Upload failed — check your connection and try again",
+      "acceptedTypes": "JPG, PNG, WEBP or PDF",
+      "chooseAnother": "Choose a different file"
     },
     "verification": {
       "title": "Verification center",
@@ -219,7 +253,13 @@
         "passed": "Passed",
         "failed": "Not passed",
         "adapter_result_received": "Automated check completed"
-      }
+      },
+      "subtitle": "Pass all four levels to earn the VERIFIED badge.",
+      "levelLabel": "Level {{n}}",
+      "progressLabel": "Levels passed",
+      "progressCount": "{{passed}} of {{total}}",
+      "needsInfoHint": "We need a little more from you before this can move ahead.",
+      "referencePhoneInvalid": "Enter a valid 10-digit mobile number"
     },
     "jobs": {
       "title": "Jobs",
@@ -243,7 +283,16 @@
         "CANCELLED_BY_CUSTOMER": "Cancelled by customer",
         "CANCELLED_BY_PROVIDER": "Cancelled by you",
         "CLOSED_QUOTE_DECLINED": "Customer declined the price"
-      }
+      },
+      "inboxDescription": "New requests expire on their own — accept the ones you can reach in time.",
+      "emptyInboxHint": "New requests near you will show up here. Keep your working hours up to date so customers can book you.",
+      "historyDescription": "Every job that has finished, been cancelled or expired.",
+      "historyEmptyHint": "Jobs you finish will be listed here with what you earned on each one.",
+      "backToInbox": "Back to jobs",
+      "completedCount": "Jobs completed",
+      "completedHint": "out of {{total}} finished jobs",
+      "lifetimeEarned": "Billed on completed jobs",
+      "lifetimeEarnedHint": "Before commission — see Earnings for payouts"
     },
     "job": {
       "title": "Job details",
@@ -370,7 +419,12 @@
         "payout": "Payout sent to your bank",
         "refund": "A refund was issued",
         "other": "Account adjustment"
-      }
+      },
+      "subtitle": "Your balance, your payouts, and every entry behind them.",
+      "duesTitle": "You owe {{amount}}",
+      "ledgerHint": "Every entry that moved your balance, newest first.",
+      "noLedgerHint": "Once you finish a job, the money movement shows up here.",
+      "noPayoutsHint": "Payouts appear here after the first one is sent to your bank."
     },
     "trust": {
       "title": "Trust score",
@@ -385,7 +439,10 @@
       "nextBandScore": "{{points}} more point(s) needed",
       "componentsTitle": "What makes up your score",
       "noDataYet": "Not enough data yet",
-      "trendTitle": "Recent history"
+      "trendTitle": "Recent history",
+      "subtitle": "How customers and ops see you, and exactly what the number is built from.",
+      "outOf": "out of {{max}}",
+      "componentsHint": "Each factor adds up to its full weight when you are doing well on it."
     },
     "slots": {
       "title": "Working hours",
@@ -393,7 +450,10 @@
       "empty": "No hours in the next 7 days — check your availability settings",
       "blocked": "Blocked",
       "justBlockedTitle": "Just blocked",
-      "undo": "Undo"
+      "undo": "Undo",
+      "legendOpen": "Open",
+      "legendBlocked": "Blocked (chhutti)",
+      "legendBooked": "Booked"
     },
     "notifications": {
       "title": "Notifications",
@@ -404,7 +464,11 @@
         "critical": "Important",
         "normal": "Update",
         "low": "Info"
-      }
+      },
+      "listTitle": "All notifications",
+      "emptyHint": "Job requests, payment updates and messages from ops will show up here.",
+      "unreadCount": "{{count}} unread",
+      "allRead": "You are all caught up"
     }
   }
 }

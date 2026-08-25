@@ -1,7 +1,8 @@
 import { useId, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { CheckCircle2, Loader2, Paperclip, UploadCloud } from 'lucide-react';
 import { useT } from '../../../i18n/useT';
-import { Button, ErrorState } from '../../../components/ui';
+import { ErrorState } from '../../../components/ui';
 import { ApiError } from '../../../lib/api';
 import { confirmUpload, requestUploadUrl } from '../lib/api';
 import type { ProviderDocumentType, VerificationDocumentResponse } from '../lib/types';
@@ -17,6 +18,13 @@ const ALLOWED_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'applica
  * `sizeBytes` is signed into the URL, so a mismatched `Content-Length`
  * (e.g. from a browser that recomputes it) makes storage reject the
  * signature, not just the size.
+ *
+ * Visually it is a dashed drop-zone-shaped button rather than a bare "Choose
+ * file": the whole box is the target, which is a far easier thing to hit with
+ * a thumb than a text-width control, and it leaves room to show the chosen
+ * file, the in-flight state and the failure in the same place the file went
+ * in. The native `<input type="file">` stays the only picker — it is what
+ * opens the camera on Android, which is how most of these documents arrive.
  */
 export function DocumentUploader({
   docType,
@@ -65,11 +73,14 @@ export function DocumentUploader({
     onSuccess: (document) => onUploaded(document),
   });
 
+  const uploaded = mutation.isSuccess;
+
   return (
-    <div className="flex flex-col gap-2">
-      <label htmlFor={inputId} className="text-sm font-medium text-slate-700">
+    <div className="min-w-0">
+      <label htmlFor={inputId} className="mb-1.5 block text-sm font-medium text-slate-700">
         {label}
       </label>
+
       <input
         id={inputId}
         ref={inputRef}
@@ -88,27 +99,69 @@ export function DocumentUploader({
         }}
       />
 
-      <Button
+      <button
         type="button"
-        variant="secondary"
         onClick={() => inputRef.current?.click()}
         disabled={mutation.isPending}
+        className={`flex w-full min-h-touch items-center gap-3 rounded-xl border border-dashed px-4 py-3.5 text-left transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 ${
+          uploaded
+            ? 'border-success/40 bg-success/5'
+            : mutation.isError
+              ? 'border-danger/40 bg-danger/5'
+              : 'border-slate-300 bg-slate-50 hover:border-brand/50 hover:bg-brand/5'
+        }`}
       >
-        {t('partner.upload.choose')}
-      </Button>
+        <span
+          aria-hidden="true"
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+            uploaded ? 'bg-success/10 text-success' : 'bg-white text-brand ring-1 ring-slate-200'
+          }`}
+        >
+          {mutation.isPending ? (
+            <Loader2 className="h-[18px] w-[18px] animate-spin" strokeWidth={2.25} />
+          ) : uploaded ? (
+            <CheckCircle2 className="h-[18px] w-[18px]" strokeWidth={2.25} />
+          ) : (
+            <UploadCloud className="h-[18px] w-[18px]" strokeWidth={2} />
+          )}
+        </span>
 
-      {fileName ? <p className="text-xs text-muted">{fileName}</p> : null}
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium text-slate-900">
+            {mutation.isPending
+              ? t('partner.upload.uploading')
+              : uploaded
+                ? t('partner.upload.done')
+                : fileName
+                  ? t('partner.upload.chooseAnother')
+                  : t('partner.upload.choose')}
+          </span>
+          <span className="mt-0.5 block truncate text-xs text-slate-500">
+            {fileName ?? t('partner.upload.acceptedTypes')}
+          </span>
+        </span>
+      </button>
 
+      {/* An indeterminate bar, not a percentage: the `PUT` goes straight to
+          storage via `fetch`, which reports no progress events, so a number
+          here would be a fiction. */}
       {mutation.isPending ? (
-        <p className="text-sm text-muted">{t('partner.upload.uploading')}</p>
+        <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-slate-100">
+          <div className="h-full w-1/3 animate-pulse rounded-full bg-brand" />
+        </div>
       ) : null}
 
-      {mutation.isSuccess ? (
-        <p className="text-sm font-medium text-green-700">{t('partner.upload.done')}</p>
+      {fileName && !mutation.isPending && !mutation.isError ? (
+        <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
+          <Paperclip className="h-3.5 w-3.5 shrink-0" aria-hidden="true" strokeWidth={2} />
+          <span className="truncate">{fileName}</span>
+        </p>
       ) : null}
 
       {mutation.isError ? (
-        <ErrorState error={mutation.error} onRetry={() => mutation.reset()} />
+        <div className="mt-2">
+          <ErrorState error={mutation.error} onRetry={() => mutation.reset()} />
+        </div>
       ) : null}
     </div>
   );

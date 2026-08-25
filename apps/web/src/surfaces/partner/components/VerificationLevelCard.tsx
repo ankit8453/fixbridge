@@ -1,30 +1,46 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useT } from '../../../i18n/useT';
 import {
-  Badge,
-  Button,
-  Card,
-  ErrorState,
-  Field,
-  Select,
-  TextArea,
-  TextInput,
-} from '../../../components/ui';
+  BadgeCheck,
+  ChevronDown,
+  Clock,
+  MessageSquareWarning,
+  ShieldQuestion,
+  XCircle,
+} from 'lucide-react';
+import type { LucideProps } from 'lucide-react';
+import type { ComponentType } from 'react';
+import { useT } from '../../../i18n/useT';
+import { Button, ErrorState, Field, Select, TextArea, TextInput } from '../../../components/ui';
 import { DocumentUploader } from './DocumentUploader';
+import { StatusPill, type Tone } from './ui';
 import { provideInfo, submitLevel } from '../lib/api';
 import { partnerKeys } from '../lib/query-keys';
 import type { VerificationCaseResponse, VerificationCaseStatus } from '../lib/types';
 
-const STATUS_TONE: Record<
-  VerificationCaseStatus,
-  'neutral' | 'info' | 'warning' | 'success' | 'danger'
-> = {
-  submitted: 'info',
-  in_review: 'info',
+/**
+ * Status → tone, in the partner surface's `Tone` vocabulary.
+ *
+ * This screen decides whether somebody can earn, so the mapping is
+ * deliberately blunt: anything still moving is `brand`, anything asking
+ * something of the technician is `warning`, and only a genuine pass is
+ * `success`. `submitted` and `in_review` share a tone because from this side
+ * of the queue they are the same fact — it is with ops, wait.
+ */
+const STATUS_TONE: Record<VerificationCaseStatus, Tone> = {
+  submitted: 'brand',
+  in_review: 'brand',
   needs_info: 'warning',
   passed: 'success',
   failed: 'danger',
+};
+
+const STATUS_ICON: Record<VerificationCaseStatus, ComponentType<LucideProps>> = {
+  submitted: Clock,
+  in_review: Clock,
+  needs_info: MessageSquareWarning,
+  passed: BadgeCheck,
+  failed: XCircle,
 };
 
 const ID_TYPES = ['aadhaar', 'pan', 'dl', 'voter'] as const;
@@ -46,53 +62,63 @@ function Level0Form({ onSubmitted }: { onSubmitted: (payload: unknown) => void }
     /^\d{4}$/.test(idLast4) && idProofDocumentId !== null && selfieDocumentId !== null;
 
   return (
-    <div className="flex flex-col gap-3">
-      <Field label={t('partner.verification.idTypeLabel')}>
-        {(id) => (
-          <Select
-            id={id}
-            value={idType}
-            onChange={(e) => setIdType(e.target.value as typeof idType)}
-          >
-            {ID_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {t(`partner.verification.idType.${type}`)}
-              </option>
-            ))}
-          </Select>
-        )}
-      </Field>
-      <Field
-        label={t('partner.verification.idLast4Label')}
-        hint={t('partner.verification.idLast4Hint')}
-      >
-        {(id) => (
-          <TextInput
-            id={id}
-            inputMode="numeric"
-            maxLength={4}
-            value={idLast4}
-            onChange={(e) => setIdLast4(e.target.value.replace(/\D/g, ''))}
-          />
-        )}
-      </Field>
-      <DocumentUploader
-        docType="id_proof"
-        label={t('partner.verification.idProofUpload')}
-        onUploaded={(doc) => setIdProofDocumentId(doc.id)}
-      />
-      <DocumentUploader
-        docType="photo"
-        label={t('partner.verification.selfieUpload')}
-        onUploaded={(doc) => setSelfieDocumentId(doc.id)}
-      />
-      <Button
-        variant="primary"
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label={t('partner.verification.idTypeLabel')}>
+          {(id) => (
+            <Select
+              id={id}
+              value={idType}
+              onChange={(e) => setIdType(e.target.value as typeof idType)}
+            >
+              {ID_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {t(`partner.verification.idType.${type}`)}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
+
+        {/* Four digits only, enforced at the input: `maxLength` plus the
+            non-digit strip below mean a full Aadhaar number cannot be held in
+            this state, let alone sent. Never widen this field. */}
+        <Field
+          label={t('partner.verification.idLast4Label')}
+          hint={t('partner.verification.idLast4Hint')}
+        >
+          {(id) => (
+            <TextInput
+              id={id}
+              inputMode="numeric"
+              maxLength={4}
+              value={idLast4}
+              onChange={(e) => setIdLast4(e.target.value.replace(/\D/g, ''))}
+              placeholder="••••"
+              className="tracking-[0.4em] sm:max-w-[10rem]"
+            />
+          )}
+        </Field>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <DocumentUploader
+          docType="id_proof"
+          label={t('partner.verification.idProofUpload')}
+          onUploaded={(doc) => setIdProofDocumentId(doc.id)}
+        />
+        <DocumentUploader
+          docType="photo"
+          label={t('partner.verification.selfieUpload')}
+          onUploaded={(doc) => setSelfieDocumentId(doc.id)}
+        />
+      </div>
+
+      <SubmitRow
         disabled={!canSubmit}
+        label={t('partner.verification.submitLevel')}
         onClick={() => onSubmitted({ idType, idLast4, idProofDocumentId, selfieDocumentId })}
-      >
-        {t('partner.verification.submitLevel')}
-      </Button>
+      />
     </div>
   );
 }
@@ -102,19 +128,21 @@ function Level1Form({ onSubmitted }: { onSubmitted: (payload: unknown) => void }
   const [consent, setConsent] = useState(false);
 
   return (
-    <div className="flex flex-col gap-3">
-      <label className="flex items-start gap-2 text-sm text-slate-700">
+    <div className="flex flex-col gap-4">
+      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3.5 text-sm leading-relaxed text-slate-700 transition-colors hover:border-brand/40 hover:bg-brand/5">
         <input
           type="checkbox"
           checked={consent}
           onChange={(e) => setConsent(e.target.checked)}
-          className="mt-0.5 h-5 w-5 shrink-0"
+          className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded border-slate-300 accent-brand"
         />
         {t('partner.verification.consentText')}
       </label>
-      <Button variant="primary" disabled={!consent} onClick={() => onSubmitted({ consent: true })}>
-        {t('partner.verification.submitLevel')}
-      </Button>
+      <SubmitRow
+        disabled={!consent}
+        label={t('partner.verification.submitLevel')}
+        onClick={() => onSubmitted({ consent: true })}
+      />
     </div>
   );
 }
@@ -137,7 +165,7 @@ function Level2Form({ onSubmitted }: { onSubmitted: (payload: unknown) => void }
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
       <Field label={t('partner.verification.skillRouteLabel')}>
         {(id) => (
           <Select id={id} value={route} onChange={(e) => setRoute(e.target.value as typeof route)}>
@@ -162,6 +190,7 @@ function Level2Form({ onSubmitted }: { onSubmitted: (payload: unknown) => void }
           {(id) => (
             <TextArea
               id={id}
+              rows={4}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               maxLength={1000}
@@ -170,9 +199,11 @@ function Level2Form({ onSubmitted }: { onSubmitted: (payload: unknown) => void }
         </Field>
       )}
 
-      <Button variant="primary" disabled={!canSubmit} onClick={submit}>
-        {t('partner.verification.submitLevel')}
-      </Button>
+      <SubmitRow
+        disabled={!canSubmit}
+        label={t('partner.verification.submitLevel')}
+        onClick={submit}
+      />
     </div>
   );
 }
@@ -215,50 +246,67 @@ function Level3Form({ onSubmitted }: { onSubmitted: (payload: unknown) => void }
 
   return (
     <div className="flex flex-col gap-4">
-      {refs.map((ref, index) => (
-        <div key={index} className="rounded-lg border border-slate-200 p-3">
-          <p className="mb-2 text-sm font-semibold text-slate-700">
-            {t('partner.verification.referenceN', { n: index + 1 })}
-          </p>
-          <div className="flex flex-col gap-2">
-            <TextInput
-              aria-label={t('partner.verification.referenceName')}
-              placeholder={t('partner.verification.referenceName')}
-              value={ref.name}
-              onChange={(e) => update(index as 0 | 1, { name: e.target.value })}
-            />
-            <TextInput
-              aria-label={t('partner.verification.referencePhone')}
-              placeholder={t('partner.verification.referencePhone')}
-              inputMode="tel"
-              value={ref.phone}
-              onChange={(e) => update(index as 0 | 1, { phone: e.target.value })}
-            />
-            <Select
-              aria-label={t('partner.verification.referenceRelationship')}
-              value={ref.relationship}
-              onChange={(e) =>
-                update(index as 0 | 1, {
-                  relationship: e.target.value as ReferenceDraft['relationship'],
-                })
-              }
-            >
-              {REFERENCE_RELATIONSHIPS.map((rel) => (
-                <option key={rel} value={rel}>
-                  {t(`partner.verification.relationship.${rel}`)}
-                </option>
-              ))}
-            </Select>
-          </div>
-        </div>
-      ))}
-      <Button
-        variant="primary"
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {refs.map((ref, index) => {
+          // A phone that has been typed into but does not normalise is the
+          // one failure a technician can actually fix, so it is called out
+          // per-field rather than left implicit in a disabled submit button.
+          const phoneInvalid = ref.phone.trim().length > 0 && !normalizedPhones[index];
+          return (
+            <div key={index} className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {t('partner.verification.referenceN', { n: index + 1 })}
+              </p>
+              <div className="flex flex-col gap-3">
+                <TextInput
+                  aria-label={t('partner.verification.referenceName')}
+                  placeholder={t('partner.verification.referenceName')}
+                  value={ref.name}
+                  onChange={(e) => update(index as 0 | 1, { name: e.target.value })}
+                />
+                <div>
+                  <TextInput
+                    aria-label={t('partner.verification.referencePhone')}
+                    placeholder={t('partner.verification.referencePhone')}
+                    inputMode="tel"
+                    aria-invalid={phoneInvalid || undefined}
+                    value={ref.phone}
+                    onChange={(e) => update(index as 0 | 1, { phone: e.target.value })}
+                    className={
+                      phoneInvalid ? 'border-danger focus:border-danger focus:ring-danger' : ''
+                    }
+                  />
+                  {phoneInvalid ? (
+                    <p role="alert" className="mt-1 text-sm font-medium text-danger">
+                      {t('partner.verification.referencePhoneInvalid')}
+                    </p>
+                  ) : null}
+                </div>
+                <Select
+                  aria-label={t('partner.verification.referenceRelationship')}
+                  value={ref.relationship}
+                  onChange={(e) =>
+                    update(index as 0 | 1, {
+                      relationship: e.target.value as ReferenceDraft['relationship'],
+                    })
+                  }
+                >
+                  {REFERENCE_RELATIONSHIPS.map((rel) => (
+                    <option key={rel} value={rel}>
+                      {t(`partner.verification.relationship.${rel}`)}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <SubmitRow
         disabled={!canSubmit}
+        label={t('partner.verification.submitLevel')}
         onClick={() => onSubmitted({ references: refs })}
-      >
-        {t('partner.verification.submitLevel')}
-      </Button>
+      />
     </div>
   );
 }
@@ -273,11 +321,20 @@ function NeedsInfoForm({
   const [docIds, setDocIds] = useState<string[]>([]);
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg bg-amber-50 p-3">
+    <div className="flex flex-col gap-4 rounded-xl bg-warning/5 p-4 ring-1 ring-inset ring-warning/25">
+      <p className="flex items-start gap-2.5 text-sm font-medium leading-relaxed text-slate-800">
+        <MessageSquareWarning
+          className="mt-0.5 h-4 w-4 shrink-0 text-warning"
+          aria-hidden="true"
+          strokeWidth={2.25}
+        />
+        {t('partner.verification.needsInfoHint')}
+      </p>
       <Field label={t('partner.verification.replyLabel')}>
         {(id) => (
           <TextArea
             id={id}
+            rows={4}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             maxLength={2000}
@@ -289,12 +346,29 @@ function NeedsInfoForm({
         label={t('partner.verification.replyDocUpload')}
         onUploaded={(doc) => setDocIds((prev) => [...prev, doc.id])}
       />
-      <Button
-        variant="primary"
+      <SubmitRow
         disabled={notes.trim().length === 0}
+        label={t('partner.verification.replySubmit')}
         onClick={() => onSubmitted(notes.trim(), docIds)}
-      >
-        {t('partner.verification.replySubmit')}
+      />
+    </div>
+  );
+}
+
+/** The submit button of every level form, so the ladder reads consistently. */
+function SubmitRow({
+  disabled,
+  label,
+  onClick,
+}: {
+  disabled: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <div className="flex justify-end border-t border-slate-100 pt-4">
+      <Button variant="primary" disabled={disabled} onClick={onClick} className="sm:min-w-[10rem]">
+        {label}
       </Button>
     </div>
   );
@@ -331,60 +405,141 @@ export function VerificationLevelCard({
   const status = caseData?.status;
   const canResubmit = !caseData || status === 'failed';
 
+  const tone: Tone = status ? STATUS_TONE[status] : 'neutral';
+  const StatusIcon = status ? STATUS_ICON[status] : ShieldQuestion;
+
   return (
-    <Card
-      title={t('partner.verification.levelTitle', { n: level, name: levelName })}
-      actions={
-        <Badge tone={status ? STATUS_TONE[status] : 'neutral'}>
-          {status
-            ? t(`partner.verification.status.${status}`)
-            : t('partner.verification.status.notStarted')}
-        </Badge>
-      }
+    <section
+      className={`overflow-hidden rounded-xl border bg-white shadow-sm ${
+        // The card's own edge carries the state too, so the ladder can be
+        // scanned down its left side without reading a single pill.
+        status === 'passed'
+          ? 'border-success/40'
+          : status === 'needs_info'
+            ? 'border-warning/50'
+            : status === 'failed'
+              ? 'border-danger/40'
+              : 'border-slate-200'
+      }`}
     >
-      {submit.isError ? <ErrorState error={submit.error} onRetry={() => submit.reset()} /> : null}
-      {reply.isError ? <ErrorState error={reply.error} onRetry={() => reply.reset()} /> : null}
-
-      {status === 'needs_info' ? (
-        <NeedsInfoForm onSubmitted={(notes, documentIds) => reply.mutate({ notes, documentIds })} />
-      ) : canResubmit ? (
-        <>
-          {level === 0 ? <Level0Form onSubmitted={(payload) => submit.mutate(payload)} /> : null}
-          {level === 1 ? <Level1Form onSubmitted={(payload) => submit.mutate(payload)} /> : null}
-          {level === 2 ? <Level2Form onSubmitted={(payload) => submit.mutate(payload)} /> : null}
-          {level === 3 ? <Level3Form onSubmitted={(payload) => submit.mutate(payload)} /> : null}
-        </>
-      ) : (
-        <p className="text-sm text-slate-600">
-          {status === 'passed'
-            ? t('partner.verification.passedHint')
-            : t('partner.verification.pendingHint')}
-        </p>
-      )}
-
-      {caseData && caseData.events.length > 0 ? (
-        <div className="mt-3 border-t border-slate-100 pt-2">
-          <button
-            type="button"
-            onClick={() => setShowHistory((v) => !v)}
-            className="min-h-touch text-sm font-medium text-slate-600 underline"
+      <header className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3.5 lg:px-5">
+        <div className="flex min-w-0 items-start gap-3">
+          <span
+            aria-hidden="true"
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+              tone === 'success'
+                ? 'bg-success/10 text-success'
+                : tone === 'warning'
+                  ? 'bg-warning/10 text-warning'
+                  : tone === 'danger'
+                    ? 'bg-danger/10 text-danger'
+                    : tone === 'brand'
+                      ? 'bg-brand/10 text-brand'
+                      : 'bg-slate-100 text-slate-500'
+            }`}
           >
-            {showHistory
-              ? t('partner.verification.hideHistory')
-              : t('partner.verification.showHistory')}
-          </button>
-          {showHistory ? (
-            <ul className="mt-2 flex flex-col gap-1">
-              {caseData.events.map((event) => (
-                <li key={event.id} className="text-xs text-muted">
-                  {new Date(event.createdAt).toLocaleString('hi-IN')} —{' '}
-                  {t(`partner.verification.event.${event.eventType}`)}
-                </li>
-              ))}
-            </ul>
-          ) : null}
+            <StatusIcon className="h-[18px] w-[18px]" strokeWidth={2} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              {t('partner.verification.levelLabel', { n: level })}
+            </p>
+            <h3 className="mt-0.5 text-sm font-semibold tracking-tight text-slate-900">
+              {levelName}
+            </h3>
+          </div>
         </div>
-      ) : null}
-    </Card>
+        <div className="shrink-0">
+          <StatusPill tone={tone}>
+            {status
+              ? t(`partner.verification.status.${status}`)
+              : t('partner.verification.status.notStarted')}
+          </StatusPill>
+        </div>
+      </header>
+
+      <div className="p-4 lg:p-5">
+        {submit.isError ? (
+          <div className="mb-4">
+            <ErrorState error={submit.error} onRetry={() => submit.reset()} />
+          </div>
+        ) : null}
+        {reply.isError ? (
+          <div className="mb-4">
+            <ErrorState error={reply.error} onRetry={() => reply.reset()} />
+          </div>
+        ) : null}
+
+        {status === 'needs_info' ? (
+          <NeedsInfoForm
+            onSubmitted={(notes, documentIds) => reply.mutate({ notes, documentIds })}
+          />
+        ) : canResubmit ? (
+          <>
+            {level === 0 ? <Level0Form onSubmitted={(payload) => submit.mutate(payload)} /> : null}
+            {level === 1 ? <Level1Form onSubmitted={(payload) => submit.mutate(payload)} /> : null}
+            {level === 2 ? <Level2Form onSubmitted={(payload) => submit.mutate(payload)} /> : null}
+            {level === 3 ? <Level3Form onSubmitted={(payload) => submit.mutate(payload)} /> : null}
+          </>
+        ) : (
+          <p
+            className={`flex items-start gap-2.5 rounded-lg px-3 py-2.5 text-sm leading-relaxed ${
+              status === 'passed'
+                ? 'bg-success/5 text-slate-700 ring-1 ring-inset ring-success/20'
+                : 'bg-slate-50 text-slate-600 ring-1 ring-inset ring-slate-200'
+            }`}
+          >
+            <StatusIcon
+              className={`mt-0.5 h-4 w-4 shrink-0 ${
+                status === 'passed' ? 'text-success' : 'text-brand'
+              }`}
+              aria-hidden="true"
+              strokeWidth={2.25}
+            />
+            {status === 'passed'
+              ? t('partner.verification.passedHint')
+              : t('partner.verification.pendingHint')}
+          </p>
+        )}
+
+        {caseData && caseData.events.length > 0 ? (
+          <div className="mt-4 border-t border-slate-100 pt-3">
+            <button
+              type="button"
+              onClick={() => setShowHistory((v) => !v)}
+              aria-expanded={showHistory}
+              className="inline-flex min-h-touch items-center gap-1.5 rounded-lg text-sm font-medium text-slate-600 transition-colors hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+            >
+              <ChevronDown
+                className={`h-4 w-4 transition-transform duration-150 ${showHistory ? 'rotate-180' : ''}`}
+                aria-hidden="true"
+                strokeWidth={2}
+              />
+              {showHistory
+                ? t('partner.verification.hideHistory')
+                : t('partner.verification.showHistory')}
+            </button>
+            {showHistory ? (
+              <ol className="mt-2 flex flex-col gap-2.5 border-l border-slate-200 pl-4">
+                {caseData.events.map((event) => (
+                  <li key={event.id} className="relative text-xs leading-relaxed">
+                    <span
+                      aria-hidden="true"
+                      className="absolute -left-[1.3125rem] top-1.5 h-1.5 w-1.5 rounded-full bg-slate-300"
+                    />
+                    <span className="font-medium text-slate-700">
+                      {t(`partner.verification.event.${event.eventType}`)}
+                    </span>
+                    <span className="ml-1.5 text-slate-400">
+                      {new Date(event.createdAt).toLocaleString('hi-IN')}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </section>
   );
 }

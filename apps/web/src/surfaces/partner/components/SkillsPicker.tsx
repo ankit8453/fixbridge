@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Check, Info } from 'lucide-react';
 import { useT } from '../../../i18n/useT';
 import { QueryState } from '../../../components/ui';
 import { addSkill, fetchCategories, removeSkill } from '../lib/api';
@@ -51,10 +52,29 @@ export function SkillsPicker({ skills }: { skills: ProviderSkillResponse[] }) {
       onRetry={() => categoriesQuery.refetch()}
     >
       {(data) => (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-5">
+          {/* The hint leads rather than trailing the list: it explains what
+              the chips below are *for*, which is no use read afterwards. */}
+          {skills.length === 0 ? (
+            <p className="flex items-start gap-2.5 rounded-lg bg-brand/5 px-3 py-2.5 text-sm leading-relaxed text-slate-700 ring-1 ring-inset ring-brand/15">
+              <Info
+                className="mt-0.5 h-4 w-4 shrink-0 text-brand"
+                aria-hidden="true"
+                strokeWidth={2.25}
+              />
+              {t('partner.skills.emptyHint')}
+            </p>
+          ) : (
+            <p className="text-sm text-slate-500">
+              {t('partner.skills.selectedCount', { count: skills.length })}
+            </p>
+          )}
+
           {leavesByCluster(data.categories).map(({ cluster, leaves }) => (
             <div key={cluster.id}>
-              <h3 className="mb-2 text-sm font-semibold text-slate-600">{cluster.name}</h3>
+              <h4 className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {cluster.name}
+              </h4>
               <div className="flex flex-wrap gap-2">
                 {leaves.map((leaf) => {
                   const held = heldIds.has(leaf.id);
@@ -65,12 +85,19 @@ export function SkillsPicker({ skills }: { skills: ProviderSkillResponse[] }) {
                       disabled={pending}
                       onClick={() => (held ? remove.mutate(leaf.id) : add.mutate(leaf.id))}
                       aria-pressed={held}
-                      className={`min-h-touch rounded-full border px-4 text-sm font-medium transition-colors duration-150 disabled:opacity-50 ${
+                      className={`inline-flex min-h-touch items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
                         held
                           ? 'border-brand bg-brand text-brand-foreground'
-                          : 'border-slate-300 bg-white text-slate-700'
+                          : 'border-slate-300 bg-white text-slate-700 hover:border-brand/50 hover:bg-brand/5'
                       }`}
                     >
+                      {held ? (
+                        <Check
+                          className="h-3.5 w-3.5 shrink-0"
+                          aria-hidden="true"
+                          strokeWidth={2.75}
+                        />
+                      ) : null}
                       {leaf.name}
                     </button>
                   );
@@ -78,9 +105,6 @@ export function SkillsPicker({ skills }: { skills: ProviderSkillResponse[] }) {
               </div>
             </div>
           ))}
-          {skills.length === 0 ? (
-            <p className="text-sm text-muted">{t('partner.skills.emptyHint')}</p>
-          ) : null}
         </div>
       )}
     </QueryState>

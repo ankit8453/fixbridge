@@ -3,6 +3,7 @@ import { useAuth } from '../../lib/auth/useAuth';
 import { useLocale, useT } from '../../i18n/useT';
 import { buildLocalizedHref, DEFAULT_LOCALE } from '../../i18n/config';
 import { apiRequest } from '../../lib/api';
+import { storeLocale } from '../../i18n/preference';
 
 /**
  * Switches locale by navigating to the equivalent URL in the other locale —
@@ -22,6 +23,14 @@ export function LocaleToggle() {
   const href = buildLocalizedHref(target, bare);
 
   const handleClick = () => {
+    /**
+     * Remembered locally as well as server-side. The PATCH below only helps a
+     * signed-in user, and only once it lands; this makes the choice stick for
+     * a signed-out visitor and for the next cold start, before any session has
+     * been restored.
+     */
+    storeLocale(target);
+
     // "logged-in users' preferred_language synced on toggle" (phase spec).
     // Fire-and-forget: the navigation must not wait on this, and a failure
     // here (offline, token mid-refresh) should never block switching locale.

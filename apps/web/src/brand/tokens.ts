@@ -37,9 +37,35 @@ export const APP_INITIAL = APP_NAME.charAt(0).toUpperCase();
  * `text-brand`, `text-brand-accent` class in the app follows.
  */
 export const brandColors = {
-  primary: '#0f6e5c',
+  /**
+   * Indigo, not the muted teal this shipped with.
+   *
+   * The first palette was chosen to be inoffensive while the brand was
+   * undecided, and it succeeded a little too well -- the owner's word for the
+   * result was that it looked like a government portal. Correct: desaturated
+   * blue-green at mid lightness is the house style of exactly that, and a
+   * marketplace asking somebody to trust a stranger with their home needs to
+   * feel like a product, not a form.
+   *
+   * Indigo at 6.29:1 on white clears WCAG AA for body text, so it can be used
+   * for real text and not just decoration -- which the accent below cannot.
+   */
+  primary: '#4f46e5',
   primaryForeground: '#ffffff',
-  accent: '#e08a2c',
+  /**
+   * Deeper indigo, for gradients and pressed states. Having the second stop as
+   * a token rather than a Tailwind literal keeps a rebrand to this one file.
+   */
+  primaryDeep: '#4338ca',
+  /** Very light tint for selected rows and icon chips. */
+  primarySoft: '#eef2ff',
+  /**
+   * Amber. 2.15:1 on white, so DECORATIVE ONLY -- badges, highlights, the
+   * gradient's warm end. Never body text, never a lone icon carrying meaning.
+   */
+  accent: '#f59e0b',
+  /** Violet, the gradient's other end and the second chart series. */
+  accentAlt: '#7c3aed',
 } as const;
 
 /**
@@ -51,19 +77,19 @@ export const brandColors = {
  * foreground on their own tinted background (see `Badge`/`StatusPill`).
  */
 export const semanticColors = {
-  success: '#15803d',
-  successForeground: '#f0fdf4',
-  warning: '#b45309',
+  success: '#059669',
+  successForeground: '#ecfdf5',
+  warning: '#d97706',
   warningForeground: '#fffbeb',
-  danger: '#b91c1c',
-  dangerForeground: '#fef2f2',
+  danger: '#e11d48',
+  dangerForeground: '#fff1f2',
   // "Muted" is a text tone (de-emphasised copy — timestamps, hints), not a
   // status; kept here anyway so every "quiet" colour in the app traces back
   // to one token instead of components each picking their own slate shade.
   muted: '#64748b',
   mutedForeground: '#f8fafc',
   surface: '#ffffff',
-  border: '#e2e8f0',
+  border: '#e5e7eb',
 } as const;
 
 /** Theme-color for the browser chrome / PWA splash — see public/manifest.webmanifest. */
@@ -94,7 +120,10 @@ export function BrandStyleVars(): ReactElement {
     `:root{` +
     `--color-brand-primary:${brandColors.primary};` +
     `--color-brand-primary-foreground:${brandColors.primaryForeground};` +
+    `--color-brand-primary-deep:${brandColors.primaryDeep};` +
+    `--color-brand-primary-soft:${brandColors.primarySoft};` +
     `--color-brand-accent:${brandColors.accent};` +
+    `--color-brand-accent-alt:${brandColors.accentAlt};` +
     `--color-success:${semanticColors.success};` +
     `--color-success-foreground:${semanticColors.successForeground};` +
     `--color-warning:${semanticColors.warning};` +

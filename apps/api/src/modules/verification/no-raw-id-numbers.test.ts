@@ -13,9 +13,24 @@ import { describe, expect, it } from 'vitest';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..', '..', '..');
 
-const SCAN_DIRECTORIES = ['apps/api/src', 'apps/api/prisma', 'packages/shared/src', 'docs'];
+/**
+ * `apps/web/src` is in this list deliberately.
+ *
+ * It was missing until Phase 12s partner redesign, which meant the tripwire
+ * would not have caught a raw Aadhaar number pasted into a React component --
+ * the exact surface where somebody types one in. The rule is repo-wide or it is
+ * not a rule.
+ */
+const SCAN_DIRECTORIES = [
+  'apps/api/src',
+  'apps/api/prisma',
+  'apps/web/src',
+  'packages/shared/src',
+  'docs',
+];
 
-const SCAN_EXTENSIONS = new Set(['.ts', '.mts', '.json', '.sql', '.md', '.prisma']);
+// `.tsx` matters for the same reason `apps/web/src` does.
+const SCAN_EXTENSIONS = new Set(['.ts', '.tsx', '.mts', '.json', '.sql', '.md', '.prisma']);
 
 /** This file necessarily contains the patterns it hunts for. */
 const SELF = path.basename(__filename);

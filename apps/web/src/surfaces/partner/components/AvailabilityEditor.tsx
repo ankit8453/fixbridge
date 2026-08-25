@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Plus, Sparkles, Trash2 } from 'lucide-react';
 import { useT } from '../../../i18n/useT';
 import { Button, ErrorState, Field, Select, TextInput } from '../../../components/ui';
 import { createAvailability, deleteAvailability } from '../lib/api';
@@ -38,6 +39,15 @@ function toActiveWindows(rows: ProviderAvailabilityResponse[]): AvailabilityWind
     }));
 }
 
+/**
+ * The recurring weekly hours editor.
+ *
+ * Renders as a seven-column week from `lg` up and a stacked list below, so
+ * the same component serves a technician thumbing it in on a phone and one
+ * reviewing the whole week at a desk. It stays a bare fragment with no outer
+ * card of its own — `Onboarding` mounts it inside a `Card`, and a panel
+ * inside a panel reads as a bug.
+ */
 export function AvailabilityEditor({
   availability,
 }: {
@@ -119,72 +129,117 @@ export function AvailabilityEditor({
   }));
 
   return (
-    <div className="flex flex-col gap-4">
-      <Button
-        variant="primary"
-        fullWidth
-        disabled={addPreset.isPending}
-        onClick={() => addPreset.mutate()}
-      >
-        {addPreset.isPending
-          ? t('partner.availability.presetApplying')
-          : t('partner.availability.presetButton')}
-      </Button>
-      <p className="text-xs text-muted">{t('partner.availability.presetHint')}</p>
+    <div className="flex flex-col gap-5">
+      {/* ---------------- One-tap preset ---------------- */}
+      <div className="rounded-xl border border-brand/20 bg-brand/5 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand">
+              <Sparkles className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={2} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-900">
+                {t('partner.availability.presetTitle')}
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                {t('partner.availability.presetHint')}
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={addPreset.isPending}
+            onClick={() => addPreset.mutate()}
+            className="w-full sm:w-auto"
+          >
+            {addPreset.isPending
+              ? t('partner.availability.presetApplying')
+              : t('partner.availability.presetButton')}
+          </Button>
+        </div>
+      </div>
 
-      <ul className="flex flex-col gap-2">
+      {/* ---------------- The week ---------------- */}
+      <ul className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4 lg:gap-3 xl:grid-cols-7">
         {byDay.map(({ key, windows }) => (
-          <li key={key} className="rounded-lg border border-slate-200 px-3 py-2">
-            <p className="text-sm font-semibold text-slate-700">
+          <li
+            key={key}
+            className="flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white"
+          >
+            <p className="border-b border-slate-100 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
               {t(`partner.availability.day.${key}`)}
             </p>
-            {windows.length === 0 ? (
-              <p className="text-xs text-slate-400">{t('partner.availability.dayEmpty')}</p>
-            ) : (
-              <ul className="mt-1 flex flex-col gap-1">
-                {windows.map((window) => (
-                  <li
-                    key={window.id}
-                    className="flex items-center justify-between text-sm text-slate-800"
-                  >
-                    <span>
-                      {window.startTime}–{window.endTime}
-                      {!window.isActive ? ` (${t('partner.availability.inactive')})` : ''}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => remove.mutate(window.id)}
-                      disabled={remove.isPending}
-                      className="min-h-touch px-2 text-sm font-medium text-danger"
+
+            <div className="flex-1 p-2">
+              {windows.length === 0 ? (
+                <p className="px-1 py-2 text-xs text-slate-400">
+                  {t('partner.availability.dayEmpty')}
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-1.5">
+                  {windows.map((window) => (
+                    <li
+                      key={window.id}
+                      className={`flex items-center justify-between gap-1 rounded-lg border px-2 py-1.5 ${
+                        window.isActive
+                          ? 'border-success/20 bg-success/5'
+                          : 'border-slate-200 bg-slate-50'
+                      }`}
                     >
-                      {t('partner.common.delete')}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+                      <span className="min-w-0 text-xs">
+                        <span
+                          className={`block font-semibold tabular-nums ${
+                            window.isActive ? 'text-slate-900' : 'text-slate-500'
+                          }`}
+                        >
+                          {window.startTime}–{window.endTime}
+                        </span>
+                        {!window.isActive ? (
+                          <span className="block text-[11px] text-slate-400">
+                            {t('partner.availability.inactive')}
+                          </span>
+                        ) : null}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => remove.mutate(window.id)}
+                        disabled={remove.isPending}
+                        aria-label={t('partner.common.delete')}
+                        title={t('partner.common.delete')}
+                        className="flex min-h-touch min-w-touch shrink-0 items-center justify-center rounded-lg text-danger transition-colors hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </li>
         ))}
       </ul>
 
-      <div className="flex flex-col gap-3 rounded-xl border border-dashed border-slate-300 p-3">
-        <p className="text-sm font-medium text-slate-700">{t('partner.availability.addOne')}</p>
-        <Field label={t('partner.availability.dayLabel')}>
-          {(id) => (
-            <Select
-              id={id}
-              value={dayOfWeek}
-              onChange={(e) => setDayOfWeek(Number(e.target.value))}
-            >
-              {DAY_KEYS.map((key, index) => (
-                <option key={key} value={index}>
-                  {t(`partner.availability.day.${key}`)}
-                </option>
-              ))}
-            </Select>
-          )}
-        </Field>
-        <div className="grid grid-cols-2 gap-3">
+      {/* ---------------- Add one window ---------------- */}
+      <div className="rounded-xl border border-dashed border-slate-300 p-4">
+        <p className="text-sm font-semibold text-slate-900">{t('partner.availability.addOne')}</p>
+
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
+          <Field label={t('partner.availability.dayLabel')}>
+            {(id) => (
+              <Select
+                id={id}
+                value={dayOfWeek}
+                onChange={(e) => setDayOfWeek(Number(e.target.value))}
+              >
+                {DAY_KEYS.map((key, index) => (
+                  <option key={key} value={index}>
+                    {t(`partner.availability.day.${key}`)}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
           <Field label={t('partner.availability.startLabel')}>
             {(id) => (
               <TextInput
@@ -205,20 +260,28 @@ export function AvailabilityEditor({
               />
             )}
           </Field>
+
+          <Button
+            variant="secondary"
+            onClick={handleAdd}
+            disabled={addWindow.isPending}
+            className="w-full"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
+            {addWindow.isPending ? t('partner.availability.adding') : t('partner.availability.add')}
+          </Button>
         </div>
 
         {formError ? (
-          <p role="alert" className="text-sm font-medium text-danger">
+          <p role="alert" className="mt-3 text-sm font-medium text-danger">
             {formError}
           </p>
         ) : null}
         {addWindow.isError ? (
-          <ErrorState error={addWindow.error} onRetry={() => addWindow.reset()} />
+          <div className="mt-3">
+            <ErrorState error={addWindow.error} onRetry={() => addWindow.reset()} />
+          </div>
         ) : null}
-
-        <Button variant="secondary" onClick={handleAdd} disabled={addWindow.isPending}>
-          {addWindow.isPending ? t('partner.availability.adding') : t('partner.availability.add')}
-        </Button>
       </div>
     </div>
   );

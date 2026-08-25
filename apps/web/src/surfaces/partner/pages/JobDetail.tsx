@@ -1,16 +1,10 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useT } from '../../../i18n/useT';
-import {
-  Badge,
-  Button,
-  Card,
-  DetailRow,
-  ErrorState,
-  QueryState,
-  type Tone,
-} from '../../../components/ui';
+import { CheckCircle2, KeyRound, MapPin, Phone, Wallet } from 'lucide-react';
+import { useLocale, useT } from '../../../i18n/useT';
+import { Button, ErrorState, QueryState } from '../../../components/ui';
+import { DetailRow, Panel, StatusPill, type Tone } from '../components/ui';
 import { ApiError } from '../../../lib/api';
 import { formatPaise } from '../../../lib/money';
 import { CashCollectButton } from '../components/CashCollectButton';
@@ -29,14 +23,33 @@ import {
   withdrawQuotation,
 } from '../lib/api';
 import { partnerKeys } from '../lib/query-keys';
-import { PROVIDER_CANCEL_REASONS, REJECTION_REASONS, type BookingDetail } from '../lib/types';
+import {
+  PROVIDER_CANCEL_REASONS,
+  REJECTION_REASONS,
+  type BookingDetail,
+  type BookingStatus,
+} from '../lib/types';
 
 const QUOTE_STATUS_TONE: Record<string, Tone> = {
-  sent: 'info',
+  sent: 'brand',
   approved: 'success',
   rejected: 'danger',
   superseded: 'neutral',
   withdrawn: 'neutral',
+};
+
+const STATUS_TONE: Record<BookingStatus, Tone> = {
+  REQUESTED: 'warning',
+  ACCEPTED: 'brand',
+  EN_ROUTE: 'brand',
+  ARRIVED: 'brand',
+  IN_PROGRESS: 'brand',
+  WORK_DONE: 'success',
+  REJECTED: 'neutral',
+  EXPIRED: 'neutral',
+  CANCELLED_BY_CUSTOMER: 'neutral',
+  CANCELLED_BY_PROVIDER: 'danger',
+  CLOSED_QUOTE_DECLINED: 'warning',
 };
 
 /**
@@ -70,9 +83,38 @@ function otpErrorDetails(
   };
 }
 
+/**
+ * The OTP handshake, boxed and tinted.
+ *
+ * The start and end codes are the two moments where the technician is
+ * standing in front of the customer waiting to be read four digits, so the
+ * keypad gets a tinted, bordered frame of its own rather than sitting as one
+ * more paragraph in a card — it has to be findable at a glance, mid-job.
+ */
+function OtpPanel({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="rounded-xl border border-brand/25 bg-brand/5 p-4">
+      <p className="flex items-center justify-center gap-2 text-center text-base font-semibold text-slate-800">
+        <KeyRound className="h-4 w-4 shrink-0 text-brand" aria-hidden="true" strokeWidth={2} />
+        {title}
+      </p>
+      <div className="mt-3">{children}</div>
+    </div>
+  );
+}
+
 export default function JobDetail() {
   const { bookingId } = useParams<{ bookingId: string }>();
+  const locale = useLocale();
   const t = useT();
+  /**
+   * Dates follow the reader, not the country.
+   *
+   * This screen hardcoded 'hi-IN', so a technician reading English still got
+   * Hindi-formatted dates on the one screen they look at mid-job. Every other
+   * screen already derived it from the active locale.
+   */
+  const intlLocale = locale === 'hi' ? 'hi-IN' : 'en-IN';
   const queryClient = useQueryClient();
 
   const [showReject, setShowReject] = useState(false);
@@ -142,170 +184,298 @@ export default function JobDetail() {
   });
 
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-4">
+    <div className="flex flex-col gap-4 lg:gap-5">
       <QueryState
         status={bookingQuery.status}
         error={bookingQuery.error}
         data={bookingQuery.data}
         onRetry={() => bookingQuery.refetch()}
+        loadingLabel={t('partner.common.loading')}
       >
         {({ booking }: { booking: BookingDetail }) => (
-          <>
-            <Card
-              title={t('partner.job.title')}
-              actions={<Badge tone="info">{t(`partner.jobs.status.${booking.status}`)}</Badge>}
-            >
-              <DetailRow label={t('partner.job.timeLabel')}>
-                {new Date(booking.startsAt).toLocaleString('hi-IN', {
-                  day: '2-digit',
-                  month: 'short',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </DetailRow>
-              <DetailRow label={t('partner.job.problemLabel')}>
-                {booking.problemNote ?? t('partner.jobs.noProblemNote')}
-              </DetailRow>
-              {booking.address ? (
-                <DetailRow label={t('partner.job.addressLabel')}>
-                  {booking.address.addressText}
-                  {booking.address.landmark ? ` (${booking.address.landmark})` : ''}
-                </DetailRow>
-              ) : null}
-              {booking.counterpart.name ? (
-                <DetailRow label={t('partner.job.customerLabel')}>
-                  {booking.counterpart.name}
-                  {booking.counterpart.phoneRevealed && booking.counterpart.phone ? (
-                    <a
-                      href={`tel:${booking.counterpart.phone}`}
-                      className="ml-2 font-medium text-brand"
-                    >
-                      {booking.counterpart.phone}
-                    </a>
+          /* Two columns from `lg`: the job's facts and the money on the left,
+             the action the technician has to take right now on the right, so
+             the OTP keypad is never below the fold on a laptop. */
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-5 lg:gap-5">
+            <div className="flex flex-col gap-4 lg:col-span-3 lg:gap-5">
+              <Panel
+                title={t('partner.job.title')}
+                action={
+                  <StatusPill tone={STATUS_TONE[booking.status]}>
+                    {t(`partner.jobs.status.${booking.status}`)}
+                  </StatusPill>
+                }
+              >
+                <dl>
+                  <DetailRow label={t('partner.job.timeLabel')}>
+                    {new Date(booking.startsAt).toLocaleString(intlLocale, {
+                      day: '2-digit',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </DetailRow>
+                  <DetailRow label={t('partner.job.problemLabel')}>
+                    {booking.problemNote ?? t('partner.jobs.noProblemNote')}
+                  </DetailRow>
+                  {booking.address ? (
+                    <DetailRow label={t('partner.job.addressLabel')}>
+                      <span className="flex items-start gap-2">
+                        <MapPin
+                          className="mt-0.5 h-4 w-4 shrink-0 text-slate-400"
+                          aria-hidden="true"
+                          strokeWidth={1.75}
+                        />
+                        <span>
+                          {booking.address.addressText}
+                          {booking.address.landmark ? ` (${booking.address.landmark})` : ''}
+                        </span>
+                      </span>
+                    </DetailRow>
                   ) : null}
-                </DetailRow>
-              ) : null}
-            </Card>
+                  {booking.counterpart.name ? (
+                    <DetailRow label={t('partner.job.customerLabel')}>
+                      <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <span className="font-medium">{booking.counterpart.name}</span>
+                        {/* The number is only present once the API has decided
+                            to reveal it; both halves of that guard stay. */}
+                        {booking.counterpart.phoneRevealed && booking.counterpart.phone ? (
+                          <a
+                            href={`tel:${booking.counterpart.phone}`}
+                            className="inline-flex min-h-touch items-center gap-1.5 rounded-lg bg-brand/10 px-3 text-sm font-semibold text-brand transition-opacity hover:opacity-80"
+                          >
+                            <Phone className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
+                            {booking.counterpart.phone}
+                          </a>
+                        ) : null}
+                      </span>
+                    </DetailRow>
+                  ) : null}
+                </dl>
+              </Panel>
 
-            {booking.status === 'REQUESTED' ? (
-              <div className="flex gap-2">
-                <Button variant="danger" fullWidth onClick={() => setShowReject(true)}>
-                  {t('partner.job.reject')}
-                </Button>
-                <Button
-                  variant="primary"
-                  fullWidth
-                  disabled={accept.isPending}
-                  onClick={() => accept.mutate()}
+              {booking.status === 'IN_PROGRESS' && (
+                <>
+                  <Panel title={t('partner.job.quotesTitle')}>
+                    {booking.quotations.length === 0 ? (
+                      <p className="text-sm text-muted">{t('partner.job.noQuotesYet')}</p>
+                    ) : (
+                      <ul className="flex flex-col gap-2">
+                        {booking.quotations.map((quote) => (
+                          <li
+                            key={quote.id}
+                            className="rounded-lg border border-slate-200 bg-slate-50/60 p-3"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="text-sm font-medium text-slate-700">
+                                {t('partner.job.quoteVersion', { v: quote.version })}
+                              </span>
+                              <StatusPill tone={QUOTE_STATUS_TONE[quote.status] ?? 'neutral'}>
+                                {t(`partner.job.quoteStatus.${quote.status}`)}
+                              </StatusPill>
+                            </div>
+                            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                              <p className="text-lg font-semibold tabular-nums text-slate-900">
+                                {quote.totalDisplay}
+                              </p>
+                              {quote.status === 'sent' ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={withdraw.isPending}
+                                  onClick={() => withdraw.mutate(quote.id)}
+                                >
+                                  {t('partner.job.withdrawQuote')}
+                                </Button>
+                              ) : null}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </Panel>
+
+                  {!booking.approvedQuotation ? (
+                    <Panel title={t('partner.job.newQuoteTitle')}>
+                      <QuoteBuilder bookingId={id} onSent={invalidateBooking} />
+                    </Panel>
+                  ) : null}
+                </>
+              )}
+
+              {(booking.status === 'WORK_DONE' || booking.status === 'CLOSED_QUOTE_DECLINED') && (
+                <Panel
+                  title={t('partner.job.payableTitle')}
+                  action={
+                    <Wallet
+                      className="h-4 w-4 text-slate-400"
+                      aria-hidden="true"
+                      strokeWidth={1.75}
+                    />
+                  }
                 >
-                  {accept.isPending ? t('partner.job.accepting') : t('partner.job.accept')}
-                </Button>
-              </div>
-            ) : null}
-            {accept.isError ? (
-              <ErrorState error={accept.error} onRetry={() => accept.reset()} />
-            ) : null}
-
-            {(booking.status === 'ACCEPTED' || booking.status === 'EN_ROUTE') && (
-              <Card title={t('partner.job.onTheWayTitle')}>
-                {booking.status === 'ACCEPTED' ? (
-                  <Button
-                    variant="secondary"
-                    fullWidth
-                    disabled={enRoute.isPending}
-                    onClick={() => enRoute.mutate()}
-                  >
-                    {enRoute.isPending
-                      ? t('partner.job.markingEnRoute')
-                      : t('partner.job.markEnRoute')}
-                  </Button>
-                ) : (
-                  <p className="text-sm font-medium text-slate-600">
-                    {t('partner.job.enRouteConfirmed')}
-                  </p>
-                )}
-
-                <p className="mt-4 text-center text-base font-medium text-slate-700">
-                  {t('partner.job.enterStartOtp')}
-                </p>
-                <div className="mt-2">
-                  <OtpKeypad
-                    pending={startOtp.isPending}
-                    error={
-                      otpErrorDetails(startOtp.error)?.message ??
-                      (startOtp.isError && startOtp.error instanceof ApiError
-                        ? startOtp.error.message
-                        : null)
-                    }
-                    remainingAttempts={otpErrorDetails(startOtp.error)?.remaining ?? null}
-                    onSubmit={(otp) => startOtp.mutate(otp)}
-                  />
-                </div>
-
-                <Button
-                  variant="ghost"
-                  fullWidth
-                  className="mt-4"
-                  onClick={() => setShowCancel(true)}
-                >
-                  {t('partner.job.cancelBooking')}
-                </Button>
-              </Card>
-            )}
-
-            {booking.status === 'IN_PROGRESS' && (
-              <>
-                <Card title={t('partner.job.quotesTitle')}>
-                  {booking.quotations.length === 0 ? (
-                    <p className="text-sm text-muted">{t('partner.job.noQuotesYet')}</p>
-                  ) : (
-                    <ul className="flex flex-col gap-2">
-                      {booking.quotations.map((quote) => (
-                        <li key={quote.id} className="rounded-lg border border-slate-200 p-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-slate-700">
-                              {t('partner.job.quoteVersion', { v: quote.version })}
-                            </span>
-                            <Badge tone={QUOTE_STATUS_TONE[quote.status] ?? 'neutral'}>
-                              {t(`partner.job.quoteStatus.${quote.status}`)}
-                            </Badge>
-                          </div>
-                          <p className="mt-1 text-right text-lg font-semibold tabular-nums">
-                            {quote.totalDisplay}
-                          </p>
-                          {quote.status === 'sent' ? (
-                            <Button
-                              variant="ghost"
-                              disabled={withdraw.isPending}
-                              onClick={() => withdraw.mutate(quote.id)}
-                            >
-                              {t('partner.job.withdrawQuote')}
-                            </Button>
-                          ) : null}
+                  {booking.payable ? (
+                    <ul className="mb-4 flex flex-col gap-1.5">
+                      {booking.payable.components.map((component, index) => (
+                        <li key={index} className="flex items-center justify-between gap-3 text-sm">
+                          <span className="text-slate-600">
+                            {payableComponentLabel(component.labelKey, t)}
+                            {component.waived ? ` (${t('partner.job.waived')})` : ''}
+                          </span>
+                          <span className="shrink-0 tabular-nums text-slate-900">
+                            {formatPaise(component.amountPaise)}
+                          </span>
                         </li>
                       ))}
+                      {/* The total is the number that gets said out loud to the
+                          customer, so it is the largest thing in this panel. */}
+                      <li className="mt-2 flex items-center justify-between gap-3 border-t border-slate-200 pt-3">
+                        <span className="text-sm font-semibold text-slate-700">
+                          {t('partner.job.totalPayable')}
+                        </span>
+                        <span className="text-2xl font-bold tabular-nums text-slate-900">
+                          {booking.payable.payableDisplay}
+                        </span>
+                      </li>
                     </ul>
-                  )}
-                </Card>
+                  ) : null}
 
-                {!booking.approvedQuotation ? (
-                  <Card title={t('partner.job.newQuoteTitle')}>
-                    <QuoteBuilder bookingId={id} onSent={invalidateBooking} />
-                  </Card>
-                ) : null}
+                  <QueryState
+                    status={paymentsQuery.status}
+                    error={paymentsQuery.error}
+                    data={paymentsQuery.data}
+                    onRetry={() => paymentsQuery.refetch()}
+                  >
+                    {({ payments }) => {
+                      const settled = payments.some(
+                        (p) =>
+                          p.status === 'captured' ||
+                          p.status === 'refunded' ||
+                          p.status === 'partially_refunded',
+                      );
+                      if (settled) {
+                        return (
+                          <p className="flex items-center gap-2 rounded-lg bg-success/10 px-3 py-2.5 text-sm font-medium text-success">
+                            <CheckCircle2
+                              className="h-4 w-4 shrink-0"
+                              aria-hidden="true"
+                              strokeWidth={2}
+                            />
+                            {t('partner.job.alreadyPaid')}
+                          </p>
+                        );
+                      }
+                      if (payments.some((payment) => payment.status === 'created')) {
+                        return (
+                          <p className="rounded-lg bg-warning/10 px-3 py-2.5 text-sm font-medium text-warning">
+                            {t('partner.job.paymentPending')}
+                          </p>
+                        );
+                      }
+                      if (!booking.payablePaise || booking.payablePaise <= 0) return null;
+                      return (
+                        <CashCollectButton bookingId={id} amountPaise={booking.payablePaise} />
+                      );
+                    }}
+                  </QueryState>
+                </Panel>
+              )}
+            </div>
 
-                <Card title={t('partner.job.finishTitle')}>
-                  {booking.approvedQuotation ? (
-                    <p className="mb-3 text-sm text-green-700">{t('partner.job.priceAgreed')}</p>
+            {/* ---------------- Action column ---------------- */}
+            <div className="flex flex-col gap-4 lg:col-span-2 lg:gap-5">
+              {booking.status === 'REQUESTED' ? (
+                <Panel title={t('partner.job.title')}>
+                  <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
+                    <Button
+                      variant="primary"
+                      fullWidth
+                      disabled={accept.isPending}
+                      onClick={() => accept.mutate()}
+                    >
+                      {accept.isPending ? t('partner.job.accepting') : t('partner.job.accept')}
+                    </Button>
+                    <Button variant="danger" fullWidth onClick={() => setShowReject(true)}>
+                      {t('partner.job.reject')}
+                    </Button>
+                  </div>
+                  {accept.isError ? (
+                    <div className="mt-3">
+                      <ErrorState error={accept.error} onRetry={() => accept.reset()} />
+                    </div>
+                  ) : null}
+                </Panel>
+              ) : null}
+
+              {(booking.status === 'ACCEPTED' || booking.status === 'EN_ROUTE') && (
+                <Panel title={t('partner.job.onTheWayTitle')}>
+                  {booking.status === 'ACCEPTED' ? (
+                    <Button
+                      variant="secondary"
+                      fullWidth
+                      disabled={enRoute.isPending}
+                      onClick={() => enRoute.mutate()}
+                    >
+                      {enRoute.isPending
+                        ? t('partner.job.markingEnRoute')
+                        : t('partner.job.markEnRoute')}
+                    </Button>
                   ) : (
-                    <p className="mb-3 text-sm text-amber-700">
+                    <p className="flex items-center gap-2 rounded-lg bg-success/10 px-3 py-2.5 text-sm font-medium text-success">
+                      <CheckCircle2
+                        className="h-4 w-4 shrink-0"
+                        aria-hidden="true"
+                        strokeWidth={2}
+                      />
+                      {t('partner.job.enRouteConfirmed')}
+                    </p>
+                  )}
+
+                  <div className="mt-4">
+                    <OtpPanel title={t('partner.job.enterStartOtp')}>
+                      <OtpKeypad
+                        pending={startOtp.isPending}
+                        error={
+                          otpErrorDetails(startOtp.error)?.message ??
+                          (startOtp.isError && startOtp.error instanceof ApiError
+                            ? startOtp.error.message
+                            : null)
+                        }
+                        remainingAttempts={otpErrorDetails(startOtp.error)?.remaining ?? null}
+                        onSubmit={(otp) => startOtp.mutate(otp)}
+                      />
+                    </OtpPanel>
+                  </div>
+
+                  <Button
+                    variant="ghost"
+                    fullWidth
+                    className="mt-4"
+                    onClick={() => setShowCancel(true)}
+                  >
+                    {t('partner.job.cancelBooking')}
+                  </Button>
+                </Panel>
+              )}
+
+              {booking.status === 'IN_PROGRESS' && (
+                <Panel title={t('partner.job.finishTitle')}>
+                  {booking.approvedQuotation ? (
+                    <p className="mb-3 flex items-center gap-2 rounded-lg bg-success/10 px-3 py-2.5 text-sm font-medium text-success">
+                      <CheckCircle2
+                        className="h-4 w-4 shrink-0"
+                        aria-hidden="true"
+                        strokeWidth={2}
+                      />
+                      {t('partner.job.priceAgreed')}
+                    </p>
+                  ) : (
+                    <p className="mb-3 rounded-lg bg-warning/10 px-3 py-2.5 text-sm font-medium text-warning">
                       {t('partner.job.priceNotAgreedHint')}
                     </p>
                   )}
-                  <p className="text-center text-base font-medium text-slate-700">
-                    {t('partner.job.enterEndOtp')}
-                  </p>
-                  <div className="mt-2">
+
+                  <OtpPanel title={t('partner.job.enterEndOtp')}>
                     <OtpKeypad
                       pending={endOtp.isPending}
                       error={
@@ -317,67 +487,11 @@ export default function JobDetail() {
                       remainingAttempts={otpErrorDetails(endOtp.error)?.remaining ?? null}
                       onSubmit={(otp) => endOtp.mutate(otp)}
                     />
-                  </div>
-                </Card>
-              </>
-            )}
-
-            {(booking.status === 'WORK_DONE' || booking.status === 'CLOSED_QUOTE_DECLINED') && (
-              <Card title={t('partner.job.payableTitle')}>
-                {booking.payable ? (
-                  <ul className="mb-3 flex flex-col gap-1">
-                    {booking.payable.components.map((component, index) => (
-                      <li key={index} className="flex items-center justify-between text-sm">
-                        <span className="text-slate-600">
-                          {payableComponentLabel(component.labelKey, t)}
-                          {component.waived ? ` (${t('partner.job.waived')})` : ''}
-                        </span>
-                        <span className="tabular-nums text-slate-900">
-                          {formatPaise(component.amountPaise)}
-                        </span>
-                      </li>
-                    ))}
-                    <li className="mt-1 flex items-center justify-between border-t border-slate-200 pt-1 text-base font-semibold">
-                      <span>{t('partner.job.totalPayable')}</span>
-                      <span className="tabular-nums">{booking.payable.payableDisplay}</span>
-                    </li>
-                  </ul>
-                ) : null}
-
-                <QueryState
-                  status={paymentsQuery.status}
-                  error={paymentsQuery.error}
-                  data={paymentsQuery.data}
-                  onRetry={() => paymentsQuery.refetch()}
-                >
-                  {({ payments }) => {
-                    const settled = payments.some(
-                      (p) =>
-                        p.status === 'captured' ||
-                        p.status === 'refunded' ||
-                        p.status === 'partially_refunded',
-                    );
-                    if (settled) {
-                      return (
-                        <p className="text-sm font-medium text-green-700">
-                          {t('partner.job.alreadyPaid')}
-                        </p>
-                      );
-                    }
-                    if (payments.some((payment) => payment.status === 'created')) {
-                      return (
-                        <p className="text-sm font-medium text-amber-700">
-                          {t('partner.job.paymentPending')}
-                        </p>
-                      );
-                    }
-                    if (!booking.payablePaise || booking.payablePaise <= 0) return null;
-                    return <CashCollectButton bookingId={id} amountPaise={booking.payablePaise} />;
-                  }}
-                </QueryState>
-              </Card>
-            )}
-          </>
+                  </OtpPanel>
+                </Panel>
+              )}
+            </div>
+          </div>
         )}
       </QueryState>
 

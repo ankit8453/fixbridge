@@ -19,8 +19,12 @@ const config: Config = {
         brand: {
           DEFAULT: 'var(--color-brand-primary)',
           foreground: 'var(--color-brand-primary-foreground)',
+          // Gradients, pressed states, and the very light selected-row tint.
+          deep: 'var(--color-brand-primary-deep)',
+          soft: 'var(--color-brand-primary-soft)',
         },
         'brand-accent': 'var(--color-brand-accent)',
+        'brand-accent-alt': 'var(--color-brand-accent-alt)',
         success: {
           DEFAULT: 'var(--color-success)',
           foreground: 'var(--color-success-foreground)',

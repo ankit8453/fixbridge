@@ -1,15 +1,47 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useT } from '../../../i18n/useT';
-import { Badge, Button, Pagination, QueryState } from '../../../components/ui';
+import { AlertTriangle, Bell, BellRing, CheckCheck, Info } from 'lucide-react';
+import type { LucideProps } from 'lucide-react';
+import type { ComponentType } from 'react';
+import { useLocale, useT } from '../../../i18n/useT';
+import { Button, ErrorState, Pagination } from '../../../components/ui';
+import { EmptyState, Panel, SkeletonRows, StatusPill, type Tone } from './ui';
 import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from '../lib/api';
 import { partnerKeys } from '../lib/query-keys';
+import type { NotificationView } from '../lib/types';
 
-const CRITICALITY_TONE = { critical: 'danger', normal: 'info', low: 'neutral' } as const;
+type Criticality = NotificationView['criticality'];
 
-/** A plain notification inbox. Ported from `legacy-next-src/components/partner/NotificationInbox.tsx`. */
+const CRITICALITY_TONE: Record<Criticality, Tone> = {
+  critical: 'danger',
+  normal: 'brand',
+  low: 'neutral',
+};
+
+const CRITICALITY_ICON: Record<Criticality, ComponentType<LucideProps>> = {
+  critical: AlertTriangle,
+  normal: BellRing,
+  low: Info,
+};
+
+/** Icon chip colours, one literal per tone so Tailwind's content scan sees them. */
+const CRITICALITY_CHIP: Record<Criticality, string> = {
+  critical: 'bg-danger/10 text-danger',
+  normal: 'bg-brand/10 text-brand',
+  low: 'bg-slate-100 text-slate-500',
+};
+
+/**
+ * A plain notification inbox. Ported from
+ * `legacy-next-src/components/partner/NotificationInbox.tsx`.
+ *
+ * Unread is carried by three cues at once — a brand-tinted row, a leading
+ * dot, and a heavier title — rather than a border alone: this list is read
+ * on a cheap phone in daylight, where a 1px colour change is invisible.
+ */
 export function NotificationInbox() {
   const t = useT();
+  const locale = useLocale();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
 
@@ -34,68 +66,138 @@ export function NotificationInbox() {
     },
   });
 
+  const timestamp = (iso: string) =>
+    new Date(iso).toLocaleString(locale === 'hi' ? 'hi-IN' : 'en-IN', {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+  // The three states are handled inline rather than through `QueryState` so
+  // loading can be skeleton rows shaped like the list they replace, instead
+  // of a spinner that collapses the layout on every page change.
+  if (query.status === 'pending') return <SkeletonRows rows={5} />;
+
+  if (query.status === 'error' || query.data === undefined) {
+    return <ErrorState error={query.error} onRetry={() => query.refetch()} />;
+  }
+
+  const data = query.data;
+
+  if (data.notifications.length === 0) {
+    return (
+      <Panel padded={false}>
+        <EmptyState
+          icon={Bell}
+          title={t('partner.notifications.empty')}
+          description={t('partner.notifications.emptyHint')}
+        />
+      </Panel>
+    );
+  }
+
   return (
-    <div className="flex flex-col gap-3">
-      <QueryState
-        status={query.status}
-        error={query.error}
-        data={query.data}
-        onRetry={() => query.refetch()}
-        empty={{ title: t('partner.notifications.empty') }}
-        isEmpty={(data) => data.notifications.length === 0}
-      >
-        {(data) => (
-          <>
-            {data.unread > 0 ? (
-              <Button
-                variant="secondary"
-                disabled={markAll.isPending}
-                onClick={() => markAll.mutate()}
+    <Panel
+      title={t('partner.notifications.listTitle')}
+      description={
+        data.unread > 0
+          ? t('partner.notifications.unreadCount', { count: data.unread })
+          : t('partner.notifications.allRead')
+      }
+      action={
+        data.unread > 0 ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            loading={markAll.isPending}
+            disabled={markAll.isPending}
+            onClick={() => markAll.mutate()}
+          >
+            <CheckCheck className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
+            {t('partner.notifications.markAllRead', { count: data.unread })}
+          </Button>
+        ) : null
+      }
+      padded={false}
+    >
+      <ul className="divide-y divide-slate-100">
+        {data.notifications.map((notification) => {
+          const Icon = CRITICALITY_ICON[notification.criticality];
+          const unread = !notification.read;
+
+          return (
+            <li
+              key={notification.id}
+              className={`flex items-start gap-3 px-4 py-4 lg:px-5 ${
+                unread ? 'bg-brand/[0.03]' : ''
+              }`}
+            >
+              <span
+                className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                  CRITICALITY_CHIP[notification.criticality]
+                }`}
               >
-                {t('partner.notifications.markAllRead', { count: data.unread })}
-              </Button>
-            ) : null}
+                <Icon className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={2} />
+              </span>
 
-            <ul className="flex flex-col gap-2">
-              {data.notifications.map((notification) => (
-                <li
-                  key={notification.id}
-                  className={`rounded-xl border p-3 ${notification.read ? 'border-slate-200 bg-white' : 'border-brand bg-white'}`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-base font-medium text-slate-900">{notification.title}</p>
-                    <Badge tone={CRITICALITY_TONE[notification.criticality]}>
-                      {t(`partner.notifications.criticality.${notification.criticality}`)}
-                    </Badge>
-                  </div>
-                  <p className="mt-1 text-sm text-slate-700">{notification.body}</p>
-                  <div className="mt-2 flex items-center justify-between">
-                    <span className="text-xs text-slate-400">
-                      {new Date(notification.createdAt).toLocaleString('hi-IN')}
-                    </span>
-                    {!notification.read ? (
-                      <button
-                        type="button"
-                        onClick={() => markRead.mutate(notification.id)}
-                        className="min-h-touch text-sm font-medium text-brand"
-                      >
-                        {t('partner.notifications.markRead')}
-                      </button>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5">
+                  <p
+                    className={`min-w-0 text-sm ${
+                      unread ? 'font-semibold text-slate-900' : 'font-medium text-slate-700'
+                    }`}
+                  >
+                    {unread ? (
+                      <span
+                        className="mr-1.5 inline-block h-2 w-2 shrink-0 rounded-full bg-brand align-middle"
+                        aria-hidden="true"
+                      />
                     ) : null}
-                  </div>
-                </li>
-              ))}
-            </ul>
+                    {notification.title}
+                  </p>
+                  <StatusPill tone={CRITICALITY_TONE[notification.criticality]}>
+                    {t(`partner.notifications.criticality.${notification.criticality}`)}
+                  </StatusPill>
+                </div>
 
-            <Pagination
-              page={data.page}
-              pageSize={data.pageSize}
-              total={data.total}
-              onChange={setPage}
-            />
-          </>
-        )}
-      </QueryState>
-    </div>
+                <p
+                  className={`mt-1 text-sm leading-relaxed ${
+                    unread ? 'text-slate-700' : 'text-slate-500'
+                  }`}
+                >
+                  {notification.body}
+                </p>
+
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                  <span className="text-xs tabular-nums text-slate-400">
+                    {timestamp(notification.createdAt)}
+                  </span>
+                  {unread ? (
+                    <button
+                      type="button"
+                      onClick={() => markRead.mutate(notification.id)}
+                      disabled={markRead.isPending}
+                      className="-my-2 inline-flex min-h-touch items-center text-sm font-medium text-brand transition-colors hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {t('partner.notifications.markRead')}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="px-4 pb-4 lg:px-5">
+        <Pagination
+          page={data.page}
+          pageSize={data.pageSize}
+          total={data.total}
+          onChange={setPage}
+        />
+      </div>
+    </Panel>
   );
 }

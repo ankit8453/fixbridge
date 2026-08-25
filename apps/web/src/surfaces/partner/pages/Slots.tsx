@@ -1,9 +1,11 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { CalendarOff, Loader2 } from 'lucide-react';
 import { useLocale, useT } from '../../../i18n/useT';
 import { buildLocalizedHref } from '../../../i18n/config';
-import { QueryState, StatusPill } from '../../../components/ui';
+import { QueryState } from '../../../components/ui';
+import { PageHeader, Panel } from '../components/ui';
 import { blockSlot, fetchMySlots, unblockSlot } from '../lib/api';
 import { partnerKeys } from '../lib/query-keys';
 import type { OwnSlot } from '../lib/types';
@@ -29,6 +31,10 @@ function dayKey(iso: string): string {
  * every visit — blocked hours stay visibly blocked, booked hours link
  * straight to the job, and un-blocking works regardless of which session
  * did the blocking.
+ *
+ * Layout is one column of days on a phone and a seven-column week grid from
+ * `lg` up: the same data, but a technician planning the week at a desk can
+ * see Monday and Saturday at once instead of scrolling a 448px strip.
  */
 export default function Slots() {
   const t = useT();
@@ -58,16 +64,33 @@ export default function Slots() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: slotsKey }),
   });
 
+  const intlLocale = locale === 'hi' ? 'hi-IN' : 'en-IN';
+
   const timeLabel = (iso: string) =>
-    new Date(iso).toLocaleTimeString(locale === 'hi' ? 'hi-IN' : 'en-IN', {
+    new Date(iso).toLocaleTimeString(intlLocale, {
       hour: '2-digit',
       minute: '2-digit',
     });
 
+  const saving = block.isPending || unblock.isPending;
+
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-4">
-      <h1 className="text-lg font-semibold text-slate-900">{t('partner.slots.title')}</h1>
-      <p className="text-sm text-muted">{t('partner.slots.hint')}</p>
+    <>
+      <PageHeader
+        title={t('partner.slots.title')}
+        description={t('partner.slots.hint')}
+        action={
+          saving ? (
+            <span
+              role="status"
+              className="inline-flex items-center gap-2 text-sm font-medium text-slate-500"
+            >
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" strokeWidth={2.5} />
+              {t('partner.common.saving')}
+            </span>
+          ) : null
+        }
+      />
 
       <QueryState
         status={slotsQuery.status}
@@ -85,68 +108,118 @@ export default function Slots() {
           }
 
           return (
-            <ul className="flex flex-col gap-4">
-              {[...byDay.entries()].map(([day, slots]) => (
-                <li key={day}>
-                  <p className="mb-2 text-sm font-semibold text-slate-600">
-                    {new Date(day).toLocaleDateString(locale === 'hi' ? 'hi-IN' : 'en-IN', {
-                      weekday: 'long',
-                      day: '2-digit',
-                      month: 'short',
-                    })}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {slots.map((slot) => {
-                      if (slot.status === 'booked') {
-                        return (
-                          <Link
-                            key={slot.id}
-                            to={buildLocalizedHref(locale, `/partner/jobs/${slot.bookingId}`)}
-                            className="min-h-touch rounded-lg border border-brand bg-white px-3 text-sm font-medium text-brand"
-                          >
-                            {timeLabel(slot.startsAt)}
-                          </Link>
-                        );
-                      }
+            <div className="flex flex-col gap-4">
+              <Legend />
 
-                      if (slot.status === 'blocked') {
-                        return (
-                          <button
-                            key={slot.id}
-                            type="button"
-                            disabled={unblock.isPending}
-                            onClick={() => unblock.mutate(slot.id)}
-                            className="flex min-h-touch items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 text-sm font-medium text-amber-800"
-                          >
-                            {timeLabel(slot.startsAt)}
-                            <StatusPill tone="warning">{t('partner.slots.blocked')}</StatusPill>
-                          </button>
-                        );
-                      }
+              {/* One column per day from `lg`; a single stacked column below,
+                  where seven columns would be four slots wide each. */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4 xl:grid-cols-7">
+                {[...byDay.entries()].map(([day, slots]) => {
+                  const date = new Date(day);
+                  return (
+                    <section
+                      key={day}
+                      className="flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+                    >
+                      <header className="border-b border-slate-100 px-3 py-2.5">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          {date.toLocaleDateString(intlLocale, { weekday: 'short' })}
+                        </p>
+                        <p className="mt-0.5 text-sm font-semibold tracking-tight text-slate-900">
+                          {date.toLocaleDateString(intlLocale, {
+                            day: '2-digit',
+                            month: 'short',
+                          })}
+                        </p>
+                      </header>
 
-                      return (
-                        <button
-                          key={slot.id}
-                          type="button"
-                          disabled={block.isPending}
-                          onClick={() => block.mutate(slot.id)}
-                          className="min-h-touch rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 transition-colors duration-150 active:bg-slate-100"
-                        >
-                          {timeLabel(slot.startsAt)}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </li>
-              ))}
-            </ul>
+                      <div className="flex flex-wrap gap-2 p-3 xl:flex-col">
+                        {slots.map((slot) => {
+                          if (slot.status === 'booked') {
+                            return (
+                              <Link
+                                key={slot.id}
+                                to={buildLocalizedHref(locale, `/partner/jobs/${slot.bookingId}`)}
+                                className="flex min-h-touch flex-1 items-center justify-center rounded-lg border border-brand/30 bg-brand/10 px-3 text-sm font-semibold tabular-nums text-brand transition-colors duration-150 hover:bg-brand/15 xl:flex-none"
+                              >
+                                {timeLabel(slot.startsAt)}
+                              </Link>
+                            );
+                          }
+
+                          if (slot.status === 'blocked') {
+                            return (
+                              <button
+                                key={slot.id}
+                                type="button"
+                                disabled={unblock.isPending}
+                                onClick={() => unblock.mutate(slot.id)}
+                                title={t('partner.slots.blocked')}
+                                className="flex min-h-touch flex-1 items-center justify-center gap-1.5 rounded-lg border border-warning/30 bg-warning/10 px-3 text-sm font-semibold tabular-nums text-warning transition-colors duration-150 hover:bg-warning/15 disabled:cursor-not-allowed disabled:opacity-50 xl:flex-none"
+                              >
+                                <CalendarOff
+                                  className="h-3.5 w-3.5 shrink-0"
+                                  aria-hidden="true"
+                                  strokeWidth={2}
+                                />
+                                <span className="line-through">{timeLabel(slot.startsAt)}</span>
+                                <span className="sr-only">{t('partner.slots.blocked')}</span>
+                              </button>
+                            );
+                          }
+
+                          return (
+                            <button
+                              key={slot.id}
+                              type="button"
+                              disabled={block.isPending}
+                              onClick={() => block.mutate(slot.id)}
+                              className="flex min-h-touch flex-1 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium tabular-nums text-slate-700 transition-colors duration-150 hover:border-slate-300 hover:bg-slate-50 active:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 xl:flex-none"
+                            >
+                              {timeLabel(slot.startsAt)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
+            </div>
           );
         }}
       </QueryState>
+    </>
+  );
+}
 
-      {block.isPending || unblock.isPending ? (
-        <p className="text-sm text-muted">{t('partner.common.saving')}</p>
-      ) : null}
-    </div>
+/**
+ * Three colours carry the whole screen's meaning, and none of them is
+ * self-evident — a legend is cheaper than a technician blocking a booked hour
+ * to find out what the colour meant.
+ */
+function Legend() {
+  const t = useT();
+
+  return (
+    <Panel className="lg:sticky lg:top-20">
+      <ul className="flex flex-wrap items-center gap-x-5 gap-y-2.5">
+        <LegendItem swatch="border-slate-200 bg-white" label={t('partner.slots.legendOpen')} />
+        <LegendItem
+          swatch="border-warning/30 bg-warning/10"
+          label={t('partner.slots.legendBlocked')}
+        />
+        <LegendItem swatch="border-brand/30 bg-brand/10" label={t('partner.slots.legendBooked')} />
+      </ul>
+    </Panel>
+  );
+}
+
+function LegendItem({ swatch, label }: { swatch: string; label: string }) {
+  return (
+    <li className="flex items-center gap-2 text-xs text-slate-600">
+      <span className={`h-4 w-4 shrink-0 rounded border ${swatch}`} aria-hidden="true" />
+      {label}
+    </li>
   );
 }
