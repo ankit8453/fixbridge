@@ -17,10 +17,10 @@ datasource db {
 /// Cities the marketplace operates in. `city_id` hangs off every city-scoped
 /// table from day one so multi-city never needs a backfill migration.
 model City {
-  id        Int      @id @default(autoincrement())
-  name      String   @db.VarChar(120)
-  state     String   @db.VarChar(120)
-  isActive  Boolean  @default(true) @map("is_active")
+  id                   Int      @id @default(autoincrement())
+  name                 String   @db.VarChar(120)
+  state                String   @db.VarChar(120)
+  isActive             Boolean  @default(true) @map("is_active")
   /// Whether a technician needs an ops decision before they can be listed at
   /// all, on top of the automatic completeness and verification gates.
   ///
@@ -29,8 +29,8 @@ model City {
   /// search. It exists per-city because the first city where we do not know the
   /// trades personally is exactly where somebody will want to turn it on, and
   /// discovering then that it needs a migration is the wrong time.
-  requireEntryApproval Boolean @default(false) @map("require_entry_approval")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  requireEntryApproval Boolean  @default(false) @map("require_entry_approval")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   users            User[]
   categories       Category[]
@@ -38,6 +38,8 @@ model City {
   providerProfiles ProviderProfile[]
   feeConfigs       FeeConfig[]
   commissionConfig CommissionConfig[]
+
+  coupons Coupon[]
 
   @@unique([name, state])
   @@index([isActive])
@@ -102,20 +104,20 @@ enum Language {
 /// Phone number is identity. There is no password column and never will be —
 /// authentication is OTP-only.
 model User {
-  id            String     @id @default(uuid()) @db.Uuid
+  id                String     @id @default(uuid()) @db.Uuid
   /// E.164, always normalised to +91XXXXXXXXXX before it reaches the database.
-  phone         String     @unique @db.VarChar(16)
+  phone             String     @unique @db.VarChar(16)
   /// Collected during profile setup in Phase 3, not at signup.
-  name          String?    @db.VarChar(120)
-  status        UserStatus @default(active)
+  name              String?    @db.VarChar(120)
+  status            UserStatus @default(active)
   /// Nullable FK kept from day one so multi-city never needs a backfill.
-  defaultCityId Int?       @map("default_city_id")
+  defaultCityId     Int?       @map("default_city_id")
   /// Hindi by default, because Jabalpur is. Every asynchronous message renders
   /// in this language; the `Accept-Language` header only governs live requests.
-  preferredLanguage Language @default(hi) @map("preferred_language")
+  preferredLanguage Language   @default(hi) @map("preferred_language")
 
-  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   defaultCity        City?            @relation(fields: [defaultCityId], references: [id], onDelete: SetNull)
   roles              UserRole[]
@@ -132,9 +134,10 @@ model User {
   complaintsAgainst  Complaint[]      @relation("ComplaintsAgainst")
   complaintsResolved Complaint[]      @relation("ComplaintsResolved")
 
-  notifications        Notification[]
+  notifications          Notification[]
   notificationDeliveries NotificationDelivery[]
-  auditLogs            AuditLog[]
+  auditLogs              AuditLog[]
+  couponRedemptions      CouponRedemption[]
 
   @@index([status])
   @@map("users")
@@ -193,8 +196,8 @@ model AdminUser {
   /// `ON DELETE SET NULL` (not cascade): removing an admin must never silently
   /// delete the sub-admins they created, which would revoke access for people
   /// still doing the job.
-  createdById String? @map("created_by_id") @db.Uuid
-  createdBy   AdminUser?  @relation("AdminCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdById   String?     @map("created_by_id") @db.Uuid
+  createdBy     AdminUser?  @relation("AdminCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   createdAdmins AdminUser[] @relation("AdminCreatedBy")
 
   /// Stamped on each successful sign-in. Useful for spotting a dormant account
@@ -204,8 +207,9 @@ model AdminUser {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  auditLogs     AuditLog[]
-  refreshTokens AdminRefreshToken[]
+  auditLogs      AuditLog[]
+  refreshTokens  AdminRefreshToken[]
+  couponsCreated Coupon[]
 
   @@index([status])
   @@map("admin_users")
@@ -311,6 +315,7 @@ model Category {
   bookings    Booking[]
   feeConfigs  FeeConfig[]
   commissions CommissionConfig[]
+  coupons     Coupon[]
 
   @@unique([cityId, slug])
   @@index([cityId, isActive])
@@ -374,23 +379,23 @@ enum AddressLabel {
 /// `location` is NOT NULL and Prisma cannot write it, so every insert and update
 /// of an address goes through raw SQL in the repository.
 model Address {
-  id          String                                @id @default(uuid()) @db.Uuid
-  userId      String                                @map("user_id") @db.Uuid
-  label       AddressLabel                          @default(other)
+  id          String       @id @default(uuid()) @db.Uuid
+  userId      String       @map("user_id") @db.Uuid
+  label       AddressLabel @default(other)
   /// Free text shown alongside the label, e.g. "Mummy's house".
-  labelText   String?                               @map("label_text") @db.VarChar(60)
-  addressText String                                @map("address_text") @db.VarChar(500)
-  landmark    String?                               @db.VarChar(200)
-  cityId      Int                                   @map("city_id")
+  labelText   String?      @map("label_text") @db.VarChar(60)
+  addressText String       @map("address_text") @db.VarChar(500)
+  landmark    String?      @db.VarChar(200)
+  cityId      Int          @map("city_id")
   /// WGS-84 degrees, stored as two plain columns rather than a PostGIS
   /// `geography(Point, 4326)` — see `core/geo-sql.ts` for why and for how to
   /// switch back. Prisma can read and write these directly, which is why this
   /// model no longer needs raw SQL for an ordinary insert.
-  lat         Float                                 @db.DoublePrecision
-  lng         Float                                 @db.DoublePrecision
-  isDefault   Boolean                               @default(false) @map("is_default")
-  createdAt   DateTime                              @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime                              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  lat         Float        @db.DoublePrecision
+  lng         Float        @db.DoublePrecision
+  isDefault   Boolean      @default(false) @map("is_default")
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   city City @relation(fields: [cityId], references: [id], onDelete: Restrict)
@@ -437,21 +442,21 @@ enum ProviderDocumentStatus {
 /// that touches the profile or its children. Phase 5 search filters on
 /// `is_listed` and must never see an incomplete profile.
 model ProviderProfile {
-  userId             String                                 @id @map("user_id") @db.Uuid
-  displayName        String?                                @map("display_name") @db.VarChar(120)
-  bio                String?                                @db.VarChar(1000)
-  yearsExperience    Int?                                   @map("years_experience")
-  cityId             Int                                    @map("city_id")
+  userId             String  @id @map("user_id") @db.Uuid
+  displayName        String? @map("display_name") @db.VarChar(120)
+  bio                String? @db.VarChar(1000)
+  yearsExperience    Int?    @map("years_experience")
+  cityId             Int     @map("city_id")
   /// WGS-84 degrees. Null until the technician sets their base location —
   /// which is why both are nullable and always checked together. See
   /// `core/geo-sql.ts`.
-  baseLat            Float?                                 @map("base_lat") @db.DoublePrecision
-  baseLng            Float?                                 @map("base_lng") @db.DoublePrecision
-  serviceRadiusKm    Int                                    @default(5) @map("service_radius_km")
-  completenessScore  Int                                    @default(0) @map("completeness_score")
-  isListed           Boolean                                @default(false) @map("is_listed")
+  baseLat            Float?  @map("base_lat") @db.DoublePrecision
+  baseLng            Float?  @map("base_lng") @db.DoublePrecision
+  serviceRadiusKm    Int     @default(5) @map("service_radius_km")
+  completenessScore  Int     @default(0) @map("completeness_score")
+  isListed           Boolean @default(false) @map("is_listed")
   /// True when ops keyed the data in on the technician's behalf.
-  assistedOnboarding Boolean                                @default(false) @map("assisted_onboarding")
+  assistedOnboarding Boolean @default(false) @map("assisted_onboarding")
 
   /**
    * Suspension — a separate axis from verification, and reversible.
@@ -469,7 +474,6 @@ model ProviderProfile {
 
   /**
    * Ops let this technician onto the platform at all.
-   *
    * Only consulted where `cities.require_entry_approval` is on, which is nowhere
    * today. Null then simply means "never needed": the automatic gates —
    * completeness and verification — already decide who appears in search, and a
@@ -478,8 +482,8 @@ model ProviderProfile {
   entryApprovedAt   DateTime? @map("entry_approved_at") @db.Timestamptz(3)
   entryApprovedById String?   @map("entry_approved_by") @db.Uuid
 
-  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   user              User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
   city              City                           @relation(fields: [cityId], references: [id], onDelete: Restrict)
@@ -753,16 +757,16 @@ enum SlotStatus {
 /// Either way it is still the database refusing the write, so a check-then-
 /// insert race cannot get through. See docs/bookings.md.
 model Slot {
-  id               String                   @id @default(uuid()) @db.Uuid
-  providerId       String                   @map("provider_id") @db.Uuid
-  startsAt         DateTime                 @map("starts_at") @db.Timestamptz(3)
-  endsAt           DateTime                 @map("ends_at") @db.Timestamptz(3)
-  status           SlotStatus               @default(open)
+  id               String     @id @default(uuid()) @db.Uuid
+  providerId       String     @map("provider_id") @db.Uuid
+  startsAt         DateTime   @map("starts_at") @db.Timestamptz(3)
+  endsAt           DateTime   @map("ends_at") @db.Timestamptz(3)
+  status           SlotStatus @default(open)
   /// Which availability template produced this slot, if any.
-  sourceTemplateId String?                  @map("source_template_id") @db.Uuid
-  bookingId        String?                  @unique @map("booking_id") @db.Uuid
-  createdAt        DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt        DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  sourceTemplateId String?    @map("source_template_id") @db.Uuid
+  bookingId        String?    @unique @map("booking_id") @db.Uuid
+  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   provider       ProviderProfile               @relation(fields: [providerId], references: [userId], onDelete: Cascade)
   sourceTemplate ProviderAvailabilityTemplate? @relation(fields: [sourceTemplateId], references: [id], onDelete: SetNull)
@@ -882,17 +886,18 @@ model Booking {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  customer   User               @relation("CustomerBookings", fields: [customerId], references: [id], onDelete: Cascade)
-  provider   ProviderProfile    @relation(fields: [providerId], references: [userId], onDelete: Cascade)
-  category   Category           @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  priceCard  ProviderPriceCard? @relation(fields: [priceCardId], references: [id], onDelete: SetNull)
-  events     BookingEvent[]
-  slots      Slot[]
-  quotations Quotation[]
-  payments   Payment[]
-  journals   LedgerJournal[]
-  reviews    Review[]
-  complaints Complaint[]
+  customer         User               @relation("CustomerBookings", fields: [customerId], references: [id], onDelete: Cascade)
+  provider         ProviderProfile    @relation(fields: [providerId], references: [userId], onDelete: Cascade)
+  category         Category           @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  priceCard        ProviderPriceCard? @relation(fields: [priceCardId], references: [id], onDelete: SetNull)
+  events           BookingEvent[]
+  slots            Slot[]
+  quotations       Quotation[]
+  payments         Payment[]
+  journals         LedgerJournal[]
+  reviews          Review[]
+  complaints       Complaint[]
+  couponRedemption CouponRedemption?
 
   @@index([customerId, createdAt])
   @@index([providerId, createdAt])
@@ -986,6 +991,43 @@ model Quotation {
 
   status QuotationStatus @default(sent)
 
+  /**
+   * What the customer already agreed to, copied from the booking's price
+   * snapshot rather than accepted from the technician's app.
+   *
+   * Zero when the booking had no anchor (`inspection_based`, or no price card
+   * at all) -- an estimate is not an agreement, so there is nothing to lock to.
+   */
+  agreedLabourPaise Int @default(0) @map("agreed_labour_paise")
+
+  /**
+   * Additional work found on site, which the customer has not agreed to yet.
+   *
+   * Separate from the agreed portion because they are different promises: one
+   * is the price somebody chose this technician on, the other is a request.
+   * Charging it requires `extraLabourReason`, enforced in
+   * `modules/quotations/labour.ts` and again by a database CHECK.
+   */
+  extraLabourPaise Int @default(0) @map("extra_labour_paise")
+
+  /**
+   * Why the extra is being charged, in words the customer reads next to the
+   * amount before they approve it. "₹200 extra" with no reason is how a
+   * marketplace loses the trust it sells.
+   */
+  extraLabourReason String? @map("extra_labour_reason") @db.VarChar(300)
+
+  /**
+   * True when the extra exceeded the cap (the smaller of the agreed amount or
+   * ₹5,000) and ops should look at it.
+   *
+   * Deliberately a flag rather than a refusal: blocking a genuinely large job
+   * would push the transaction off-platform, where nobody is protected.
+   */
+  needsReview Boolean @default(false) @map("needs_review")
+
+  /// `agreedLabourPaise + extraLabourPaise`. Kept so existing readers and the
+  /// database's own total check keep working unchanged.
   labourPaise     Int @map("labour_paise")
   /// Denormalised sum of the items, so a total can be checked without a join.
   partsTotalPaise Int @map("parts_total_paise")
@@ -1007,6 +1049,8 @@ model Quotation {
 
   @@unique([bookingId, version])
   @@index([bookingId, createdAt])
+  /// The ops review queue: flagged quotes, oldest first.
+  @@index([needsReview, createdAt])
   @@map("quotations")
 }
 
@@ -1408,8 +1452,16 @@ model Payment {
 
   purpose               PaymentPurpose
   method                PaymentMethod
-  /// The frozen payable this collects. Never recomputed.
+  /// The frozen payable this collects, **before any discount**. Never recomputed.
+  ///
+  /// Deliberately gross: commission is split on this figure, so the technician
+  /// is paid on what the job was worth rather than on what the customer
+  /// happened to pay after a coupon. The platform funds the discount out of its
+  /// own commission -- see modules/coupons/discount.ts.
   amountPaise           Int            @map("amount_paise")
+  /// What a coupon took off. Zero when none was applied. The gateway collected
+  /// `amountPaise - discountPaise`.
+  discountPaise         Int            @default(0) @map("discount_paise")
   /// Our rate at the moment of collection. Config changes never reach back.
   commissionBpsSnapshot Int            @map("commission_bps_snapshot")
 
@@ -1660,6 +1712,108 @@ model KycAccessLog {
 /// a migration is exactly the wrong amount of friction for adding an audit
 /// action — the pressure would be to reuse a near-enough existing one, which is
 /// how audit logs stop being readable. The closed set lives in TypeScript
+
+/// A discount the platform funds out of its own commission.
+///
+/// ## Platform-funded, never partner-funded
+///
+/// The technician is always paid on the PRE-discount amount. The difference
+/// comes out of the platform's commission, which is why `maxDiscountPaise` is
+/// required rather than optional: a percentage with no ceiling on a large job
+/// is an unbounded loss.
+///
+/// ## Online payment only
+///
+/// Enforced in `modules/coupons/discount.ts`, not just hidden in the UI. On a
+/// cash job the technician collects the discounted amount in hand while
+/// commission is computed on the full price -- so the discount would come out
+/// of the technician's pocket rather than the platform's. That is not a
+/// discount, it is a pay cut imposed on somebody else.
+model Coupon {
+  id   String @id @default(uuid()) @db.Uuid
+  /// Stored uppercase so `SAVE20` and `save20` cannot become two coupons.
+  code String @unique @db.VarChar(32)
+
+  description String @db.VarChar(200)
+
+  discountType CouponDiscountType @map("discount_type")
+  /// Percent (1-100) for `percent`, paise for `flat`.
+  value        Int
+
+  /// The ceiling on what any single redemption may take off. Required.
+  maxDiscountPaise Int @map("max_discount_paise")
+  /// Below this order value the coupon does not apply.
+  minOrderPaise    Int @default(0) @map("min_order_paise")
+
+  validFrom  DateTime @map("valid_from") @db.Timestamptz(3)
+  validUntil DateTime @map("valid_until") @db.Timestamptz(3)
+
+  /// Null means unlimited overall; the per-customer limit still applies.
+  totalUsageLimit  Int? @map("total_usage_limit")
+  perCustomerLimit Int  @default(1) @map("per_customer_limit")
+
+  status CouponStatus @default(active)
+
+  /// Optional scoping. Null on either means "everywhere" / "every category".
+  cityId     Int? @map("city_id")
+  categoryId Int? @map("category_id")
+
+  createdByAdminId String? @map("created_by_admin_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  city        City?              @relation(fields: [cityId], references: [id], onDelete: SetNull)
+  category    Category?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  createdBy   AdminUser?         @relation(fields: [createdByAdminId], references: [id], onDelete: SetNull)
+  redemptions CouponRedemption[]
+
+  @@index([status, validUntil])
+  @@map("coupons")
+}
+
+/// One row per coupon actually applied to a booking.
+///
+/// This table, not a counter on `Coupon`, is what enforces the usage limits --
+/// a counter can drift, rows cannot. The unique on `bookingId` is what makes
+/// "one coupon per booking" a database guarantee rather than a service check.
+model CouponRedemption {
+  id         String @id @default(uuid()) @db.Uuid
+  couponId   String @map("coupon_id") @db.Uuid
+  /// Unique: a booking may carry at most one coupon.
+  bookingId  String @unique @map("booking_id") @db.Uuid
+  customerId String @map("customer_id") @db.Uuid
+
+  /// What was actually taken off, after the cap was applied. Not recomputable
+  /// later: the coupon's own terms may have changed since.
+  discountPaise Int @map("discount_paise")
+
+  redeemedAt DateTime @default(now()) @map("redeemed_at") @db.Timestamptz(3)
+
+  coupon   Coupon  @relation(fields: [couponId], references: [id], onDelete: Restrict)
+  booking  Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  customer User    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([couponId, redeemedAt])
+  @@index([customerId, couponId])
+  @@map("coupon_redemptions")
+}
+
+enum CouponDiscountType {
+  percent
+  flat
+
+  @@map("coupon_discount_type")
+}
+
+enum CouponStatus {
+  active
+  paused
+  expired
+
+  @@map("coupon_status")
+}
+
 /// (`AUDIT_ACTIONS`), where it is still exhaustive and still typo-proof.
 model AuditLog {
   id String @id @default(uuid()) @db.Uuid
@@ -1775,7 +1929,7 @@ model Notification {
   id     String @id @default(uuid()) @db.Uuid
   userId String @map("user_id") @db.Uuid
 
-  topic String @db.VarChar(120)
+  topic       String @db.VarChar(120)
   /// The booking, provider or complaint this is about. Half the idempotency key.
   aggregateId String @map("aggregate_id") @db.Uuid
 
@@ -1824,10 +1978,10 @@ model NotificationDelivery {
   aggregateId     String @map("aggregate_id") @db.Uuid
   recipientUserId String @map("recipient_user_id") @db.Uuid
 
-  channel NotificationChannel
+  channel   NotificationChannel
   /// Which implementation actually handled it — `fake`, `console`, `msg91`,
   /// `whatsapp_cloud`, `in_app`. Recorded so a delivery dispute can be answered.
-  transport String @db.VarChar(40)
+  transport String              @db.VarChar(40)
 
   status       NotificationDeliveryStatus @default(queued)
   /// Provider-side message id, for chasing a "it never arrived" with the vendor.

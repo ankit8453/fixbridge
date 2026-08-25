@@ -73,6 +73,11 @@ export const AUDIT_ACTIONS = {
   deliveryDiscard: 'delivery.discard',
 
   cityUpdateSettings: 'city.update_settings',
+
+  couponCreate: 'coupon.create',
+  couponUpdate: 'coupon.update',
+  couponPause: 'coupon.pause',
+  couponResume: 'coupon.resume',
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
@@ -121,6 +126,11 @@ export const AUDITED_ADMIN_ROUTES: Record<string, AuditAction> = {
   'POST /api/v1/admin/queues/deliveries/:deliveryId/discard': AUDIT_ACTIONS.deliveryDiscard,
 
   'PATCH /api/v1/admin/cities/:cityId': AUDIT_ACTIONS.cityUpdateSettings,
+
+  'POST /api/v1/admin/coupons/': AUDIT_ACTIONS.couponCreate,
+  'PATCH /api/v1/admin/coupons/:couponId': AUDIT_ACTIONS.couponUpdate,
+  'POST /api/v1/admin/coupons/:couponId/pause': AUDIT_ACTIONS.couponPause,
+  'POST /api/v1/admin/coupons/:couponId/resume': AUDIT_ACTIONS.couponResume,
 };
 
 /* -------------------------------------------------------------------------- */
@@ -157,6 +167,17 @@ export const ADMIN_ONLY_ROUTES: readonly string[] = [
   'POST /api/v1/admin/payments/dues/settle',
   // Config: the rules everybody else operates inside.
   'PATCH /api/v1/admin/cities/:cityId',
+  /**
+   * Coupons are money config, gated the same way fee and commission config is.
+   *
+   * A discount is funded out of the platform's commission, so creating one
+   * spends the platform's money -- which is the line this list draws. A
+   * sub-admin doing the day's judgment work has no reason to mint one.
+   */
+  'POST /api/v1/admin/coupons/',
+  'PATCH /api/v1/admin/coupons/:couponId',
+  'POST /api/v1/admin/coupons/:couponId/pause',
+  'POST /api/v1/admin/coupons/:couponId/resume',
 ];
 
 const ADMIN_ONLY = new Set(ADMIN_ONLY_ROUTES);

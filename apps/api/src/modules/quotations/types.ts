@@ -25,6 +25,13 @@ export const createQuotationSchema = z
       .int()
       .min(0)
       .max(MAX_UNIT_PAISE * 4),
+    /**
+     * The split. Optional so an older client still works: when absent, the
+     * service derives the extra as whatever exceeds the agreed amount.
+     */
+    agreedLabourPaise: z.coerce.number().int().min(0).optional(),
+    extraLabourPaise: z.coerce.number().int().min(0).optional(),
+    extraLabourReason: z.string().trim().min(1).max(300).optional(),
     items: z.array(quotationItemSchema).max(MAX_ITEMS).default([]),
     note: z.string().trim().min(1).max(500).optional(),
   })

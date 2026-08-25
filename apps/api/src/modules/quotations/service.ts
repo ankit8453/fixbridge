@@ -5,6 +5,7 @@ import { formatPaise } from '../search/service';
 import { topicFor } from '../bookings/state-machine';
 import type { BookingStatus } from '../bookings/state-machine';
 import { computeQuotationTotals, QuotationMathError } from './money';
+import { assertAgreedMatches, assertNotBelowFloor, decideLabour, LabourRuleError } from './labour';
 import * as repo from './repository';
 import type { QuotationWithItems } from './repository';
 import type {
@@ -36,6 +37,9 @@ interface BookingContext {
   customerId: string;
   providerId: string;
   categoryId: number;
+  /** The booking-time price snapshot the labour rules check against. */
+  priceCardType: PriceType | null;
+  priceCardAmountPaise: number | null;
 }
 
 /**
@@ -51,7 +55,17 @@ async function loadBooking(
 ): Promise<{ booking: BookingContext; side: 'customer' | 'provider' }> {
   const booking = await deps.context.prisma.booking.findUnique({
     where: { id: bookingId },
-    select: { id: true, status: true, customerId: true, providerId: true, categoryId: true },
+    select: {
+      id: true,
+      status: true,
+      customerId: true,
+      providerId: true,
+      categoryId: true,
+      // The price the customer actually agreed to. Without these two the
+      // labour rules have no anchor to check a quote against.
+      priceCardType: true,
+      priceCardAmountPaise: true,
+    },
   });
 
   if (!booking || (booking.customerId !== userId && booking.providerId !== userId)) {
@@ -158,8 +172,21 @@ export async function sendQuotation(
 
   const totals = totalsOrBadRequest(input);
 
+  /**
+   * Labour is checked against what the customer actually agreed to.
+   *
+   * The booking snapshots the price card at booking time; before this, nothing
+   * consulted it and a technician listed at ₹300 could quote ₹500. The agreed
+   * portion is DERIVED here rather than trusted from the request — a partner
+   * app is not a trust boundary.
+   */
+  const labour = labourOrBadRequest(booking, input);
+
   const payload = {
-    labourPaise: input.labourPaise,
+    agreedLabourPaise: labour.agreedLabourPaise,
+    extraLabourPaise: labour.extraLabourPaise,
+    needsReview: labour.needsReview,
+    labourPaise: labour.totalLabourPaise,
     partsTotalPaise: totals.partsTotalPaise,
     totalPaise: totals.totalPaise,
     itemCount: input.items.length,
@@ -171,7 +198,11 @@ export async function sendQuotation(
       {
         bookingId,
         createdById: providerId,
-        labourPaise: input.labourPaise,
+        agreedLabourPaise: labour.agreedLabourPaise,
+        extraLabourPaise: labour.extraLabourPaise,
+        extraLabourReason: labour.extraLabourReason,
+        needsReview: labour.needsReview,
+        labourPaise: labour.totalLabourPaise,
         partsTotalPaise: totals.partsTotalPaise,
         totalPaise: totals.totalPaise,
         note: input.note ?? null,
@@ -208,6 +239,65 @@ export async function sendQuotation(
 
     throw error;
   }
+}
+
+/**
+ * Applies the labour rules and turns a rule violation into a 400.
+ *
+ * Backwards-compatible with a client that still sends only `labourPaise`: when
+ * no explicit split is supplied, whatever exceeds the agreed amount is treated
+ * as extra — which then requires a reason, exactly as a deliberate split would.
+ */
+function labourOrBadRequest(
+  booking: { priceCardType: PriceType | null; priceCardAmountPaise: number | null },
+  input: CreateQuotationInput,
+) {
+  const anchor = {
+    priceType: booking.priceCardType,
+    amountPaise: booking.priceCardAmountPaise,
+  };
+
+  try {
+    const explicit = input.extraLabourPaise !== undefined;
+
+    if (explicit && input.agreedLabourPaise !== undefined) {
+      assertAgreedMatches(anchor, input.agreedLabourPaise);
+    }
+
+    const decision = decideLabour({
+      anchor,
+      extraLabourPaise: explicit
+        ? (input.extraLabourPaise as number)
+        : deriveExtra(anchor, input.labourPaise),
+      extraLabourReason: input.extraLabourReason ?? null,
+      unanchoredLabourPaise: input.labourPaise,
+    });
+
+    assertNotBelowFloor(anchor, decision.totalLabourPaise);
+
+    return decision;
+  } catch (error) {
+    if (error instanceof LabourRuleError) {
+      throw new AppError(400, 'QUOTATION_LABOUR_INVALID', error.message, {
+        messageKey: `errors.quotations.labour.${error.reason}`,
+        details: { reason: error.reason, expectedPaise: error.expectedPaise },
+      });
+    }
+    throw error;
+  }
+}
+
+/** Whatever a legacy single-figure request charges above the agreed amount. */
+function deriveExtra(
+  anchor: { priceType: PriceType | null; amountPaise: number | null },
+  labourPaise: number,
+): number {
+  const agreed =
+    anchor.amountPaise !== null &&
+    (anchor.priceType === 'fixed' || anchor.priceType === 'starting_from')
+      ? anchor.amountPaise
+      : 0;
+  return Math.max(0, labourPaise - agreed);
 }
 
 /** Zod has already checked shapes; this catches arithmetic the caps forbid. */

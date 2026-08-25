@@ -2248,3 +2248,172 @@ CREATE INDEX "provider_profiles_city_base_latlng_idx"
   WHERE "base_lat" IS NOT NULL AND "base_lng" IS NOT NULL;
 
 CREATE INDEX "addresses_lat_lng_idx" ON "addresses" ("lat", "lng");
+
+-- ===========================================================================
+-- Coupons, and labour that cannot contradict what the customer agreed to.
+-- ===========================================================================
+--
+-- HAND-EDITED as every migration here is: `prisma migrate diff` proposed
+-- dropping the eight raw-SQL indexes it cannot see in the datamodel (partial,
+-- expression and trigram). Removed, as always.
+--
+-- ## The labour columns
+--
+-- `Quotation.labour_paise` was a free field and nothing compared it to the
+-- booking's price snapshot. A technician listed at ₹300 could quote ₹500, and
+-- because `computePayable` prefers an approved quotation over the price card,
+-- that ₹500 became the price. The customer chose one number and paid another.
+--
+-- Labour is now agreed + extra, and charging extra requires a reason the
+-- customer reads before approving. See modules/quotations/labour.ts.
+--
+-- ## Coupons
+--
+-- Platform-funded: the technician is always paid on the pre-discount amount.
+-- Online payment only -- on cash the technician would be absorbing the
+-- discount out of their own collection, which is a pay cut, not a promotion.
+
+-- CreateEnum
+CREATE TYPE "coupon_discount_type" AS ENUM ('percent', 'flat');
+
+-- CreateEnum
+CREATE TYPE "coupon_status" AS ENUM ('active', 'paused', 'expired');
+
+-- DropIndex
+
+-- DropIndex
+
+-- DropIndex
+
+-- DropIndex
+
+-- DropIndex
+
+-- DropIndex
+
+-- DropIndex
+
+-- DropIndex
+
+-- AlterTable
+ALTER TABLE "quotations" ADD COLUMN     "agreed_labour_paise" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "extra_labour_paise" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "extra_labour_reason" VARCHAR(300),
+ADD COLUMN     "needs_review" BOOLEAN NOT NULL DEFAULT false;
+
+-- CreateTable
+CREATE TABLE "coupons" (
+    "id" UUID NOT NULL,
+    "code" VARCHAR(32) NOT NULL,
+    "description" VARCHAR(200) NOT NULL,
+    "discount_type" "coupon_discount_type" NOT NULL,
+    "value" INTEGER NOT NULL,
+    "max_discount_paise" INTEGER NOT NULL,
+    "min_order_paise" INTEGER NOT NULL DEFAULT 0,
+    "valid_from" TIMESTAMPTZ(3) NOT NULL,
+    "valid_until" TIMESTAMPTZ(3) NOT NULL,
+    "total_usage_limit" INTEGER,
+    "per_customer_limit" INTEGER NOT NULL DEFAULT 1,
+    "status" "coupon_status" NOT NULL DEFAULT 'active',
+    "city_id" INTEGER,
+    "category_id" INTEGER,
+    "created_by_admin_id" UUID,
+    "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(3) NOT NULL,
+
+    CONSTRAINT "coupons_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "coupon_redemptions" (
+    "id" UUID NOT NULL,
+    "coupon_id" UUID NOT NULL,
+    "booking_id" UUID NOT NULL,
+    "customer_id" UUID NOT NULL,
+    "discount_paise" INTEGER NOT NULL,
+    "redeemed_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "coupon_redemptions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "coupons_code_key" ON "coupons"("code");
+
+-- CreateIndex
+CREATE INDEX "coupons_status_valid_until_idx" ON "coupons"("status", "valid_until");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "coupon_redemptions_booking_id_key" ON "coupon_redemptions"("booking_id");
+
+-- CreateIndex
+CREATE INDEX "coupon_redemptions_coupon_id_redeemed_at_idx" ON "coupon_redemptions"("coupon_id", "redeemed_at");
+
+-- CreateIndex
+CREATE INDEX "coupon_redemptions_customer_id_coupon_id_idx" ON "coupon_redemptions"("customer_id", "coupon_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "admin_users_email_key" ON "admin_users"("email");
+
+-- CreateIndex
+CREATE INDEX "quotations_needs_review_created_at_idx" ON "quotations"("needs_review", "created_at");
+
+-- AddForeignKey
+ALTER TABLE "coupons" ADD CONSTRAINT "coupons_city_id_fkey" FOREIGN KEY ("city_id") REFERENCES "cities"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "coupons" ADD CONSTRAINT "coupons_category_id_fkey" FOREIGN KEY ("category_id") REFERENCES "categories"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "coupons" ADD CONSTRAINT "coupons_created_by_admin_id_fkey" FOREIGN KEY ("created_by_admin_id") REFERENCES "admin_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "coupon_redemptions" ADD CONSTRAINT "coupon_redemptions_coupon_id_fkey" FOREIGN KEY ("coupon_id") REFERENCES "coupons"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "coupon_redemptions" ADD CONSTRAINT "coupon_redemptions_booking_id_fkey" FOREIGN KEY ("booking_id") REFERENCES "bookings"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "coupon_redemptions" ADD CONSTRAINT "coupon_redemptions_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- The rules the service enforces, enforced again by the database. A partner
+-- app is not a trust boundary.
+ALTER TABLE "quotations"
+  ADD CONSTRAINT "quotations_agreed_labour_check" CHECK ("agreed_labour_paise" >= 0),
+  ADD CONSTRAINT "quotations_extra_labour_check" CHECK ("extra_labour_paise" >= 0),
+  -- The split has to add up to the figure everything downstream reads.
+  ADD CONSTRAINT "quotations_labour_split_check"
+    CHECK ("labour_paise" = "agreed_labour_paise" + "extra_labour_paise"),
+  -- Charging extra requires saying why.
+  ADD CONSTRAINT "quotations_extra_reason_check"
+    CHECK ("extra_labour_paise" = 0 OR LENGTH(TRIM(COALESCE("extra_labour_reason", ''))) >= 10);
+
+ALTER TABLE "coupons"
+  -- A percent coupon outside 1-100 is a typo; a flat one must be positive.
+  ADD CONSTRAINT "coupons_value_check" CHECK ("value" > 0),
+  ADD CONSTRAINT "coupons_percent_range_check"
+    CHECK ("discount_type" <> 'percent' OR "value" BETWEEN 1 AND 100),
+  -- The cap is what stops a percentage becoming an unbounded loss.
+  ADD CONSTRAINT "coupons_max_discount_check" CHECK ("max_discount_paise" > 0),
+  ADD CONSTRAINT "coupons_min_order_check" CHECK ("min_order_paise" >= 0),
+  ADD CONSTRAINT "coupons_window_check" CHECK ("valid_until" > "valid_from"),
+  ADD CONSTRAINT "coupons_per_customer_check" CHECK ("per_customer_limit" >= 1),
+  ADD CONSTRAINT "coupons_total_limit_check"
+    CHECK ("total_usage_limit" IS NULL OR "total_usage_limit" >= 1);
+
+ALTER TABLE "coupon_redemptions"
+  ADD CONSTRAINT "coupon_redemptions_discount_check" CHECK ("discount_paise" > 0);
+
+-- Case-insensitive uniqueness on the code, so SAVE20 and save20 cannot become
+-- two coupons even if a future code path forgets to upper-case.
+CREATE UNIQUE INDEX "coupons_code_lower_key" ON "coupons" (LOWER("code"));
+
+-- What a coupon took off this payment. Zero when none was applied.
+--
+-- `amount_paise` stays GROSS on purpose: commission is split on it, so the
+-- technician is paid what the job was worth rather than what the customer
+-- happened to pay after a discount. The platform funds the difference out of
+-- its own commission. The gateway collected `amount_paise - discount_paise`.
+ALTER TABLE "payments" ADD COLUMN "discount_paise" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "payments"
+  ADD CONSTRAINT "payments_discount_check"
+  CHECK ("discount_paise" >= 0 AND "discount_paise" <= "amount_paise");

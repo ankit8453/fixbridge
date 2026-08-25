@@ -680,6 +680,13 @@ export async function seedBookings(
             bookingId,
             version: index + 1,
             status: quote.status,
+            /**
+             * Seed quotes represent work priced at the agreed rate, so the
+             * whole labour figure is the agreed portion and there is no extra.
+             * The database CHECK requires the split to add up.
+             */
+            agreedLabourPaise: quote.labourPaise,
+            extraLabourPaise: 0,
             labourPaise: quote.labourPaise,
             partsTotalPaise: totals.partsTotalPaise,
             totalPaise: totals.totalPaise,

@@ -126,6 +126,10 @@ export async function summariseLiveQuotation(
 export interface CreateQuotationRow {
   bookingId: string;
   createdById: string;
+  agreedLabourPaise: number;
+  extraLabourPaise: number;
+  extraLabourReason: string | null;
+  needsReview: boolean;
   labourPaise: number;
   partsTotalPaise: number;
   totalPaise: number;
@@ -183,6 +187,10 @@ export async function createQuotationWithSupersede(
         bookingId: input.bookingId,
         version,
         status: 'sent',
+        agreedLabourPaise: input.agreedLabourPaise,
+        extraLabourPaise: input.extraLabourPaise,
+        extraLabourReason: input.extraLabourReason,
+        needsReview: input.needsReview,
         labourPaise: input.labourPaise,
         partsTotalPaise: input.partsTotalPaise,
         totalPaise: input.totalPaise,
