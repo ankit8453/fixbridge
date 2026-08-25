@@ -109,32 +109,14 @@ export interface RequestOtpResult {
 /* -------------------------------------------------------------------------- */
 
 /**
- * `loginId` is the staff member's phone number.
- *
- * Not a username: the second factor is an OTP, which has to reach a phone
- * anyway, so a separate identifier would be one more thing to issue, store and
- * reset for no gain. It is called `loginId` rather than `phone` because the
- * console's sign-in screen says "ID", and because a future SSO integration would
- * put something else here without renaming the field.
+ * Single-step admin login: email + password
  */
-export const adminPasswordSchema = z
+export const adminLoginSchema = z
   .object({
-    loginId: z.string().trim().min(1).max(40),
+    email: z.string().trim().email(),
     password: z.string().min(1).max(200),
+    deviceId: deviceIdField,
   })
   .strict();
 
-export type AdminPasswordInput = z.infer<typeof adminPasswordSchema>;
-
-export const adminVerifySchema = z
-  .object({
-    challengeId: z.string().uuid(),
-    otp: z
-      .string()
-      .trim()
-      .regex(/^\d{4,8}$/, 'must be the code that was sent'),
-    deviceId: z.string().trim().min(1).max(128),
-  })
-  .strict();
-
-export type AdminVerifyInput = z.infer<typeof adminVerifySchema>;
+export type AdminLoginInput = z.infer<typeof adminLoginSchema>;

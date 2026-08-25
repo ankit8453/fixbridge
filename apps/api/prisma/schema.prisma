@@ -61,6 +61,30 @@ enum UserStatus {
   @@map("user_status")
 }
 
+/// Staff seniority, split on **reversibility, not seniority of job title**.
+///
+/// `subadmin` does the judgment work all day — verification decisions,
+/// complaints, review moderation, suspensions, payout batch creation. `admin`
+/// adds the irreversible, money-critical actions: refunds, marking a payout
+/// paid, dues settlement, city config. A hired assistant should never hold a
+/// credential that can move money out of the platform.
+///
+/// This replaces the old `ops` role from the `Role` enum, which existed when
+/// staff were `User` rows authenticating by phone.
+enum AdminRole {
+  admin
+  subadmin
+
+  @@map("admin_role")
+}
+
+enum AdminStatus {
+  active
+  disabled
+
+  @@map("admin_status")
+}
+
 /// The language a person reads.
 ///
 /// Must stay in lockstep with `SUPPORTED_LOCALES` in `@fixbridge/shared`. It is a
@@ -90,19 +114,6 @@ model User {
   /// in this language; the `Accept-Language` header only governs live requests.
   preferredLanguage Language @default(hi) @map("preferred_language")
 
-  /// Set **only** for `ops` and `admin`, and only as a first factor.
-  ///
-  /// Phase 2 said there would never be a password column, and for customers and
-  /// technicians there still is not — a phone is the one credential everybody in
-  /// this market already has. Phase 12 added this one exception: an ops person
-  /// signs in dozens of times a day at a desk, and an SMS round-trip each time
-  /// ends with somebody staying permanently logged in on a shared machine.
-  ///
-  /// The OTP still follows it. The account that can refund a customer and mark a
-  /// payout paid does not get weaker authentication than the customer's — see
-  /// `modules/auth/password.ts`.
-  passwordHash      String?   @map("password_hash") @db.VarChar(400)
-  passwordUpdatedAt DateTime? @map("password_updated_at") @db.Timestamptz(3)
   createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -127,6 +138,108 @@ model User {
 
   @@index([status])
   @@map("users")
+}
+
+/// Staff accounts — a table of their own, deliberately not `User` rows.
+///
+/// ## Why staff are not `User`s
+///
+/// `User.phone` is `NOT NULL` and unique: a phone *is* a customer's identity in
+/// this market, and every notification path — WhatsApp, SMS, the OTP itself —
+/// assumes it exists. Staff have no phone here at all, so modelling them as
+/// "a user with a null phone" would mean relaxing that column to nullable for
+/// everyone, and leaving a null-phone landmine in code paths that have been
+/// correct since Phase 2. A separate table keeps the marketplace side provably
+/// unchanged.
+///
+/// ## How staff sign in
+///
+/// Email + password, one factor, no OTP. This is a deliberate decision by the
+/// product owner, not an oversight: there is no email transport wired up, and
+/// they did not want a phone in this flow. What compensates for the single
+/// factor is everything around it — scrypt hashing (`modules/auth/password.ts`),
+/// rate limits per email *and* per IP consumed before the password is checked,
+/// a constant-time-ish dummy hash comparison for unknown emails, and every
+/// mutating action written to `audit_logs`.
+///
+/// ## There is no route that creates one of these
+///
+/// The single `admin` is bootstrapped from `ADMIN_EMAIL`/`ADMIN_PASSWORD` by
+/// `prisma/bootstrap-admin.ts` — no HTTP endpoint, no signup form, no
+/// self-service. Sub-admins are created from inside the admin dashboard by that
+/// admin, which is why `createdById` exists: every sub-admin can be traced to
+/// the admin who made it.
+model AdminUser {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Lower-cased and trimmed before it reaches the database, so `Admin@x.com`
+  /// and `admin@x.com` cannot become two accounts.
+  email String @unique @db.VarChar(255)
+
+  /// scrypt, in the self-describing `scrypt$N$r$p$salt$hash` format — the cost
+  /// parameters travel with the hash, so they can be raised later without a
+  /// migration or a forced password reset. Never nullable: unlike `User`, an
+  /// account here that cannot authenticate has no reason to exist.
+  passwordHash String @map("password_hash") @db.VarChar(400)
+
+  name String @db.VarChar(120)
+
+  role   AdminRole
+  status AdminStatus @default(active)
+
+  /// Which admin created this account. Null for the bootstrap admin, which was
+  /// created by the deployment itself rather than by a person.
+  ///
+  /// `ON DELETE SET NULL` (not cascade): removing an admin must never silently
+  /// delete the sub-admins they created, which would revoke access for people
+  /// still doing the job.
+  createdById String? @map("created_by_id") @db.Uuid
+  createdBy   AdminUser?  @relation("AdminCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAdmins AdminUser[] @relation("AdminCreatedBy")
+
+  /// Stamped on each successful sign-in. Useful for spotting a dormant account
+  /// that should be disabled, and for an incident review.
+  lastLoginAt DateTime? @map("last_login_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  auditLogs     AuditLog[]
+  refreshTokens AdminRefreshToken[]
+
+  @@index([status])
+  @@map("admin_users")
+}
+
+/// Refresh tokens for staff sessions.
+///
+/// Separate from `RefreshToken` because that table's `user_id` carries a
+/// foreign key to `users`, and staff are not `users` rows — inserting an
+/// `admin_users` id there fails on the constraint. Sharing one table would
+/// mean dropping that foreign key for everybody, which is exactly the kind of
+/// weakening that lets an orphaned token outlive the account it belonged to.
+///
+/// Same rotation and revocation rules as the customer table, so nothing about
+/// how sessions behave differs between the two.
+model AdminRefreshToken {
+  id                String    @id @default(uuid()) @db.Uuid
+  adminId           String    @map("admin_id") @db.Uuid
+  /// SHA-256 hex of the token. The token itself is never stored.
+  tokenHash         String    @unique @map("token_hash") @db.Char(64)
+  deviceId          String    @map("device_id") @db.VarChar(128)
+  deviceInfo        String?   @map("device_info") @db.VarChar(512)
+  expiresAt         DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt         DateTime? @map("revoked_at") @db.Timestamptz(3)
+  replacedByTokenId String?   @unique @map("replaced_by_token_id") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  admin      AdminUser          @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  replacedBy AdminRefreshToken? @relation("AdminTokenRotation", fields: [replacedByTokenId], references: [id], onDelete: SetNull)
+  replaces   AdminRefreshToken? @relation("AdminTokenRotation")
+
+  @@index([adminId, deviceId])
+  @@index([expiresAt])
+  @@map("admin_refresh_tokens")
 }
 
 /// Join table rather than an array column: it gives every grant its own row, so
@@ -269,7 +382,12 @@ model Address {
   addressText String                                @map("address_text") @db.VarChar(500)
   landmark    String?                               @db.VarChar(200)
   cityId      Int                                   @map("city_id")
-  location    Unsupported("geography(Point, 4326)")
+  /// WGS-84 degrees, stored as two plain columns rather than a PostGIS
+  /// `geography(Point, 4326)` — see `core/geo-sql.ts` for why and for how to
+  /// switch back. Prisma can read and write these directly, which is why this
+  /// model no longer needs raw SQL for an ordinary insert.
+  lat         Float                                 @db.DoublePrecision
+  lng         Float                                 @db.DoublePrecision
   isDefault   Boolean                               @default(false) @map("is_default")
   createdAt   DateTime                              @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime                              @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -324,7 +442,11 @@ model ProviderProfile {
   bio                String?                                @db.VarChar(1000)
   yearsExperience    Int?                                   @map("years_experience")
   cityId             Int                                    @map("city_id")
-  baseLocation       Unsupported("geography(Point, 4326)")? @map("base_location")
+  /// WGS-84 degrees. Null until the technician sets their base location —
+  /// which is why both are nullable and always checked together. See
+  /// `core/geo-sql.ts`.
+  baseLat            Float?                                 @map("base_lat") @db.DoublePrecision
+  baseLng            Float?                                 @map("base_lng") @db.DoublePrecision
   serviceRadiusKm    Int                                    @default(5) @map("service_radius_km")
   completenessScore  Int                                    @default(0) @map("completeness_score")
   isListed           Boolean                                @default(false) @map("is_listed")
@@ -607,23 +729,34 @@ enum SlotStatus {
 
 /// A concrete, bookable hour in a technician's calendar.
 ///
-/// `starts_at`/`ends_at` are the readable truth; `time_range` is a `tstzrange`
-/// kept in lockstep by a trigger and exists solely so the exclusion constraint
-/// can do its job:
+/// The double-booking wall lives in the database, not in application code.
+///
+/// It used to be a GiST exclusion constraint over a derived `tstzrange`:
 ///
 ///   EXCLUDE USING gist (provider_id WITH =, time_range WITH &&)
 ///     WHERE (status IN ('held','booked'))
 ///
-/// That constraint is the double-booking wall. Application checks are a
-/// courtesy; this is the thing that cannot be raced, forgotten or deployed
-/// around. See docs/bookings.md.
+/// That needs `btree_gist`, which the current host cannot provide (see
+/// `core/geo-sql.ts` and the initial migration). It is now a **partial unique
+/// index** on `(provider_id, starts_at)` with the same `WHERE` clause.
+///
+/// Why that is equivalent *here*: slots are generated on a fixed grid from
+/// availability templates (`slot-plan.ts` builds each from `dayStart + n *
+/// incrementMinutes`), so two live slots for one provider can only collide by
+/// sharing an identical `starts_at`. Partial overlap is not reachable from the
+/// generator.
+///
+/// What it no longer catches: arbitrary, non-grid-aligned ranges. If a feature
+/// ever inserts slots at caller-chosen times, this guarantee narrows and the
+/// exclusion constraint has to come back — which needs `btree_gist`.
+///
+/// Either way it is still the database refusing the write, so a check-then-
+/// insert race cannot get through. See docs/bookings.md.
 model Slot {
   id               String                   @id @default(uuid()) @db.Uuid
   providerId       String                   @map("provider_id") @db.Uuid
   startsAt         DateTime                 @map("starts_at") @db.Timestamptz(3)
   endsAt           DateTime                 @map("ends_at") @db.Timestamptz(3)
-  /// Derived from starts_at/ends_at by a trigger. Never written by hand.
-  timeRange        Unsupported("tstzrange") @map("time_range")
   status           SlotStatus               @default(open)
   /// Which availability template produced this slot, if any.
   sourceTemplateId String?                  @map("source_template_id") @db.Uuid
@@ -1538,6 +1671,21 @@ model AuditLog {
   /// the link to the human does not.
   actorUserId String? @map("actor_user_id") @db.Uuid
 
+  /// The staff actor, when the action was taken by an `AdminUser`.
+  ///
+  /// Two actor columns rather than one polymorphic id because both kinds
+  /// genuinely act: staff decide verification cases and move money, while
+  /// customers and technicians generate audited events of their own (a booking
+  /// cancellation is written by `bookings/repository.ts` with an
+  /// `actorUserId`). A single column would have to give up its foreign key to
+  /// hold both, and an audit trail whose actor can point at a deleted row is
+  /// not evidence.
+  ///
+  /// A database CHECK constraint enforces that at most one of the two is set —
+  /// see the migration. Also `ON DELETE SET NULL`, for the same DPDP reason as
+  /// `actorUserId`: the decision survives the erasure of the person.
+  actorAdminId String? @map("actor_admin_id") @db.Uuid
+
   action String @db.VarChar(80)
 
   targetType String  @map("target_type") @db.VarChar(40)
@@ -1557,10 +1705,12 @@ model AuditLog {
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  actor      User?      @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorAdmin AdminUser? @relation(fields: [actorAdminId], references: [id], onDelete: SetNull)
 
   @@index([createdAt(sort: Desc)])
   @@index([actorUserId, createdAt])
+  @@index([actorAdminId, createdAt])
   @@index([action, createdAt])
   @@index([targetType, targetId])
   @@map("audit_logs")

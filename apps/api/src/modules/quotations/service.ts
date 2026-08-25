@@ -129,9 +129,14 @@ export async function sendQuotation(
   const { booking, side } = await loadBooking(deps, bookingId, providerId);
 
   if (side !== 'provider') {
-    throw new AppError(403, 'QUOTATION_WRONG_ACTOR', 'Only the technician may send a quotation', {
+    throw new AppError(
+      403,
+      'QUOTATION_WRONG_ACTOR',
+      'Only the assigned technician may send a quotation',
+      {
       messageKey: 'errors.quotations.providerOnly',
-    });
+      },
+    );
   }
 
   requireInProgress(booking);

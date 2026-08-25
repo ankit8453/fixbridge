@@ -18,65 +18,34 @@ import { Button, Card, ErrorState, Field, TextInput } from '../../components/ui'
  * builds `/admin` for real.
  */
 export default function AdminLogin() {
-  const { adminPasswordStep, adminLogin } = useAuth();
+  const { adminLogin } = useAuth();
   const navigate = useNavigate();
-  // Only for `buildLocalizedHref` below — the post-login redirect keeps
-  // whatever locale prefix the operator arrived on, so /en/admin/login lands
-  // on /en/admin rather than silently dropping them to the Hindi tree.
   const locale = useLocale();
-
-  /**
-   * English, always — deliberately NOT `useT()`.
-   *
-   * The ops console is English-only by decision (see README's surface table
-   * and the phase brief): every string in `surfaces/admin/**` is hardcoded
-   * English, and `adminRequest` pins `Accept-Language: en` so server-rendered
-   * errors match. This screen was the one exception — it read the locale from
-   * the URL, so the unprefixed `/admin/login` rendered Hindi and then flipped
-   * to English the moment sign-in succeeded. Pinning it here makes the
-   * console consistent from the first screen instead of mid-session.
-   */
   const t = useMemo(() => createTranslator('en'), []);
 
-  // Dev-only hint — never rendered in a production build
-  // (`import.meta.env.DEV`, Vite's equivalent of `NODE_ENV==='development'`).
-  // Matches the seeded dev admin account so a new agent/reviewer can sign in
-  // without hunting for credentials.
+  /**
+   * The email only — never the password.
+   *
+   * A dev hint is a convenience for whoever runs this locally; it is not a
+   * place to put a real credential. This one held the actual admin password,
+   * which would have been committed to git and is reused on another system.
+   * Whoever needs it can read ADMIN_PASSWORD from apps/api/.env.
+   */
   const devHint = import.meta.env.DEV
-    ? 'Dev mode: ID +919999900001, password fixbridge-dev-admin, OTP 000000'
+    ? 'Dev mode: sign in as the email in ADMIN_EMAIL (apps/api/.env)'
     : null;
 
-  const [step, setStep] = useState<'password' | 'otp'>('password');
-  const [loginId, setLoginId] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [challengeId, setChallengeId] = useState('');
-  const [maskedPhone, setMaskedPhone] = useState('');
-  const [otp, setOtp] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
-  async function submitPassword(event: FormEvent) {
+  async function submitLogin(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      const challenge = await adminPasswordStep(loginId, password);
-      setChallengeId(challenge.challengeId);
-      setMaskedPhone(challenge.phone);
-      setStep('otp');
-    } catch (err) {
-      setError(err);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function submitOtp(event: FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      await adminLogin(challengeId, otp);
+      await adminLogin(email, password);
       navigate(buildLocalizedHref(locale, '/admin'), { replace: true });
     } catch (err) {
       setError(err);
@@ -88,73 +57,37 @@ export default function AdminLogin() {
   return (
     <div className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-4 py-10">
       <Card title={t('auth.signInAs', { surface: t('nav.admin') })}>
-        {step === 'password' ? (
-          <form onSubmit={(event) => void submitPassword(event)} className="flex flex-col gap-4">
-            <Field label={t('auth.admin.loginIdLabel')}>
-              {(id) => (
-                <TextInput
-                  id={id}
-                  type="tel"
-                  inputMode="numeric"
-                  autoComplete="username"
-                  value={loginId}
-                  onChange={(event) => setLoginId(event.target.value)}
-                  required
-                />
-              )}
-            </Field>
-            <Field label={t('auth.admin.passwordLabel')}>
-              {(id) => (
-                <TextInput
-                  id={id}
-                  type="password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  required
-                />
-              )}
-            </Field>
-            {error ? <ErrorState error={error} /> : null}
-            {devHint ? <p className="text-sm text-muted">{devHint}</p> : null}
-            <Button type="submit" variant="primary" fullWidth loading={busy}>
-              {t('auth.admin.signIn')}
-            </Button>
-          </form>
-        ) : (
-          <form onSubmit={(event) => void submitOtp(event)} className="flex flex-col gap-4">
-            <p className="text-sm text-slate-600">
-              {t('auth.admin.codeSentTo', { phone: maskedPhone })}
-            </p>
-            <Field label={t('auth.admin.otpLabel')}>
-              {(id) => (
-                <TextInput
-                  id={id}
-                  type="tel"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  value={otp}
-                  onChange={(event) => setOtp(event.target.value)}
-                  required
-                />
-              )}
-            </Field>
-            {error ? <ErrorState error={error} /> : null}
-            {devHint ? <p className="text-sm text-muted">{devHint}</p> : null}
-            <Button
-              type="submit"
-              variant="primary"
-              fullWidth
-              loading={busy}
-              disabled={otp.length < 4}
-            >
-              {t('auth.admin.verify')}
-            </Button>
-            <Button type="button" variant="ghost" fullWidth onClick={() => setStep('password')}>
-              {t('auth.admin.backToLogin')}
-            </Button>
-          </form>
-        )}
+        <form onSubmit={(event) => void submitLogin(event)} className="flex flex-col gap-4">
+          <Field label="Email">
+            {(id) => (
+              <TextInput
+                id={id}
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+              />
+            )}
+          </Field>
+          <Field label={t('auth.admin.passwordLabel')}>
+            {(id) => (
+              <TextInput
+                id={id}
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+              />
+            )}
+          </Field>
+          {error ? <ErrorState error={error} /> : null}
+          {devHint ? <p className="text-sm text-muted">{devHint}</p> : null}
+          <Button type="submit" variant="primary" fullWidth loading={busy}>
+            {t('auth.admin.signIn')}
+          </Button>
+        </form>
       </Card>
     </div>
   );

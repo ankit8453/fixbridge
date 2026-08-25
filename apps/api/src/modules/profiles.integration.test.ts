@@ -983,18 +983,26 @@ describe('Phase 3 — seeded fixtures', () => {
   it('stores every listed technician’s base location as a real point', async (ctx) => {
     if (!context) return ctx.skip();
 
-    const rows = await context.prisma.$queryRaw<{ lat: number; lng: number }[]>`
-      SELECT ST_Y(base_location::geometry) AS lat, ST_X(base_location::geometry) AS lng
-      FROM provider_profiles
-      WHERE is_listed = true AND base_location IS NOT NULL
-    `;
+    // Two plain double columns now, not a `geography(Point, 4326)` — but the
+    // property being checked is unchanged: every listed technician has a real,
+    // finite coordinate pair somewhere inside Jabalpur. A seed that left these
+    // null, or dropped a sign, or swapped lat and lng, would make search return
+    // nothing and would otherwise show up only as an empty results page.
+    const rows = await context.prisma.providerProfile.findMany({
+      where: { isListed: true, baseLat: { not: null }, baseLng: { not: null } },
+      select: { baseLat: true, baseLng: true },
+    });
 
     expect(rows.length).toBeGreaterThanOrEqual(17);
     for (const row of rows) {
-      expect(row.lat).toBeGreaterThan(23);
-      expect(row.lat).toBeLessThan(23.3);
-      expect(row.lng).toBeGreaterThan(79.8);
-      expect(row.lng).toBeLessThan(80.1);
+      expect(typeof row.baseLat).toBe('number');
+      expect(typeof row.baseLng).toBe('number');
+      expect(Number.isFinite(row.baseLat)).toBe(true);
+      expect(Number.isFinite(row.baseLng)).toBe(true);
+      expect(row.baseLat!).toBeGreaterThan(23);
+      expect(row.baseLat!).toBeLessThan(23.3);
+      expect(row.baseLng!).toBeGreaterThan(79.8);
+      expect(row.baseLng!).toBeLessThan(80.1);
     }
   });
 
@@ -1069,6 +1077,10 @@ describe('Phase 12 — the public provider profile', () => {
     for (const forbidden of [
       'baseLocation',
       'base_location',
+      'baseLat',
+      'baseLng',
+      'base_lat',
+      'base_lng',
       'latitude',
       'longitude',
       'phone',

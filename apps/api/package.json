@@ -19,7 +19,8 @@
     "migrate:status": "prisma migrate status",
     "prisma:generate": "prisma generate",
     "seed": "tsx prisma/seed.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "bootstrap:admin": "tsx prisma/bootstrap-admin.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

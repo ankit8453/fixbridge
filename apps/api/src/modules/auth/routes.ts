@@ -3,11 +3,11 @@ import { getContext } from '../../core/context';
 import { authenticate, getAuthUser } from '../../core/middleware/authenticate';
 import { requireRoles } from '../../core/middleware/require-roles';
 import * as adminLogin from './admin-login';
+import { issueAdminSession } from './admin-session';
 import * as service from './service';
 import { updatePreferencesSchema } from '../notifications/types';
 import {
-  adminPasswordSchema,
-  adminVerifySchema,
+  adminLoginSchema,
   logoutSchema,
   refreshSchema,
   requestOtpSchema,
@@ -109,54 +109,31 @@ router.get(
 /* -------------------------------------------------------------------------- */
 
 /**
- * `POST /api/v1/auth/admin/password`
+ * `POST /api/v1/auth/admin/login`
  *
- * Step one of two. Returns a **challenge**, never a session — see
- * `admin-login.ts` for why the split is what makes the password a real first
- * factor rather than decoration.
+ * Single step email + password sign-in for admin users.
  */
 router.post(
-  '/admin/password',
+  '/admin/login',
   handle(async (req, res) => {
-    const input = adminPasswordSchema.parse(req.body);
+    const input = adminLoginSchema.parse(req.body);
     const context = getContext(req);
 
-    const challenge = await adminLogin.startAdminLogin(
-      {
-        context,
-        // The same transport the customer flow uses — one delivery path to wire
-        // to a real provider in Phase 15, not two.
-        sendOtp: (phone, otp, expiresInSeconds) =>
-          context.otpTransport.send({ phone, otp, expiresInSeconds }),
-      },
-      input,
-      { ip: req.ip ?? 'unknown' },
+    const admin = await adminLogin.adminLogin(
+      context,
+      { email: input.email, password: input.password },
+      { ip: req.ip ?? 'unknown' }
     );
 
-    res.status(200).json({ ...challenge, message: req.t('auth.adminCodeSent') });
-  }),
-);
-
-/**
- * `POST /api/v1/auth/admin/verify`
- *
- * Step two. Consumes the challenge and issues the session — the same session
- * shape every other sign-in returns, so nothing downstream has to know an ops
- * user arrived by a different door.
- */
-router.post(
-  '/admin/verify',
-  handle(async (req, res) => {
-    const input = adminVerifySchema.parse(req.body);
-    const context = getContext(req);
-
-    const userId = await adminLogin.completeAdminLogin(context, input);
-    const session = await service.issueSessionForUser(
-      deps(req),
-      userId,
-      input.deviceId,
-      requestInfo(req),
-    );
+    /**
+     * NOT `issueSessionForUser` — that looks the account up in `users` and
+     * stores the refresh token against a foreign key to it. An admin id finds
+     * nothing there, which is why this endpoint answered 401 on every sign-in
+     * until it was pointed at the staff-specific path.
+     */
+    const session = await issueAdminSession(context, admin, input.deviceId, {
+      userAgent: req.get('user-agent') ?? null,
+    });
 
     res.status(200).json({ ...session, message: req.t('auth.loggedIn') });
   }),

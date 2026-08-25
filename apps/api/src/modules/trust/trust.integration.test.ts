@@ -115,14 +115,10 @@ async function makeTechnician(
     },
   });
 
-  await ctx.prisma.$executeRaw`
-    UPDATE provider_profiles
-    SET base_location = ST_SetSRID(
-          ST_MakePoint(${WRIGHT_TOWN.lng}::double precision, ${WRIGHT_TOWN.lat}::double precision),
-          4326
-        )::geography
-    WHERE user_id = ${userId}::uuid
-  `;
+  await ctx.prisma.providerProfile.update({
+    where: { userId: userId },
+    data: { baseLat: WRIGHT_TOWN.lat, baseLng: WRIGHT_TOWN.lng },
+  });
 
   await ctx.prisma.providerVerificationSummary.upsert({
     where: { providerId: userId },
@@ -304,17 +300,21 @@ beforeAll(async () => {
   });
 
   const addressId = fixtureUuid('a01');
-  await context.prisma.$executeRaw`
-    INSERT INTO addresses
-      (id, user_id, label, address_text, landmark, city_id, location, is_default, created_at, updated_at)
-    VALUES (
-      ${addressId}::uuid, ${customer.user.id}::uuid, 'home'::address_label,
-      '3, Trust Road, Wright Town', 'Near the temple', ${city.id},
-      ST_SetSRID(ST_MakePoint(${WRIGHT_TOWN.lng}::double precision, ${WRIGHT_TOWN.lat}::double precision), 4326)::geography,
-      true, NOW(), NOW()
-    )
-    ON CONFLICT (id) DO NOTHING
-  `;
+  await context.prisma.address.upsert({
+    where: { id: addressId },
+    update: {},
+    create: {
+      id: addressId,
+      userId: customer.user.id,
+      label: 'home',
+      addressText: '3, Trust Road, Wright Town',
+      landmark: 'Near the temple',
+      cityId: city.id,
+      lat: WRIGHT_TOWN.lat,
+      lng: WRIGHT_TOWN.lng,
+      isDefault: true,
+    },
+  });
 
   fixture = {
     technicianId: tech.userId,

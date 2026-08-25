@@ -2,8 +2,6 @@ import { createContext, useCallback, useEffect, useMemo, useState, type ReactNod
 import type { AuthUser, Role } from '@fixbridge/shared';
 import {
   adminLogin as sessionAdminLogin,
-  adminPasswordStep as sessionAdminPasswordStep,
-  type AdminChallenge,
   login as sessionLogin,
   logout as sessionLogout,
   onSessionLost,
@@ -31,10 +29,8 @@ export interface AuthState {
   roles: Role[];
   requestOtp: (phone: string) => Promise<{ phone: string; expiresInSeconds: number }>;
   login: (phone: string, otp: string) => Promise<void>;
-  /** Step one of the ops console's two-factor sign-in — see `session.ts`. */
-  adminPasswordStep: (loginId: string, password: string) => Promise<AdminChallenge>;
-  /** Step two — consumes the challenge and actually signs the ops user in. */
-  adminLogin: (challengeId: string, otp: string) => Promise<void>;
+  /** Sign in an ops/admin user via email and password */
+  adminLogin: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -55,8 +51,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus('signedIn');
   }, []);
 
-  const adminLogin = useCallback(async (challengeId: string, otp: string) => {
-    const session = await sessionAdminLogin(challengeId, otp);
+  const adminLogin = useCallback(async (email: string, password: string) => {
+    const session = await sessionAdminLogin(email, password);
     setUser(session.user);
     setStatus('signedIn');
   }, []);
@@ -112,7 +108,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       roles,
       requestOtp,
       login,
-      adminPasswordStep: sessionAdminPasswordStep,
       adminLogin,
       logout,
     }),

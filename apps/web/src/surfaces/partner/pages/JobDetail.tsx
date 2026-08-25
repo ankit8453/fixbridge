@@ -135,6 +135,10 @@ export default function JobDetail() {
     enabled: bookingQuery.data
       ? ['WORK_DONE', 'CLOSED_QUOTE_DECLINED'].includes(bookingQuery.data.booking.status)
       : false,
+    refetchInterval: (query) => {
+      const payments = query.state.data?.payments ?? [];
+      return payments.some((payment) => payment.status === 'created') ? 5_000 : false;
+    },
   });
 
   return (
@@ -357,6 +361,13 @@ export default function JobDetail() {
                       return (
                         <p className="text-sm font-medium text-green-700">
                           {t('partner.job.alreadyPaid')}
+                        </p>
+                      );
+                    }
+                    if (payments.some((payment) => payment.status === 'created')) {
+                      return (
+                        <p className="text-sm font-medium text-amber-700">
+                          {t('partner.job.paymentPending')}
                         </p>
                       );
                     }

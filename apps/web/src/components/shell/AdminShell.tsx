@@ -50,7 +50,7 @@ export function AdminShell({
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const nav = (
-    <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2 py-3">
+    <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
       {navItems.map((item) => {
         const active = activeHref === item.href || activeHref.startsWith(`${item.href}/`);
         const Icon = item.icon;
@@ -60,14 +60,24 @@ export function AdminShell({
             to={item.href}
             aria-current={active ? 'page' : undefined}
             title={collapsed ? item.label : undefined}
-            className={`group flex min-h-touch items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors duration-150 ${
-              active ? 'bg-white/10 text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white'
+            className={`group flex min-h-touch items-center gap-3 rounded-xl px-3 text-sm font-semibold transition-all duration-200 ${
+              active
+                ? 'bg-brand/10 text-brand shadow-sm'
+                : 'text-slate-600 hover:bg-slate-100/60 hover:text-slate-900'
             }`}
           >
-            <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" strokeWidth={1.75} />
+            <Icon
+              className={`h-[18px] w-[18px] shrink-0 transition-transform duration-200 group-hover:scale-105 ${
+                active ? 'text-brand' : 'text-slate-400 group-hover:text-slate-600'
+              }`}
+              aria-hidden="true"
+              strokeWidth={1.75}
+            />
             {!collapsed ? <span className="truncate">{item.label}</span> : null}
             {!collapsed && item.badge ? (
-              <span className="ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-brand px-1.5 py-0.5 text-xs font-semibold text-brand-foreground">
+              <span className={`ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-semibold ${
+                active ? 'bg-brand text-brand-foreground' : 'bg-slate-200/60 text-slate-700'
+              }`}>
                 {item.badge}
               </span>
             ) : null}
@@ -78,17 +88,17 @@ export function AdminShell({
   );
 
   return (
-    <div className="flex min-h-dvh bg-slate-50">
+    <div className="flex min-h-dvh bg-slate-50/60">
       {/* Desktop sidebar */}
       <aside
-        className={`sticky top-0 hidden h-dvh shrink-0 flex-col bg-slate-900 transition-[width] duration-150 md:flex ${
+        className={`sticky top-0 hidden h-dvh shrink-0 flex-col bg-white border-r border-slate-200/60 shadow-[1px_0_8px_rgba(15,23,42,0.015)] transition-[width] duration-200 md:flex ${
           collapsed ? 'w-16' : 'w-64'
         }`}
       >
-        <div className="flex min-h-touch items-center gap-2 px-4 py-3">
+        <div className="flex min-h-touch items-center gap-2 px-5 py-4 border-b border-slate-100">
           <BrandLogo size={28} />
           {!collapsed ? (
-            <span className="truncate text-sm font-semibold text-white">{APP_NAME}</span>
+            <span className="truncate text-sm font-bold text-slate-800 tracking-tight">{APP_NAME}</span>
           ) : null}
         </div>
         {nav}
@@ -96,7 +106,7 @@ export function AdminShell({
           type="button"
           onClick={() => setCollapsed((value) => !value)}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className="flex min-h-touch items-center gap-3 border-t border-white/10 px-4 text-sm text-slate-400 hover:text-white"
+          className="flex min-h-touch items-center gap-3 border-t border-slate-100 px-5 py-4 text-sm font-semibold text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors"
         >
           {collapsed ? (
             <PanelLeftOpen className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={1.75} />
@@ -112,10 +122,10 @@ export function AdminShell({
       {/* Mobile off-canvas drawer */}
       {drawerOpen ? (
         <div className="fixed inset-0 z-50 flex md:hidden">
-          <div className="flex h-dvh w-64 flex-col bg-slate-900">
-            <div className="flex min-h-touch items-center gap-2 px-4 py-3">
+          <div className="flex h-dvh w-64 flex-col bg-white border-r border-slate-200 shadow-xl">
+            <div className="flex min-h-touch items-center gap-2 px-5 py-4 border-b border-slate-100">
               <BrandLogo size={28} />
-              <span className="text-sm font-semibold text-white">{APP_NAME}</span>
+              <span className="text-sm font-bold text-slate-800 tracking-tight">{APP_NAME}</span>
             </div>
             {nav}
           </div>
@@ -123,7 +133,7 @@ export function AdminShell({
             type="button"
             aria-label="Close menu"
             onClick={() => setDrawerOpen(false)}
-            className="flex-1 bg-slate-900/50"
+            className="flex-1 bg-slate-900/40 backdrop-blur-sm"
           />
         </div>
       ) : null}

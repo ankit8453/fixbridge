@@ -17,9 +17,9 @@ import { Link } from 'react-router-dom';
 type Tone = 'neutral' | 'warn' | 'alert';
 
 const TONES: Record<Tone, string> = {
-  neutral: 'border-border bg-surface',
-  warn: 'border-amber-300 bg-amber-50',
-  alert: 'border-red-300 bg-red-50',
+  neutral: 'border-slate-200/60 border-l-slate-300 hover:border-slate-300/80 bg-white border-l-4 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.03)]',
+  warn: 'border-slate-200/60 border-l-amber-500 hover:border-slate-300/80 bg-white border-l-4 shadow-[0_4px_20px_-4px_rgba(245,158,11,0.06)]',
+  alert: 'border-slate-200/60 border-l-red-500 hover:border-slate-300/80 bg-white border-l-4 shadow-[0_4px_20px_-4px_rgba(239,68,68,0.06)]',
 };
 
 export function ToneStatTile({
@@ -38,20 +38,20 @@ export function ToneStatTile({
 }) {
   const body = (
     <>
-      <div className="text-xs font-medium uppercase tracking-wide text-muted">{label}</div>
-      <div className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{value}</div>
-      {hint ? <div className="mt-0.5 text-xs text-muted">{hint}</div> : null}
+      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</div>
+      <div className="mt-1 text-2xl font-extrabold tracking-tight text-slate-800 tabular-nums">{value}</div>
+      {hint ? <div className="mt-1.5 text-xs font-medium text-slate-400 leading-normal">{hint}</div> : null}
     </>
   );
 
-  const shell = `block rounded-xl border px-4 py-3 shadow-card ${TONES[tone]}`;
+  const shell = `block rounded-2xl border px-5 py-4 transition-all duration-200 ${TONES[tone]}`;
 
   if (!href) return <div className={shell}>{body}</div>;
 
   return (
     <Link
       to={href}
-      className={`${shell} min-h-touch transition-colors duration-150 active:bg-slate-50`}
+      className={`${shell} min-h-touch hover:-translate-y-0.5 hover:shadow-md active:translate-y-0`}
     >
       {body}
     </Link>

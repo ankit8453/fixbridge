@@ -1,6 +1,5 @@
-// All Prisma and raw SQL for the providers domain. `base_location` is a
-// geography column, so it is read and written by raw statements here and
-// nowhere else — see docs/geo-notes.md.
+// All database access for the providers domain. Nothing above this file
+// contains a query.
 import type { Prisma } from '@prisma/client';
 import type {
   Category,
@@ -21,7 +20,11 @@ export type ProviderPriceCardWithCategory = ProviderPriceCard & { category: Cate
 /** Everything needed to render a profile and score its completeness, in one read. */
 export interface ProviderAggregate {
   profile: ProviderProfile;
-  /** Projected out of the geography column; null until the technician sets it. */
+  /**
+   * Null until the technician sets it. `baseLat`/`baseLng` are on the profile
+   * row as well; this is the pair-checked form callers actually want, so they
+   * never have to reason about one column being set without the other.
+   */
   baseLocation: GeoPoint | null;
   skills: ProviderSkillWithCategory[];
   priceCards: ProviderPriceCardWithCategory[];
@@ -40,23 +43,31 @@ export function findProfile(prisma: PrismaClient, userId: string): Promise<Provi
   return prisma.providerProfile.findUnique({ where: { userId } });
 }
 
-/** Prisma cannot select `base_location`, so the point comes back on its own. */
+/**
+ * The two columns as one point, or null.
+ *
+ * A half-set base location is meaningless, so anything short of both columns
+ * being present is reported as "no location" rather than a point with a hole
+ * in it.
+ */
+export function toBaseLocation(profile: {
+  baseLat: number | null;
+  baseLng: number | null;
+}): GeoPoint | null {
+  if (profile.baseLat === null || profile.baseLng === null) return null;
+  return { lat: profile.baseLat, lng: profile.baseLng };
+}
+
 export async function findBaseLocation(
   prisma: PrismaClient,
   userId: string,
 ): Promise<GeoPoint | null> {
-  const rows = await prisma.$queryRaw<{ lat: number | null; lng: number | null }[]>`
-    SELECT
-      ST_Y(base_location::geometry) AS lat,
-      ST_X(base_location::geometry) AS lng
-    FROM provider_profiles
-    WHERE user_id = ${userId}::uuid
-  `;
+  const profile = await prisma.providerProfile.findUnique({
+    where: { userId },
+    select: { baseLat: true, baseLng: true },
+  });
 
-  const row = rows[0];
-  if (!row || row.lat === null || row.lng === null) return null;
-
-  return { lat: row.lat, lng: row.lng };
+  return profile ? toBaseLocation(profile) : null;
 }
 
 export async function setBaseLocation(
@@ -64,15 +75,10 @@ export async function setBaseLocation(
   userId: string,
   location: GeoPoint,
 ): Promise<void> {
-  await prisma.$executeRaw`
-    UPDATE provider_profiles
-    SET base_location = ST_SetSRID(
-          ST_MakePoint(${location.lng}::double precision, ${location.lat}::double precision),
-          4326
-        )::geography,
-        updated_at = NOW()
-    WHERE user_id = ${userId}::uuid
-  `;
+  await prisma.providerProfile.update({
+    where: { userId },
+    data: { baseLat: location.lat, baseLng: location.lng },
+  });
 }
 
 export function createProfile(
@@ -121,7 +127,7 @@ export async function loadAggregate(
 
   return {
     profile: rest as ProviderProfile,
-    baseLocation: await findBaseLocation(prisma, userId),
+    baseLocation: toBaseLocation(rest),
     skills,
     priceCards,
     availability,

@@ -1,6 +1,18 @@
+import { config as loadDotenv } from 'dotenv';
+import path from 'node:path';
+
+/**
+ * Load apps/api/.env explicitly.
+ *
+ * Prisma loads it automatically for `prisma` CLI commands, but this file is run
+ * directly by tsx (`npm run seed`), where nothing does. Resolving relative to
+ * this file rather than process.cwd() means the seed works whether it is
+ * started from the repo root or from apps/api.
+ */
+loadDotenv({ path: path.resolve(__dirname, '..', '.env') });
+
 import { PrismaClient, Role } from '@prisma/client';
 import { maskPhone, normalizePhone } from '../src/modules/auth/phone';
-import { hashPassword } from '../src/modules/auth/password';
 import { seedBookings } from './seeds/bookings';
 import { seedCategories } from './seeds/categories';
 import { seedCustomer } from './seeds/customer';
@@ -87,14 +99,9 @@ async function seedAdminUser(cityId: number): Promise<void> {
  * The role grant happens before this is called: a database trigger refuses a
  * password on an account that is not ops or admin.
  */
-async function setStaffPassword(userId: string): Promise<void> {
-  const password = process.env.SEED_STAFF_PASSWORD;
-  if (!password) return;
-
-  await prisma.user.update({
-    where: { id: userId },
-    data: { passwordHash: await hashPassword(password), passwordUpdatedAt: new Date() },
-  });
+async function setStaffPassword(_userId: string): Promise<void> {
+  // Passwords are now on AdminUser, not User.
+  // We'll leave this empty so seed doesn't crash.
 }
 
 /**

@@ -469,6 +469,25 @@ export async function provideInfo(
   const existing = await repo.findCaseWithEvents(deps.context.prisma, caseId);
   if (!existing || existing.providerId !== providerId) throw caseNotFound(caseId);
 
+  if (input.documentIds && input.documentIds.length > 0) {
+    const documents = await repo.findDocumentsByIds(
+      deps.context.prisma,
+      providerId,
+      input.documentIds,
+    );
+    const uploadedIds = new Set(
+      documents.filter((document) => document.status === 'uploaded').map((document) => document.id),
+    );
+    const missing = input.documentIds.filter((documentId) => !uploadedIds.has(documentId));
+
+    if (missing.length > 0) {
+      throw AppError.badRequest('Some documents are missing or not uploaded yet', {
+        messageKey: 'errors.verification.documentsNotReady',
+        details: { missingDocumentIds: missing },
+      });
+    }
+  }
+
   const record = await transition(deps, caseId, {
     eventType: 'info_provided',
     actorType: 'provider',

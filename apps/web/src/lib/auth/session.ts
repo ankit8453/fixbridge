@@ -153,30 +153,11 @@ export async function login(phone: string, otp: string): Promise<ClientSession> 
   return adopt(session);
 }
 
-/* -------------------------------------------------------------------------- */
-/* The ops console's two-step sign-in                                        */
-/* -------------------------------------------------------------------------- */
-
-export interface AdminChallenge {
-  challengeId: string;
-  /** Masked — display only, same trap as the customer login screen's OTP flow. */
-  phone: string;
-  expiresInSeconds: number;
-}
-
-/** Step one: id + password. Returns a challenge, never a session — see docs/API.md. */
-export async function adminPasswordStep(
-  loginId: string,
-  password: string,
-): Promise<AdminChallenge> {
-  return postJson('/api/v1/auth/admin/password', { loginId, password });
-}
-
-/** Step two: the challenge + the OTP that was sent. Returns the real session. */
-export async function adminLogin(challengeId: string, otp: string): Promise<ClientSession> {
-  const session = await postJson<AuthSessionResponse>('/api/v1/auth/admin/verify', {
-    challengeId,
-    otp,
+/** 1-step email + password sign-in for ops/admin users. */
+export async function adminLogin(email: string, password: string): Promise<ClientSession> {
+  const session = await postJson<AuthSessionResponse>('/api/v1/auth/admin/login', {
+    email,
+    password,
     deviceId: getDeviceId(),
   });
   return adopt(session);

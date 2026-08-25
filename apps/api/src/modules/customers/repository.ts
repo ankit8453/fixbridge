@@ -1,8 +1,6 @@
-// All Prisma and raw SQL for the customers domain. Nothing above this file
-// contains a query — see docs/geo-notes.md for why the geography column forces
-// raw statements here.
-import { Prisma, type CustomerProfile, type PrismaClient } from '@prisma/client';
-import type { AddressLabel } from '@prisma/client';
+// All database access for the customers domain. Nothing above this file
+// contains a query.
+import type { AddressLabel, CustomerProfile, PrismaClient } from '@prisma/client';
 import type { GeoPoint } from '../../core/geo';
 
 /* -------------------------------------------------------------------------- */
@@ -33,10 +31,9 @@ export function upsertProfile(
 /**
  * The shape returned by every address query.
  *
- * `location` is a `geography(Point, 4326)`, which Prisma Client cannot read, so
- * these all go through `$queryRaw` and project the point into plain lat/lng.
- * PostGIS stores points as (x, y) = (longitude, latitude) — the reverse of how
- * everyone says it aloud, which is exactly why it is unpacked in one place.
+ * Structurally identical to the `Address` model, and named separately only so
+ * callers keep depending on this module's contract rather than on Prisma's
+ * generated type.
  */
 export interface AddressRow {
   id: string;
@@ -53,51 +50,47 @@ export interface AddressRow {
   updatedAt: Date;
 }
 
-const ADDRESS_COLUMNS = Prisma.sql`
-  id,
-  user_id        AS "userId",
-  label,
-  label_text     AS "labelText",
-  address_text   AS "addressText",
-  landmark,
-  city_id        AS "cityId",
-  ST_Y(location::geometry) AS lat,
-  ST_X(location::geometry) AS lng,
-  is_default     AS "isDefault",
-  created_at     AS "createdAt",
-  updated_at     AS "updatedAt"
-`;
-
-/** `lng` first: ST_MakePoint takes (x, y). */
-const point = (location: GeoPoint): Prisma.Sql =>
-  Prisma.sql`ST_SetSRID(ST_MakePoint(${location.lng}::double precision, ${location.lat}::double precision), 4326)::geography`;
+/**
+ * Every address query selects exactly this — no relations, no stray columns —
+ * so `AddressRow` and what comes back cannot drift apart.
+ */
+const ADDRESS_SELECT = {
+  id: true,
+  userId: true,
+  label: true,
+  labelText: true,
+  addressText: true,
+  landmark: true,
+  cityId: true,
+  lat: true,
+  lng: true,
+  isDefault: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
 
 export function listAddresses(prisma: PrismaClient, userId: string): Promise<AddressRow[]> {
-  return prisma.$queryRaw<AddressRow[]>`
-    SELECT ${ADDRESS_COLUMNS}
-    FROM addresses
-    WHERE user_id = ${userId}::uuid
-    ORDER BY is_default DESC, created_at ASC
-  `;
+  return prisma.address.findMany({
+    where: { userId },
+    select: ADDRESS_SELECT,
+    orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+  });
 }
 
 /**
- * Always scoped by `user_id` as well as `id`: ownership is enforced in the WHERE
- * clause, so another user's address is simply not found rather than found and
+ * Always scoped by `userId` as well as `id`: ownership is enforced in the
+ * filter, so another user's address is simply not found rather than found and
  * then rejected.
  */
-export async function findAddressForUser(
+export function findAddressForUser(
   prisma: PrismaClient,
   userId: string,
   addressId: string,
 ): Promise<AddressRow | null> {
-  const rows = await prisma.$queryRaw<AddressRow[]>`
-    SELECT ${ADDRESS_COLUMNS}
-    FROM addresses
-    WHERE id = ${addressId}::uuid AND user_id = ${userId}::uuid
-  `;
-
-  return rows[0] ?? null;
+  return prisma.address.findFirst({
+    where: { id: addressId, userId },
+    select: ADDRESS_SELECT,
+  });
 }
 
 export function countAddresses(prisma: PrismaClient, userId: string): Promise<number> {
@@ -116,32 +109,16 @@ export interface InsertAddressInput {
   isDefault: boolean;
 }
 
-export async function insertAddress(
+export function insertAddress(
   prisma: PrismaClient,
   input: InsertAddressInput,
 ): Promise<AddressRow> {
-  const rows = await prisma.$queryRaw<AddressRow[]>`
-    INSERT INTO addresses
-      (id, user_id, label, label_text, address_text, landmark, city_id, location, is_default, created_at, updated_at)
-    VALUES (
-      ${input.id}::uuid,
-      ${input.userId}::uuid,
-      ${input.label}::address_label,
-      ${input.labelText},
-      ${input.addressText},
-      ${input.landmark},
-      ${input.cityId},
-      ${point(input.location)},
-      ${input.isDefault},
-      NOW(),
-      NOW()
-    )
-    RETURNING ${ADDRESS_COLUMNS}
-  `;
+  const { location, ...rest } = input;
 
-  const row = rows[0];
-  if (!row) throw new Error('address insert returned no row');
-  return row;
+  return prisma.address.create({
+    data: { ...rest, lat: location.lat, lng: location.lng },
+    select: ADDRESS_SELECT,
+  });
 }
 
 export interface UpdateAddressFields {
@@ -154,8 +131,12 @@ export interface UpdateAddressFields {
 }
 
 /**
- * Builds a partial UPDATE. Only the keys actually present are touched, so a
- * PATCH that changes a landmark cannot silently blank out the label.
+ * A partial update. Only the keys actually present are touched, so a PATCH that
+ * changes a landmark cannot silently blank out the label.
+ *
+ * `updateMany` rather than `update`: the row must match on `userId` too, and
+ * only `updateMany` takes a non-unique filter. It returns a count rather than
+ * the row, so the updated address is read back afterwards.
  */
 export async function updateAddress(
   prisma: PrismaClient,
@@ -163,37 +144,19 @@ export async function updateAddress(
   addressId: string,
   fields: UpdateAddressFields,
 ): Promise<AddressRow | null> {
-  const assignments: Prisma.Sql[] = [];
+  const { location, ...scalar } = fields;
 
-  if (fields.label !== undefined) {
-    assignments.push(Prisma.sql`label = ${fields.label}::address_label`);
-  }
-  if (fields.labelText !== undefined) {
-    assignments.push(Prisma.sql`label_text = ${fields.labelText}`);
-  }
-  if (fields.addressText !== undefined) {
-    assignments.push(Prisma.sql`address_text = ${fields.addressText}`);
-  }
-  if (fields.landmark !== undefined) {
-    assignments.push(Prisma.sql`landmark = ${fields.landmark}`);
-  }
-  if (fields.cityId !== undefined) {
-    assignments.push(Prisma.sql`city_id = ${fields.cityId}`);
-  }
-  if (fields.location !== undefined) {
-    assignments.push(Prisma.sql`location = ${point(fields.location)}`);
-  }
+  const result = await prisma.address.updateMany({
+    where: { id: addressId, userId },
+    data: {
+      ...scalar,
+      ...(location !== undefined ? { lat: location.lat, lng: location.lng } : {}),
+    },
+  });
 
-  assignments.push(Prisma.sql`updated_at = NOW()`);
+  if (result.count === 0) return null;
 
-  const rows = await prisma.$queryRaw<AddressRow[]>`
-    UPDATE addresses
-    SET ${Prisma.join(assignments, ', ')}
-    WHERE id = ${addressId}::uuid AND user_id = ${userId}::uuid
-    RETURNING ${ADDRESS_COLUMNS}
-  `;
-
-  return rows[0] ?? null;
+  return findAddressForUser(prisma, userId, addressId);
 }
 
 export async function deleteAddress(

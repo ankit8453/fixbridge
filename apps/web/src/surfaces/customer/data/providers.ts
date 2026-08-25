@@ -16,7 +16,9 @@ export function useProviderProfile(providerId: string) {
   return useQuery({
     queryKey: ['providers', providerId, 'profile'],
     queryFn: () =>
-      apiRequest<PublicProviderProfile>(`/api/v1/providers/${providerId}`, { skipAuth: true }),
+      apiRequest<{ profile: PublicProviderProfile }>(`/api/v1/providers/${providerId}`, {
+        skipAuth: true,
+      }).then((response) => response.profile),
     enabled: Boolean(providerId),
   });
 }

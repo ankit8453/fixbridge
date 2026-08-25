@@ -292,6 +292,12 @@ export async function createBooking(
     });
   }
 
+  if (slot.providerId === customerId) {
+    throw new AppError(400, 'SELF_BOOKING_NOT_ALLOWED', 'You cannot book your own technician profile', {
+      messageKey: 'errors.bookings.selfBookingNotAllowed',
+    });
+  }
+
   if (!provider.skills.some((skill) => skill.categoryId === input.categoryId)) {
     throw AppError.badRequest('That technician does not offer this service', {
       messageKey: 'errors.bookings.categoryNotOffered',
@@ -300,22 +306,18 @@ export async function createBooking(
 
   // The address must be the customer's own, and is snapshotted because they may
   // edit or delete it later — the technician needs where they were sent.
-  const address = await context.prisma.$queryRaw<
-    {
-      id: string;
-      addressText: string;
-      landmark: string | null;
-      lat: number;
-      lng: number;
-      cityId: number;
-    }[]
-  >`
-    SELECT id, address_text AS "addressText", landmark, city_id AS "cityId",
-           ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lng
-    FROM addresses WHERE id = ${input.addressId}::uuid AND user_id = ${customerId}::uuid
-  `;
+  const chosen = await context.prisma.address.findFirst({
+    where: { id: input.addressId, userId: customerId },
+    select: {
+      id: true,
+      addressText: true,
+      landmark: true,
+      lat: true,
+      lng: true,
+      cityId: true,
+    },
+  });
 
-  const chosen = address[0];
   if (!chosen) {
     throw new AppError(404, 'ADDRESS_NOT_FOUND', 'That address is not yours', {
       messageKey: 'errors.customers.addressNotFound',

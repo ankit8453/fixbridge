@@ -48,7 +48,9 @@ const routes = withLocalePrefix(surfaceRoutes);
 function leafFor(pathname: string): string | null {
   const matches = matchRoutes(routes, pathname);
   if (!matches || matches.length < 2) return null;
-  return (matches[matches.length - 1].route as RouteObject & { id?: string }).id ?? null;
+  const lastMatch = matches[matches.length - 1];
+  if (!lastMatch) return null;
+  return (lastMatch.route as RouteObject & { id?: string }).id ?? null;
 }
 
 describe('the assembled route table', () => {

@@ -301,7 +301,8 @@
       "cashConfirmHint": "Only confirm this if you have actually received this amount in cash from the customer.",
       "cashConfirm": "Yes, I received this",
       "cashConfirming": "Recording…",
-      "alreadyPaid": "This job has already been paid for."
+      "alreadyPaid": "This job has already been paid for.",
+      "paymentPending": "Online payment is being confirmed. Cash collection is unavailable until it finishes."
     },
     "otp": {
       "enteredLabel": "Code entered",

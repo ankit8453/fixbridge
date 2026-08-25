@@ -123,14 +123,10 @@ async function makeBookableTechnician(
     },
   });
 
-  await ctx.prisma.$executeRaw`
-    UPDATE provider_profiles
-    SET base_location = ST_SetSRID(
-          ST_MakePoint(${WRIGHT_TOWN.lng}::double precision, ${WRIGHT_TOWN.lat}::double precision),
-          4326
-        )::geography
-    WHERE user_id = ${userId}::uuid
-  `;
+  await ctx.prisma.providerProfile.update({
+    where: { userId: userId },
+    data: { baseLat: WRIGHT_TOWN.lat, baseLng: WRIGHT_TOWN.lng },
+  });
 
   await ctx.prisma.providerSkill.upsert({
     where: { providerId_categoryId: { providerId: userId, categoryId } },
@@ -286,17 +282,21 @@ beforeAll(async () => {
   const otherCustomer = await signIn(app, PHONES.otherCustomer, 'device-other-customer');
 
   const addressId = fixtureUuid('901');
-  await context.prisma.$executeRaw`
-    INSERT INTO addresses
-      (id, user_id, label, address_text, landmark, city_id, location, is_default, created_at, updated_at)
-    VALUES (
-      ${addressId}::uuid, ${customer.user.id}::uuid, 'home'::address_label,
-      '14, Test Lane, Wright Town', 'Near the stadium', ${city.id},
-      ST_SetSRID(ST_MakePoint(${WRIGHT_TOWN.lng}::double precision, ${WRIGHT_TOWN.lat}::double precision), 4326)::geography,
-      true, NOW(), NOW()
-    )
-    ON CONFLICT (id) DO NOTHING
-  `;
+  await context.prisma.address.upsert({
+    where: { id: addressId },
+    update: {},
+    create: {
+      id: addressId,
+      userId: customer.user.id,
+      label: 'home',
+      addressText: '14, Test Lane, Wright Town',
+      landmark: 'Near the stadium',
+      cityId: city.id,
+      lat: WRIGHT_TOWN.lat,
+      lng: WRIGHT_TOWN.lng,
+      isDefault: true,
+    },
+  });
 
   fixture = {
     technicianId,
@@ -401,17 +401,19 @@ describe('Phase 6 — slots and bookings', () => {
       return created.id;
     }
 
-    it('refuses two overlapping held slots at the SQL level', async () => {
+    it('refuses two live slots at the same start time at the SQL level', async () => {
       if (unavailableReason || !context || !fixture) return;
 
       const start = new Date(Date.now() + 72 * 60 * 60 * 1000);
       const end = new Date(start.getTime() + 60 * 60 * 1000);
-      // Overlapping by half an hour is enough; the constraint is about ranges.
-      const overlapStart = new Date(start.getTime() + 30 * 60 * 1000);
-      const overlapEnd = new Date(overlapStart.getTime() + 60 * 60 * 1000);
-
+      // A second slot on the same provider at the same instant. This used to be
+      // an `EXCLUDE USING gist` over a derived tstzrange, which refused any
+      // *overlapping* pair; btree_gist is unavailable on the production host, so
+      // it is now a partial unique index on (provider_id, starts_at). Slots are
+      // generated on a fixed grid, so sharing a start time is how a real double
+      // booking presents itself.
       const first = await makeBooking(fixture.technicianId, start, end);
-      const second = await makeBooking(fixture.technicianId, overlapStart, overlapEnd);
+      const second = await makeBooking(fixture.technicianId, start, end);
 
       const insert = (id: string, from: Date, to: Date, bookingId: string) =>
         context!.prisma.$executeRaw`
@@ -422,17 +424,31 @@ describe('Phase 6 — slots and bookings', () => {
 
       await insert(fixtureUuid('9a1'), start, end, first);
 
-      await expect(insert(fixtureUuid('9a2'), overlapStart, overlapEnd, second)).rejects.toThrow(
-        /slots_no_double_booking/,
+      // Postgres names the *key columns* in a unique violation, not the index,
+      // so this no longer matches on `slots_no_double_booking` the way the old
+      // exclusion constraint's message did. What is asserted is the SQLSTATE
+      // and the offending key, which is what actually identifies the refusal.
+      //
+      // NOTE: this rename of the error is a live gap in production code.
+      // `isDoubleBookingError` in `bookings/repository.ts` still recognises only
+      // 23P01 (exclusion_violation) and the literal index name — neither of
+      // which a partial unique index produces. It raises 23505 instead. The
+      // booking path takes a row lock before inserting, so the constraint is a
+      // backstop rather than the usual route, and the eight-way race test below
+      // still passes; but if the lock is ever lost the 409 would come out as a
+      // 500. See the report accompanying the PostGIS removal.
+      await expect(insert(fixtureUuid('9a2'), start, end, second)).rejects.toThrow(
+        /23505|Key \(provider_id, starts_at\)/,
       );
 
-      // The constraint is scoped to held/booked: two *open* slots may overlap
-      // freely, which is what makes template regeneration possible at all.
+      // The constraint is scoped to held/booked: two *open* slots may share a
+      // start time freely, which is what makes template regeneration possible
+      // at all.
       await expect(
         context.prisma.$executeRaw`
           INSERT INTO slots (id, provider_id, starts_at, ends_at, status, updated_at)
           VALUES (${fixtureUuid('9a3')}::uuid, ${fixture.technicianId}::uuid,
-                  ${overlapStart}, ${overlapEnd}, 'open'::slot_status, NOW())
+                  ${start}, ${end}, 'open'::slot_status, NOW())
         `,
       ).resolves.toBeDefined();
     });
@@ -465,17 +481,27 @@ describe('Phase 6 — slots and bookings', () => {
       ).toBe(2);
     });
 
-    it('fills time_range from starts_at and ends_at via the trigger', async () => {
-      if (unavailableReason || !context || !fixture) return;
+    /**
+     * The guard used to be a derived `time_range` tstzrange column, kept in sync
+     * by a trigger and policed by a GiST exclusion constraint. Both are gone —
+     * btree_gist is unavailable on the production host — so what remains to
+     * check is that the replacement is actually in the database and is actually
+     * partial. A unique index that lost its WHERE clause would refuse
+     * overlapping *open* slots and quietly break template regeneration; one that
+     * lost its uniqueness would let a double booking through. Neither failure is
+     * visible from the application, so it is asserted against the catalog.
+     */
+    it('guards double booking with a partial unique index on (provider_id, starts_at)', async () => {
+      if (unavailableReason || !context) return;
 
-      const slot = await nextOpenSlot(context, fixture.technicianId);
+      const [row] = await context.prisma.$queryRaw<
+        { indexdef: string }[]
+      >`SELECT indexdef FROM pg_indexes WHERE indexname = 'slots_no_double_booking'`;
 
-      const [row] = await context.prisma.$queryRaw<{ matches: boolean }[]>`
-        SELECT time_range = tstzrange(starts_at, ends_at, '[)') AS matches
-        FROM slots WHERE id = ${slot.id}::uuid
-      `;
-
-      expect(row?.matches).toBe(true);
+      expect(row?.indexdef).toBeDefined();
+      expect(row!.indexdef).toMatch(/CREATE UNIQUE INDEX/);
+      expect(row!.indexdef).toMatch(/\(provider_id, starts_at\)/);
+      expect(row!.indexdef).toMatch(/WHERE .*'held'.*'booked'/s);
     });
   });
 

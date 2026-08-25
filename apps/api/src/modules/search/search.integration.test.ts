@@ -293,14 +293,14 @@ describe('Phase 5 — geography', () => {
       { userId: string; lat: number; lng: number; radius: number; listed: boolean; badge: string }[]
     >`
       SELECT pp.user_id AS "userId",
-             ST_Y(pp.base_location::geometry) AS lat,
-             ST_X(pp.base_location::geometry) AS lng,
+             pp.base_lat AS lat,
+             pp.base_lng AS lng,
              pp.service_radius_km AS radius,
              pp.is_listed AS listed,
              COALESCE(pvs.badge::text, 'NONE') AS badge
       FROM provider_profiles pp
       LEFT JOIN provider_verification_summaries pvs ON pvs.provider_id = pp.user_id
-      WHERE pp.base_location IS NOT NULL
+      WHERE pp.base_lat IS NOT NULL AND pp.base_lng IS NOT NULL
     `;
 
     let checked = 0;
@@ -311,8 +311,11 @@ describe('Phase 5 — geography', () => {
       const km = haversineMetres(VIJAY_NAGAR, { lat: row.lat, lng: row.lng }) / 1000;
       const margin = Math.abs(km - row.radius);
 
-      // Skip anyone within 500 m of their own boundary: haversine is a sphere
-      // and PostGIS is a spheroid, and near the edge they can disagree.
+      // Skip anyone within 500 m of their own boundary. SQL and TypeScript now
+      // run the same haversine formula, so they no longer disagree on the
+      // maths — but `<=` versus `<` at exactly the boundary, and the suspension
+      // and availability filters search applies alongside the radius, still make
+      // the edge a place where "in or out" is not decided by distance alone.
       if (margin < 0.5) continue;
 
       checked += 1;
@@ -368,7 +371,7 @@ describe('Phase 5 — geography', () => {
 
     for (const card of response.body.results as Card[]) {
       const row = await context.prisma.$queryRaw<{ lat: number; lng: number }[]>`
-        SELECT ST_Y(base_location::geometry) AS lat, ST_X(base_location::geometry) AS lng
+        SELECT base_lat AS lat, base_lng AS lng
         FROM provider_profiles WHERE user_id = ${card.providerId}::uuid
       `;
 
@@ -376,8 +379,18 @@ describe('Phase 5 — geography', () => {
       if (!point) continue;
 
       const expectedKm = haversineMetres(WRIGHT_TOWN, point) / 1000;
-      // 2% for sphere-vs-spheroid, plus 0.1 for the rounding we apply on purpose.
-      expect(Math.abs(card.distanceKm - expectedKm)).toBeLessThan(expectedKm * 0.02 + 0.11);
+
+      // This used to allow 2% for sphere-vs-spheroid, because the SQL was
+      // PostGIS `ST_Distance` on the WGS-84 ellipsoid while this line is a
+      // sphere. `core/geo-sql.ts` now generates the *same* haversine formula
+      // with the same Earth radius, so the only remaining difference is the
+      // 0.1 km rounding the API applies on purpose. Keeping the old 2% band
+      // would hide a genuine desynchronisation between the two implementations,
+      // which is exactly the bug this test exists to catch.
+      expect(
+        Math.abs(card.distanceKm - expectedKm),
+        `${card.providerId}: API ${card.distanceKm}km vs TypeScript haversine ${expectedKm}km`,
+      ).toBeLessThanOrEqual(0.05 + 1e-9);
     }
   });
 
@@ -800,10 +813,21 @@ describe('Phase 5 — public endpoint rate limiting', () => {
 });
 
 describe('Phase 5 — index usage', () => {
-  it('uses the GIST index when the planner is not distracted by a tiny table', async (ctx) => {
+  it('uses the bounding-box index when the planner is not distracted by a tiny table', async (ctx) => {
     if (!context) return ctx.skip();
 
     /**
+     * There is no spatial index any more — btree_gist and PostGIS are both
+     * unavailable on the production host. The whole reason `geo-sql.ts` emits a
+     * `boundingBox` predicate before the trigonometry is that a plain B-tree
+     * *can* serve a range comparison, and that is what keeps search fast without
+     * a GiST index. `provider_profiles_city_base_latlng_idx` is that B-tree.
+     *
+     * The exact-distance haversine filter is deliberately left out of the query
+     * below: it is not indexable and never was meant to be, so including it
+     * would only test the recheck. What must hold is that the cheap box narrows
+     * the candidate set via the index first.
+     *
      * At 20 rows Postgres correctly prefers a sequential scan, so a plain
      * EXPLAIN proves nothing about the index. Disabling seq scan shows the
      * planner *can* use it, which is what matters for real volume.
@@ -814,16 +838,15 @@ describe('Phase 5 — index usage', () => {
       const rows = await tx.$queryRawUnsafe<{ 'QUERY PLAN': string }[]>(`
         EXPLAIN (COSTS OFF)
         SELECT user_id FROM provider_profiles
-        WHERE ST_DWithin(
-          base_location,
-          ST_SetSRID(ST_MakePoint(79.9492, 23.1618), 4326)::geography,
-          8000
-        )
+        WHERE city_id = 1
+          AND base_lat IS NOT NULL AND base_lng IS NOT NULL
+          AND base_lat BETWEEN 23.0899 AND 23.2337
+          AND base_lng BETWEEN 79.8710 AND 80.0274
       `);
 
       return rows.map((row) => row['QUERY PLAN']).join('\n');
     });
 
-    expect(plan).toContain('provider_profiles_base_location_gist_idx');
+    expect(plan).toContain('provider_profiles_city_base_latlng_idx');
   });
 });

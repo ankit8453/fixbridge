@@ -232,7 +232,8 @@ export async function updateProfile(
     await repo.updateProfile(context.prisma, userId, scalar);
   }
 
-  // Geography column: Prisma cannot write it, so it takes its own raw statement.
+  // Separate from the scalar update because the API takes a point while the
+  // table stores two columns, and because it is optional in a PATCH.
   if (baseLocation) {
     await repo.setBaseLocation(context.prisma, userId, baseLocation);
   }

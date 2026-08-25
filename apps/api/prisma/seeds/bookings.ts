@@ -87,7 +87,8 @@ async function insertSlot(
   providerId: string,
   slot: PlannedSlot,
 ): Promise<number> {
-  // `time_range` is filled by the BEFORE INSERT trigger, so it is not named here.
+  // Raw because Prisma cannot createMany on this model, and because ON CONFLICT
+  // DO NOTHING makes re-seeding idempotent without a read-then-write race.
   return prisma.$executeRaw`
     INSERT INTO slots (id, provider_id, starts_at, ends_at, status, source_template_id, updated_at)
     VALUES (

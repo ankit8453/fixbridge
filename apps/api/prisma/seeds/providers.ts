@@ -583,16 +583,14 @@ export async function seedProviders(
       },
     });
 
-    // Geography column — Prisma cannot write it, so it takes a raw statement.
+    // Plain doubles now, so an ordinary Prisma update does it. This used to be
+    // a raw statement only because the column was a PostGIS geography that
+    // Prisma could not write.
     if (seed.withLocation) {
-      await prisma.$executeRaw`
-        UPDATE provider_profiles
-        SET base_location = ST_SetSRID(
-              ST_MakePoint(${locality.lng}::double precision, ${locality.lat}::double precision),
-              4326
-            )::geography
-        WHERE user_id = ${user.id}::uuid
-      `;
+      await prisma.providerProfile.update({
+        where: { userId: user.id },
+        data: { baseLat: locality.lat, baseLng: locality.lng },
+      });
     }
 
     for (const slug of seed.skills) {

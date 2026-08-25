@@ -13,6 +13,7 @@ import {
   QueryState,
   Select,
   Table,
+  TextInput,
   type TableColumn,
 } from '@/components/ui';
 
@@ -23,10 +24,11 @@ export default function VerificationQueuePage() {
   const filters = useFilters();
   const status = filters.get('status');
   const level = filters.get('level');
+  const cityId = filters.get('cityId');
 
   const query = useQuery({
-    queryKey: ['admin', 'verification', 'queue', { status, level, page: filters.page }],
-    queryFn: () => fetchVerificationQueue({ status, level, page: filters.page }),
+    queryKey: ['admin', 'verification', 'queue', { status, level, cityId, page: filters.page }],
+    queryFn: () => fetchVerificationQueue({ status, level, cityId, page: filters.page }),
   });
 
   const columns: TableColumn<VerificationQueueRow>[] = [
@@ -103,6 +105,17 @@ export default function VerificationQueuePage() {
                     </option>
                   ))}
                 </Select>
+              )}
+            </Field>
+            <Field label="City id">
+              {(id) => (
+                <TextInput
+                  id={id}
+                  className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm"
+                  inputMode="numeric"
+                  value={cityId ?? ''}
+                  onChange={(event) => filters.set('cityId', event.target.value || undefined)}
+                />
               )}
             </Field>
           </div>

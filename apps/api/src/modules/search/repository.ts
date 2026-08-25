@@ -1,6 +1,34 @@
-// All SQL for search. Raw throughout, because PostGIS and pg_trgm are the point.
+// All SQL for search. Raw throughout, because proximity and pg_trgm are the point.
 import { Prisma, type PrismaClient } from '@prisma/client';
+import { boundingBox, distanceMetres, withinColumnRadius, withinMetres } from '../../core/geo-sql';
 import type { Badge } from '../verification/badge';
+
+/**
+ * The widest radius any provider can claim, in metres.
+ *
+ * This is the bounding box's whole justification. Distance is now haversine
+ * arithmetic with no spatial index behind it (see `core/geo-sql.ts` for why
+ * PostGIS is gone), so every distance filter has to be preceded by a cheap
+ * range predicate on `base_lat`/`base_lng` or the planner reads every profile
+ * in the table and computes trigonometry for each one.
+ *
+ * The per-provider radius is a column, so no single box fits it — the box has
+ * to be built from the largest value the column can hold. 25 km is that bound,
+ * and it is enforced twice over: `serviceRadiusKm: z.coerce.number().int()
+ * .min(1).max(25)` in `providers/types.ts`, and a database CHECK constraint
+ * `service_radius_km BETWEEN 1 AND 25` that no code path can route around.
+ * A provider 26 km away therefore cannot exist, so excluding them by box
+ * cannot drop a real match.
+ *
+ * If that bound ever moves, this constant must move with it, and the Zod schema
+ * and the CHECK are the two places to change first. A box that is too *small*
+ * silently loses providers — the failure is invisible, which is exactly why the
+ * number is named here rather than inlined at the call site.
+ */
+const MAX_SERVICE_RADIUS_METRES = 25_000;
+
+/** Where a provider's base point lives, for the geo-sql helpers. */
+const PROVIDER_BASE = { lat: 'pp.base_lat', lng: 'pp.base_lng' };
 
 /* -------------------------------------------------------------------------- */
 /* Provider search                                                            */
@@ -61,13 +89,34 @@ export async function searchProviders(
   const categoryId = filters.categoryId;
   const dayOfWeek = filters.dayOfWeek;
 
+  /**
+   * The exact distance, reused three times below: once as an output column, and
+   * once inside each of the two radius filters. Building it once keeps the
+   * customer's coordinates bound as parameters in a single place.
+   */
+  const distance = distanceMetres(PROVIDER_BASE, filters.lat, filters.lng);
+
+  /**
+   * The indexable pre-filter, and the reason this query does not scan the table.
+   *
+   * Two radius tests run below — the provider's own `service_radius_km` and the
+   * customer's optional cap — and the box has to be wide enough for whichever
+   * survives more rows, or it would exclude a provider one of them would have
+   * kept. `service_radius_km` is per row and unknown until the row is read, so
+   * its worst case is `MAX_SERVICE_RADIUS_METRES`; the customer's cap is a
+   * constant and never exceeds 25 km either (Zod `max_distance_km.max(25)`).
+   * Taking the max of the two is therefore correct whether or not a cap is
+   * supplied, and when one is supplied and is smaller, the box tightens.
+   */
+  const boxRadiusMetres = Math.max(
+    MAX_SERVICE_RADIUS_METRES,
+    filters.maxDistanceMetres ?? 0,
+  );
+
+  const box = boundingBox(PROVIDER_BASE, filters.lat, filters.lng, boxRadiusMetres);
+
   return prisma.$queryRaw<ProviderCandidateRow[]>`
-    WITH customer AS (
-      SELECT ST_SetSRID(
-        ST_MakePoint(${filters.lng}::double precision, ${filters.lat}::double precision),
-        4326
-      )::geography AS point
-    ),
+    WITH
     -- A cluster id matches the cluster and everything under it, so a customer
     -- can search "Electrical" without knowing the exact service.
     target_categories AS (
@@ -94,12 +143,11 @@ export async function searchProviders(
         pst.avg_stars         AS "avgStars",
         pst.review_count      AS "reviewCount",
         pst.settled_jobs_count AS "settledJobsCount",
-        ST_Distance(pp.base_location, c.point) AS "distanceMetres"
+        ${distance} AS "distanceMetres"
       FROM provider_profiles pp
       JOIN users u ON u.id = pp.user_id
       JOIN provider_verification_summaries pvs ON pvs.provider_id = pp.user_id
       LEFT JOIN provider_stats pst ON pst.provider_id = pp.user_id
-      CROSS JOIN customer c
       WHERE pp.city_id = ${filters.cityId}
         AND pp.is_listed = true
         AND u.status = 'active'
@@ -113,13 +161,46 @@ export async function searchProviders(
          * unlisted because a cron did not run.
          */
         AND (pp.suspended_until IS NULL OR pp.suspended_until <= NOW())
-        AND pp.base_location IS NOT NULL
+        /**
+         * Both halves of the point, checked together.
+         *
+         * They replace the old base_location IS NOT NULL and mean exactly the
+         * same thing: a technician who has not set their base is not searchable,
+         * because there is no honest distance to rank them by. The columns are
+         * only ever written as a pair, so either being null is the "unset" case.
+         */
+        AND pp.base_lat IS NOT NULL
+        AND pp.base_lng IS NOT NULL
+        /**
+         * The box, before any trigonometry.
+         *
+         * This is a plain BETWEEN on two double columns, so it is indexable
+         * and cheap, and it runs ahead of the two exact tests below — which is
+         * the whole reason the haversine backend stays fast without a spatial
+         * index. It admits a few false positives at the square's corners; the
+         * exact filters immediately below remove them. It never produces a false
+         * negative, so nothing that used to match can be lost here.
+         */
+        AND ${box}
         -- The radius belongs to the provider: they said how far they travel.
-        AND ST_DWithin(pp.base_location, c.point, pp.service_radius_km * 1000)
-        -- The customer's own cap, applied on top rather than instead.
+        -- Per-row, so the box above had to be sized from the 25 km ceiling.
+        AND ${withinColumnRadius(PROVIDER_BASE, filters.lat, filters.lng, 'pp.service_radius_km * 1000')}
+        /**
+         * The customer's own cap, applied on top rather than instead.
+         *
+         * withinMetres rather than a bare distance comparison, so the cap
+         * brings its own (tighter) box when one is supplied — a 5 km search
+         * then narrows the scan instead of riding the 25 km box above. The
+         * IS NULL arm still short-circuits the whole thing when no cap was
+         * given, exactly as before.
+         */
         AND (
           ${filters.maxDistanceMetres}::double precision IS NULL
-          OR ST_DWithin(pp.base_location, c.point, ${filters.maxDistanceMetres}::double precision)
+          OR ${
+            filters.maxDistanceMetres === null
+              ? Prisma.sql`false`
+              : withinMetres(PROVIDER_BASE, filters.lat, filters.lng, filters.maxDistanceMetres)
+          }
         )
         AND (
           ${categoryId}::int IS NULL
@@ -186,7 +267,14 @@ export async function searchProviders(
   `;
 }
 
-/** The EXPLAIN behind `docs/search.md`. Used by a test to prove index usage. */
+/**
+ * The EXPLAIN behind `docs/search.md`. Used by a test to prove index usage.
+ *
+ * It has to carry the same bounding box as the real query, not just the exact
+ * distance test — the box *is* the index-visible predicate now. Explaining the
+ * haversine expression alone would show a sequential scan and prove nothing,
+ * which is the opposite of what this function is for.
+ */
 export async function explainSearch(prisma: PrismaClient, filters: SearchFilters): Promise<string> {
   const rows = await prisma.$queryRaw<{ 'QUERY PLAN': string }[]>`
     EXPLAIN
@@ -198,11 +286,10 @@ export async function explainSearch(prisma: PrismaClient, filters: SearchFilters
       AND pp.is_listed = true
       AND u.status = 'active'
       AND pvs.badge IN ('VERIFIED', 'SILVER', 'GOLD')
-      AND ST_DWithin(
-            pp.base_location,
-            ST_SetSRID(ST_MakePoint(${filters.lng}::double precision, ${filters.lat}::double precision), 4326)::geography,
-            pp.service_radius_km * 1000
-          )
+      AND pp.base_lat IS NOT NULL
+      AND pp.base_lng IS NOT NULL
+      AND ${boundingBox(PROVIDER_BASE, filters.lat, filters.lng, MAX_SERVICE_RADIUS_METRES)}
+      AND ${withinColumnRadius(PROVIDER_BASE, filters.lat, filters.lng, 'pp.service_radius_km * 1000')}
   `;
 
   return rows.map((row) => row['QUERY PLAN']).join('\n');

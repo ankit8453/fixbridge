@@ -82,7 +82,7 @@ function Level0Form({ onSubmitted }: { onSubmitted: (payload: unknown) => void }
         onUploaded={(doc) => setIdProofDocumentId(doc.id)}
       />
       <DocumentUploader
-        docType="other"
+        docType="photo"
         label={t('partner.verification.selfieUpload')}
         onUploaded={(doc) => setSelfieDocumentId(doc.id)}
       />
@@ -183,6 +183,15 @@ interface ReferenceDraft {
   relationship: (typeof REFERENCE_RELATIONSHIPS)[number];
 }
 
+function normalizedReferencePhone(phone: string): string | null {
+  let value = phone.trim().replace(/[\s().\-‐-―]/g, '');
+  if (value.startsWith('+')) value = value.slice(1);
+  else if (value.startsWith('00')) value = value.slice(2);
+  if (value.startsWith('91') && value.length === 12) value = value.slice(2);
+  if (value.startsWith('0') && value.length === 11) value = value.slice(1);
+  return /^[6-9]\d{9}$/.test(value) ? `+91${value}` : null;
+}
+
 function Level3Form({ onSubmitted }: { onSubmitted: (payload: unknown) => void }) {
   const t = useT();
   const [refs, setRefs] = useState<[ReferenceDraft, ReferenceDraft]>([
@@ -198,7 +207,10 @@ function Level3Form({ onSubmitted }: { onSubmitted: (payload: unknown) => void }
     });
   }
 
-  const canSubmit = refs.every((r) => r.name.trim().length >= 2 && r.phone.trim().length >= 10);
+  const normalizedPhones = refs.map((reference) => normalizedReferencePhone(reference.phone));
+  const canSubmit =
+    refs.every((reference, index) => reference.name.trim().length >= 2 && normalizedPhones[index]) &&
+    new Set(normalizedPhones).size === refs.length;
 
   return (
     <div className="flex flex-col gap-4">

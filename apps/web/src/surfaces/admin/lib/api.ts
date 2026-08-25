@@ -54,6 +54,7 @@ export const fetchSummary = (): Promise<AdminSummary> => adminRequest('/api/v1/a
 export interface VerificationQueueFilters {
   status?: string;
   level?: string;
+  cityId?: string;
   page: number;
 }
 
@@ -64,6 +65,7 @@ export async function fetchVerificationQueue(
     query: {
       status: filters.status,
       level: filters.level,
+      cityId: filters.cityId,
       // This endpoint's schema takes `pageSize`. Sending `page_size` here is
       // a 400, not a default.
       ...paginationParams(filters.page, 20, 'pageSize'),

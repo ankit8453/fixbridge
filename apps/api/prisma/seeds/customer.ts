@@ -48,29 +48,30 @@ export async function seedCustomer(prisma: PrismaClient, cityId: number): Promis
     const locality = localityByName(address.locality);
     const id = deterministicUuid(`address:${SEED_CUSTOMER_PHONE}:${address.key}`);
 
-    // `location` is a geography column, so the whole row goes in by raw SQL.
-    await prisma.$executeRaw`
-      INSERT INTO addresses
-        (id, user_id, label, label_text, address_text, landmark, city_id, location, is_default, created_at, updated_at)
-      VALUES (
-        ${id}::uuid,
-        ${user.id}::uuid,
-        ${address.label}::address_label,
-        NULL,
-        ${address.addressText},
-        ${address.landmark},
-        ${cityId},
-        ST_SetSRID(ST_MakePoint(${locality.lng}::double precision, ${locality.lat}::double precision), 4326)::geography,
-        ${address.isDefault},
-        NOW(),
-        NOW()
-      )
-      ON CONFLICT (id) DO UPDATE SET
-        address_text = EXCLUDED.address_text,
-        landmark     = EXCLUDED.landmark,
-        location     = EXCLUDED.location,
-        updated_at   = NOW()
-    `;
+    // Plain columns now, so this is an ordinary upsert. It was raw SQL only
+    // because `location` used to be a PostGIS geography Prisma could not write.
+    // The id is deterministic, so re-running updates rather than duplicating.
+    await prisma.address.upsert({
+      where: { id },
+      update: {
+        addressText: address.addressText,
+        landmark: address.landmark,
+        lat: locality.lat,
+        lng: locality.lng,
+      },
+      create: {
+        id,
+        userId: user.id,
+        label: address.label,
+        labelText: null,
+        addressText: address.addressText,
+        landmark: address.landmark,
+        cityId,
+        lat: locality.lat,
+        lng: locality.lng,
+        isDefault: address.isDefault,
+      },
+    });
   }
 
   console.log(
