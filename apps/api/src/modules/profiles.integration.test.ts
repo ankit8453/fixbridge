@@ -893,6 +893,72 @@ describe('Phase 3 — provider validation rules', () => {
       .expect(201);
   });
 
+  /**
+   * Saving hours makes a technician bookable straight away.
+   *
+   * Templates are the recurring pattern; slots are the hours a customer can
+   * actually tap. Nothing bridged the two on write, so a technician set their
+   * week, saw it saved, and stayed unbookable until a six-hourly job happened
+   * to run — from their side the app was broken, and the customer saw "no open
+   * slots" against a profile advertising evenings free.
+   */
+  it('materialises bookable slots the moment availability is saved', async (ctx) => {
+    if (!app || !context) return ctx.skip();
+
+    const session = await signInAsTechnician(app, PHONES.technician);
+    const headers = auth(session.accessToken);
+
+    await context.prisma.slot.deleteMany({ where: { providerId: session.user.id } });
+
+    const before = await context.prisma.slot.count({ where: { providerId: session.user.id } });
+    expect(before).toBe(0);
+
+    await request(app)
+      .post('/api/v1/providers/me/availability')
+      .set(headers)
+      .send({ dayOfWeek: 3, startTime: '10:00', endTime: '14:00' })
+      .expect(201);
+
+    // No job run in between — the write itself produced them.
+    const after = await context.prisma.slot.count({
+      where: { providerId: session.user.id, status: 'open' },
+    });
+    expect(after).toBeGreaterThan(0);
+  });
+
+  it('withdraws the open slots when the hours are deleted', async (ctx) => {
+    if (!app || !context) return ctx.skip();
+
+    const session = await signInAsTechnician(app, PHONES.technician);
+    const headers = auth(session.accessToken);
+
+    const created = await request(app)
+      .post('/api/v1/providers/me/availability')
+      .set(headers)
+      .send({ dayOfWeek: 4, startTime: '10:00', endTime: '14:00' })
+      .expect(201);
+
+    const windowId = (
+      created.body.profile.availability as { id: string; dayOfWeek: number }[]
+    ).find((entry) => entry.dayOfWeek === 4)?.id;
+
+    expect(windowId).toBeTruthy();
+    expect(
+      await context.prisma.slot.count({ where: { providerId: session.user.id, status: 'open' } }),
+    ).toBeGreaterThan(0);
+
+    await request(app)
+      .delete(`/api/v1/providers/me/availability/${windowId}`)
+      .set(headers)
+      .expect(200);
+
+    // Otherwise the technician stays bookable in hours they just removed.
+    const thursdaySlots = await context.prisma.slot.count({
+      where: { providerId: session.user.id, status: 'open' },
+    });
+    expect(thursdaySlots).toBe(0);
+  });
+
   it('rejects a service radius beyond 25 km', async (ctx) => {
     if (!app) return ctx.skip();
 

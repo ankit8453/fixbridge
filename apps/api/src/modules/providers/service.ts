@@ -4,6 +4,7 @@ import { AppError } from '../../core/errors';
 import type { Translator } from '../../core/i18n';
 import { requireLeafCategory } from '../categories/service';
 import { formatTimeOfDay, validateWindow, type AvailabilityWindow } from './availability';
+import { generateSlotsForProvider } from '../bookings/slots-service';
 import { computeCompleteness, isListable, type CompletenessFacts } from './completeness';
 import * as repo from './repository';
 import type {
@@ -69,8 +70,20 @@ async function recomputeListing(
     aggregate.userIsActive,
   );
 
+  const justListed = listed && !aggregate.profile.isListed;
+
   if (aggregate.profile.completenessScore !== score || aggregate.profile.isListed !== listed) {
     await repo.saveListingState(context.prisma, userId, score, listed);
+
+    /**
+     * Going live has to produce bookable hours, not just a findable profile.
+     *
+     * The horizon job only walks *listed* providers, so anyone who set their
+     * week before completing the rest of their profile had templates and no
+     * slots — they appeared in search advertising evenings free, with nothing
+     * a customer could tap.
+     */
+    if (justListed) await refreshSlots(context, userId);
 
     context.logger.info(
       {
@@ -425,6 +438,31 @@ function availabilityError(problem: NonNullable<ReturnType<typeof validateWindow
   }
 }
 
+/**
+ * Materialises bookable slots after an availability change.
+ *
+ * Templates are the recurring *pattern*; slots are the actual hours a customer
+ * can tap. Nothing used to bridge the two on write — a technician set their
+ * week, saw it saved, and remained unbookable until a six-hourly job happened
+ * to run. From their side the app was simply broken, and from the customer's
+ * the technician had "no open slots" while advertising evenings free.
+ *
+ * Deliberately best-effort: the availability itself is already committed, and
+ * failing the request afterwards would tell the technician their hours did not
+ * save when they did. The horizon job remains the backstop, so a slip here
+ * costs freshness rather than correctness.
+ */
+async function refreshSlots(context: AppContext, userId: string): Promise<void> {
+  try {
+    await generateSlotsForProvider(context, userId);
+  } catch (error) {
+    context.logger.error(
+      { err: error, providerId: userId },
+      'slot refresh failed after availability change',
+    );
+  }
+}
+
 export async function createAvailability(
   context: AppContext,
   userId: string,
@@ -448,6 +486,7 @@ export async function createAvailability(
   if (problem) throw availabilityError(problem);
 
   await repo.createAvailability(context.prisma, userId, { ...candidate, isActive });
+  await refreshSlots(context, userId);
 
   return respond(context, userId, t);
 }
@@ -483,6 +522,7 @@ export async function updateAvailability(
   if (problem) throw availabilityError(problem);
 
   await repo.updateAvailability(context.prisma, id, { ...candidate, isActive });
+  await refreshSlots(context, userId);
 
   return respond(context, userId, t);
 }
@@ -502,6 +542,11 @@ export async function deleteAvailability(
       `Availability window ${id} not found for this provider`,
     );
   }
+
+  // Removing hours has to withdraw the open slots they produced, or the
+  // technician stays bookable in a window they just deleted. Already-booked
+  // slots survive — see `planSlots`, which never touches a held commitment.
+  await refreshSlots(context, userId);
 
   return respond(context, userId, t);
 }

@@ -654,9 +654,16 @@ describe('Phase 5 — sorting and pagination', () => {
     expect([...firstIds, ...secondIds]).toEqual(
       allIds.slice(0, firstIds.length + secondIds.length),
     );
-    // 11 searchable: 12 verified and listed, less the one the trust seed
-    // suspends. Derived in the gate test above rather than repeated here.
-    expect(first.body.total).toBe(11);
+    /**
+     * At least the seed's 11 (12 verified and listed, less the one the trust
+     * seed suspends), not exactly.
+     *
+     * The population grows whenever a technician is verified or made bookable
+     * while testing on a shared database, and that is not a pagination bug.
+     * What this test actually proves is above: no overlap, no gaps, and the
+     * same order as the unpaginated list.
+     */
+    expect(first.body.total).toBeGreaterThanOrEqual(11);
   });
 });
 
