@@ -89,7 +89,6 @@ class MemoryRedisMock {
   }
 }
 
-
 /**
  * MISSING_MOCK_METHODS
  *

@@ -55,9 +55,11 @@
       },
       "maxDistanceLabel": "दूरी सीमा",
       "maxDistanceAny": "कोई सीमा नहीं",
+      "withinKm": "{{distance}} किमी तक",
       "searching": "कारीगर खोजे जा रहे हैं…",
       "noResults": "कोई कारीगर नहीं मिला",
       "noResultsHint": "दूरी सीमा बढ़ाकर देखें या दूसरी कैटेगरी चुनें।",
+      "widenDistance": "कितनी भी दूरी में खोजें",
       "unnamedProvider": "कारीगर",
       "noRatingYet": "अभी कोई रेटिंग नहीं",
       "jobsCompleted": "{{count}} काम पूरे",
@@ -128,6 +130,7 @@
       "bookNow": "इस कारीगर को बुक करें",
       "pickSlotFirst": "आगे बढ़ने के लिए समय चुनें",
       "selectedSlot": "चुना गया: {{day}}, {{date}} को {{time}} बजे",
+      "selectedSlotLabel": "आपका चुना समय",
       "aboutHeading": "परिचय",
       "skillsHeading": "कौन-कौन से काम",
       "pricesHeading": "दाम",
@@ -148,9 +151,19 @@
     },
     "bookings": {
       "title": "मेरी बुकिंग",
+      "activeCount": "अभी {{count}} काम चल रहे हैं",
       "loading": "बुकिंग लोड हो रही हैं…",
       "empty": "अभी कोई बुकिंग नहीं है",
       "emptyHint": "काम खोजें और अपनी पहली बुकिंग करें।",
+      "browseServices": "कारीगर ढूँढें",
+      "emptyTab": {
+        "active": "अभी कोई काम नहीं चल रहा",
+        "past": "अभी कोई पुरानी बुकिंग नहीं"
+      },
+      "emptyTabHint": {
+        "active": "चालू बुकिंग यहीं दिखेंगी — कौन आ रहा है और काम कहाँ तक पहुँचा है।",
+        "past": "काम पूरा या रद्द होने पर बुकिंग यहाँ आ जाती है, ताकि बाद में देख सकें।"
+      },
       "tab": {
         "active": "चालू",
         "past": "पुरानी"
@@ -202,29 +215,40 @@
       "endOtpHint": "काम पूरा होने के बाद ही यह कोड कारीगर को बताएं।",
       "quotesHeading": "कीमत",
       "quoteVersion": "कीमत (वर्शन {{version}})",
+      "partsHeading": "पुर्ज़े और सामान",
       "labour": "मज़दूरी",
+      "agreedLabour": "मज़दूरी (बुकिंग के समय तय)",
+      "extraLabour": "अतिरिक्त मज़दूरी",
+      "extraLabourNoReason": "इस अतिरिक्त पैसे की कोई वजह नहीं बताई गई।",
       "partsTotal": "पुर्ज़ों की कीमत",
       "quoteTotal": "कुल कीमत",
       "rejectReasonPlaceholder": "क्यों मंज़ूर नहीं है? (वैकल्पिक)",
       "rejectQuote": "मंज़ूर नहीं",
       "confirmReject": "मना करें",
       "approveQuote": "मंज़ूर करें",
+      "approveHint": "मंज़ूर करते ही यह कीमत पक्की हो जाएगी। इसके बाद कारीगर इसे बदल नहीं सकता।",
+      "approveQuoteAmount": "{{amount}} मंज़ूर करें",
       "timelineHeading": "अब तक क्या हुआ",
       "payableHeading": "देना है",
       "payableTotal": "कुल राशि",
       "waived": "माफ़",
       "checkingPaymentStatus": "भुगतान की स्थिति देखी जा रही है…",
-      "paid": "भुगतान हो गया ✓",
+      "paid": "भुगतान हो गया",
       "cashRecorded": "कारीगर ने {{amount}} नकद लेना दर्ज किया है",
       "cashDisputeHint": "अगर यह सही नहीं है, तो शिकायत दर्ज करें।",
       "raiseCashDispute": "नकद भुगतान की शिकायत करें",
       "confirmingPayment": "आपका भुगतान जांचा जा रहा है… इसमें कुछ समय लग सकता है।",
+      "confirmingPaymentHint": "दोबारा पैसे न भरें — बैंक की पुष्टि आते ही यह पेज अपने आप बदल जाएगा।",
       "paymentFailed": "भुगतान नहीं हो पाया। दोबारा कोशिश करें।",
+      "paymentFailedHint": "आपके पैसे नहीं कटे हैं। नीचे से दोबारा कोशिश कर सकते हैं।",
       "payNow": "{{amount}} अभी भरें",
       "payDescription": "बुकिंग का भुगतान",
+      "gatewayLoading": "भुगतान का पेज तैयार हो रहा है…",
       "declineWork": "काम मना करें",
       "declineWorkTitle": "काम मना करें",
       "declineWorkFeeExplanation": "अगर आप काम मना करते हैं, तो कारीगर के आने का {{fee}} विज़िट चार्ज देना होगा।",
+      "declineWorkFeeLabel": "विज़िट चार्ज",
+      "declineWorkFeeReason": "कारीगर आपके यहाँ आया था, इसलिए काम न कराने पर भी आने का यह चार्ज देना होगा।",
       "declineWorkNoteLabel": "वजह बताएं (वैकल्पिक)",
       "confirmDeclineWork": "हां, काम मना करें",
       "cancelBooking": "बुकिंग रद्द करें",
@@ -277,13 +301,16 @@
       "categoryLabel": "किस बारे में",
       "descriptionLabel": "पूरी बात बताएं",
       "descriptionHint": "कम से कम 10 अक्षर लिखें",
-      "submit": "शिकायत भेजें"
+      "submit": "शिकायत भेजें",
+      "backToBooking": "बुकिंग पर वापस जाएँ"
     },
     "complaints": {
       "title": "मेरी शिकायतें",
       "empty": "अभी कोई शिकायत दर्ज नहीं है",
       "emptyHint": "किसी बुकिंग में समस्या होने पर वहां से शिकायत दर्ज करें।",
-      "resolutionNote": "टीम का जवाब"
+      "resolutionNote": "टीम का जवाब",
+      "openCount": "{{count}} अभी बाकी",
+      "raisedOn": "दर्ज की गई"
     },
     "complaintStatus": {
       "open": "जांच बाकी",
@@ -332,7 +359,14 @@
       "title": "सूचनाएं",
       "empty": "अभी कोई सूचना नहीं है",
       "markAllRead": "सभी पढ़ी हुई मानें",
-      "unreadBadge": "नई"
+      "unreadBadge": "नई",
+      "emptyHint": "आपकी बुकिंग से जुड़ी खबरें यहां दिखेंगी।",
+      "unreadCountLabel": "बिना पढ़ी",
+      "group": {
+        "today": "आज",
+        "yesterday": "कल",
+        "earlier": "इससे पहले"
+      }
     },
     "account": {
       "title": "खाता",
@@ -340,7 +374,12 @@
       "profileHeading": "प्रोफ़ाइल",
       "emailLabel": "ईमेल (वैकल्पिक)",
       "manageAddresses": "अपने पते मैनेज करें",
-      "myComplaints": "मेरी शिकायतें"
+      "myComplaints": "मेरी शिकायतें",
+      "profileHint": "आपको किस नाम से बुलाएं, और बुकिंग की रसीद कहां भेजें।",
+      "saved": "सेव हो गया",
+      "shortcutsLabel": "जल्दी पहुंचें",
+      "manageAddressesHint": "सेव किए पते, जहां कारीगर भेजा जा सके",
+      "myComplaintsHint": "आपकी दर्ज की हुई शिकायतें और उनका हाल"
     }
   }
 }

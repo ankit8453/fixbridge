@@ -12,11 +12,21 @@ import { Loader2 } from 'lucide-react';
  * ₹8,000 Android phone, not a desktop.
  */
 
-type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
+type Variant = 'primary' | 'shop' | 'secondary' | 'danger' | 'ghost';
 type Size = 'sm' | 'md' | 'lg';
 
 const VARIANTS: Record<Variant, string> = {
+  /** The partner and marketing surfaces' indigo. */
   primary: 'bg-brand text-brand-foreground hover:opacity-90 border-transparent',
+  /**
+   * The customer storefront's plum.
+   *
+   * A separate variant rather than a token swap because all three surfaces
+   * share this kit: the ops console is teal, the partner app indigo, and the
+   * customer app plum. A button that picked one of them globally would be
+   * wrong on two surfaces out of three.
+   */
+  shop: 'bg-shop text-shop-foreground hover:bg-shop-deep border-transparent',
   secondary: 'bg-white text-slate-900 hover:bg-slate-50 border-slate-300',
   danger: 'bg-danger text-danger-foreground hover:opacity-90 border-transparent',
   ghost: 'bg-transparent text-slate-700 hover:bg-slate-100 border-transparent',

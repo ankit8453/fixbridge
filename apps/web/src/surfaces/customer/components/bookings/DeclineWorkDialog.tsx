@@ -30,9 +30,22 @@ export function DeclineWorkDialog({
   return (
     <Modal title={t('app.booking.declineWorkTitle')} onClose={onClose}>
       <div className="flex flex-col gap-4 p-4">
-        <p className="text-sm text-slate-700">
-          {t('app.booking.declineWorkFeeExplanation', { fee: formatPaise(visitFeePaise) })}
-        </p>
+        {/*
+          The fee is the whole decision, so it is a figure the eye lands on
+          before the sentence explaining it — a customer skimming a modal
+          should never approve a charge they only read as prose.
+        */}
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-900/70">
+            {t('app.booking.declineWorkFeeLabel')}
+          </p>
+          <p className="mt-0.5 text-[22px] font-bold leading-none tabular-nums text-amber-900">
+            {formatPaise(visitFeePaise)}
+          </p>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-amber-900/85">
+            {t('app.booking.declineWorkFeeReason')}
+          </p>
+        </div>
 
         <Field label={t('app.booking.declineWorkNoteLabel')}>
           {(id) => (

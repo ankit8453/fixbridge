@@ -5,7 +5,7 @@ import { buildLocalizedHref } from '@/i18n/config';
 import { useAddresses } from '@/surfaces/customer/data/addresses';
 import { useCreateBooking } from '@/surfaces/customer/data/bookings';
 import { istDateLabel, istDayOfWeekKey, istTime } from '@/surfaces/customer/data/ist-date';
-import { Button, ErrorState, Field, Modal, TextArea } from '@/components/ui';
+import { Button, ErrorState, Field, Modal, Select, TextArea } from '@/components/ui';
 import type { PublicSlot } from '@/surfaces/customer/data/types';
 
 const LABEL_KEYS = {
@@ -14,7 +14,14 @@ const LABEL_KEYS = {
   other: 'app.addresses.label.other',
 } as const;
 
-/** Ported from `legacy-next-src/components/customer/provider/BookingModal.tsx`. */
+/**
+ * The confirm-and-book sheet.
+ *
+ * The chosen slot is restated as a bordered summary at the top rather than a
+ * line of body text: it is the one fact the customer is being asked to commit
+ * to, and a modal opened from a grid of near-identical time buttons has to
+ * prove which one was actually tapped.
+ */
 export function BookingModal({
   slot,
   categoryId,
@@ -70,10 +77,15 @@ export function BookingModal({
   return (
     <Modal title={t('app.provider.confirmBooking')} onClose={onClose}>
       <div className="flex flex-col gap-4 p-4">
-        <p className="text-sm text-slate-700">
-          {t(istDayOfWeekKey(slot.startsAt))} · {istDateLabel(slot.startsAt)} ·{' '}
-          {istTime(slot.startsAt)}
-        </p>
+        <div className="rounded-xl bg-shop-soft px-3.5 py-2.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-shop-deep/70">
+            {t('app.provider.selectedSlotLabel')}
+          </p>
+          <p className="mt-0.5 text-[15px] font-bold tracking-tight text-shop-deep">
+            {t(istDayOfWeekKey(slot.startsAt))}, {istDateLabel(slot.startsAt)} ·{' '}
+            {istTime(slot.startsAt)}
+          </p>
+        </div>
 
         {status === 'pending' ? (
           <p className="text-sm text-shop-ink-soft">{t('common.loading')}</p>
@@ -83,13 +95,15 @@ export function BookingModal({
             onRetry={() => navigate(buildLocalizedHref(locale, '/app/addresses'))}
           />
         ) : (
+          // The shared `Select`, not a hand-rolled `<select>` with its own
+          // border classes — one control vocabulary, and this one already
+          // enforces the 44px touch floor and 16px text.
           <Field label={t('app.provider.addressLabel')}>
             {(id) => (
-              <select
+              <Select
                 id={id}
                 value={addressId ?? ''}
                 onChange={(e) => setAddressId(e.target.value)}
-                className="w-full min-h-touch rounded-lg border border-slate-300 px-3 py-2 text-base text-shop-ink"
               >
                 {addresses.map((address) => (
                   <option key={address.id} value={address.id}>
@@ -98,7 +112,7 @@ export function BookingModal({
                       address.addressText}
                   </option>
                 ))}
-              </select>
+              </Select>
             )}
           </Field>
         )}
@@ -121,10 +135,11 @@ export function BookingModal({
             {t('common.cancel')}
           </Button>
           <Button
-            variant="primary"
+            variant="shop"
             fullWidth
             disabled={!addressId || createBooking.isPending}
             onClick={() => void handleConfirm()}
+            className="border-transparent bg-shop text-shop-foreground hover:opacity-90"
           >
             {createBooking.isPending ? t('common.loading') : t('app.provider.confirmBooking')}
           </Button>

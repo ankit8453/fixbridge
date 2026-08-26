@@ -18,13 +18,12 @@ const DEBOUNCE_MS = 300;
  * typed at a normal pace. Ported from
  * `legacy-next-src/components/customer/find/SearchBox.tsx`.
  *
- * Visually this is now built to sit on the home hero's indigo gradient as well
+ * Visually this is built to sit on the home page's plum-tinted ground as well
  * as on a white results page, which is why it does not use the shared
- * `TextInput`: that control's `border-slate-300` and slate focus ring are
- * tuned for a white page and disappear into a coloured one. The field is a
- * solid white pill instead — high contrast against any background, and it
- * reads as the page's primary action from across the room, which is exactly
- * what it is. `text-base` (16px) is kept because anything smaller makes iOS
+ * `TextInput`: that control's cool-slate border and focus ring read grey-blue
+ * on this violet-cast ground. The field is a solid white pill on a `shop-line`
+ * hairline instead — high contrast against any background, and it reads as the
+ * page's primary action from across the room, which is exactly what it is. `text-base` (16px) is kept because anything smaller makes iOS
  * Safari zoom the whole page on focus.
  */
 export function SearchBox() {
@@ -88,7 +87,7 @@ export function SearchBox() {
     <div className="relative">
       <div className="relative flex items-center">
         <SearchGlyph
-          className="pointer-events-none absolute left-4 h-[18px] w-[18px] text-slate-400"
+          className="pointer-events-none absolute left-4 h-[18px] w-[18px] text-shop-ink-soft"
           aria-hidden="true"
           strokeWidth={2.25}
         />
@@ -102,12 +101,12 @@ export function SearchBox() {
           aria-label={t('app.find.searchAriaLabel')}
           // `appearance-none` kills WebKit's own search-field decorations,
           // which otherwise draw a second clear button on top of ours.
-          className="w-full min-h-[52px] appearance-none rounded-2xl border border-white/40 bg-white py-3 pl-11 pr-11 text-base font-medium text-shop-ink shadow-lg shadow-slate-900/10 outline-none placeholder:font-normal placeholder:text-slate-400 focus:border-shop focus:ring-2 focus:ring-shop/25 [&::-webkit-search-cancel-button]:appearance-none"
+          className="w-full min-h-[52px] appearance-none rounded-2xl border border-shop-line bg-white py-3 pl-11 pr-11 text-base font-medium text-shop-ink shadow-lg outline-none placeholder:font-normal placeholder:text-shop-ink-soft focus:border-shop focus:ring-2 focus:ring-shop/25 [&::-webkit-search-cancel-button]:appearance-none"
         />
 
         {loading ? (
           <Loader2
-            className="pointer-events-none absolute right-4 h-4 w-4 animate-spin text-slate-400"
+            className="pointer-events-none absolute right-4 h-4 w-4 animate-spin text-shop"
             aria-hidden="true"
             strokeWidth={2.5}
           />
@@ -119,7 +118,7 @@ export function SearchBox() {
               setOpen(false);
             }}
             aria-label={t('app.find.clearSearch')}
-            className="absolute right-2 flex h-9 w-9 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-shop-ink-soft"
+            className="absolute right-2 flex h-9 w-9 items-center justify-center rounded-full text-shop-ink-soft transition-colors hover:bg-shop-soft hover:text-shop-ink"
           >
             <X className="h-4 w-4" aria-hidden="true" strokeWidth={2.5} />
           </button>
@@ -127,7 +126,7 @@ export function SearchBox() {
       </div>
 
       {open ? (
-        <ul className="absolute inset-x-0 z-30 mt-2 max-h-72 overflow-y-auto rounded-2xl border border-shop-line bg-white p-1.5 shadow-xl shadow-slate-900/10">
+        <ul className="absolute inset-x-0 z-30 mt-2 max-h-72 overflow-y-auto rounded-2xl border border-shop-line bg-white p-1.5 shadow-xl">
           {loading ? (
             <li className="px-3 py-3 text-sm text-shop-ink-soft">{t('common.loading')}</li>
           ) : suggestions.length === 0 ? (

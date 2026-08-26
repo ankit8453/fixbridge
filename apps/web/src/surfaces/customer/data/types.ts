@@ -265,6 +265,13 @@ export interface QuotationView {
   bookingId: string;
   version: number;
   status: 'sent' | 'approved' | 'rejected' | 'superseded' | 'withdrawn';
+  /** What the customer agreed to at booking. Zero when there was no anchor. */
+  agreedLabourPaise: number;
+  /** Extra work found on site. Carries a reason whenever it is above zero. */
+  extraLabourPaise: number;
+  /** Why the extra is charged — shown next to the amount before approval. */
+  extraLabourReason: string | null;
+  /** `agreedLabourPaise + extraLabourPaise`. */
   labourPaise: number;
   partsTotalPaise: number;
   totalPaise: number;

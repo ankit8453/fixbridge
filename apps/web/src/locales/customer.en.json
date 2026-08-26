@@ -55,9 +55,11 @@
       },
       "maxDistanceLabel": "Max distance",
       "maxDistanceAny": "Any distance",
+      "withinKm": "Within {{distance}} km",
       "searching": "Searching for technicians…",
       "noResults": "No technicians found",
       "noResultsHint": "Try a wider distance, or a different service.",
+      "widenDistance": "Search any distance",
       "unnamedProvider": "Technician",
       "noRatingYet": "No ratings yet",
       "jobsCompleted": "{{count}} jobs completed",
@@ -128,6 +130,7 @@
       "bookNow": "Book this technician",
       "pickSlotFirst": "Pick a time to continue",
       "selectedSlot": "Selected: {{day}}, {{date}} at {{time}}",
+      "selectedSlotLabel": "Time you chose",
       "aboutHeading": "About",
       "skillsHeading": "Services offered",
       "pricesHeading": "Prices",
@@ -148,9 +151,19 @@
     },
     "bookings": {
       "title": "My bookings",
+      "activeCount": "{{count}} jobs running now",
       "loading": "Loading bookings…",
       "empty": "No bookings yet",
       "emptyHint": "Find a service and make your first booking.",
+      "browseServices": "Find a technician",
+      "emptyTab": {
+        "active": "Nothing running right now",
+        "past": "No finished bookings yet"
+      },
+      "emptyTabHint": {
+        "active": "Your live bookings will show here — who is coming, and how far along the job is.",
+        "past": "Once a job is finished or cancelled, it moves here so you can look it up later."
+      },
       "tab": {
         "active": "Active",
         "past": "Past"
@@ -202,29 +215,40 @@
       "endOtpHint": "Only share this code with the technician after the work is actually finished.",
       "quotesHeading": "Pricing",
       "quoteVersion": "Quote (version {{version}})",
+      "partsHeading": "Parts and materials",
       "labour": "Labour",
+      "agreedLabour": "Labour (agreed when you booked)",
+      "extraLabour": "Extra labour",
+      "extraLabourNoReason": "No reason was given for this extra charge.",
       "partsTotal": "Parts total",
       "quoteTotal": "Total",
       "rejectReasonPlaceholder": "Why not? (optional)",
       "rejectQuote": "Reject",
       "confirmReject": "Reject quote",
       "approveQuote": "Approve",
+      "approveHint": "Approving fixes this price. The technician cannot change it afterwards.",
+      "approveQuoteAmount": "Approve {{amount}}",
       "timelineHeading": "What's happened so far",
       "payableHeading": "Amount due",
       "payableTotal": "Total due",
       "waived": "waived",
       "checkingPaymentStatus": "Checking payment status…",
-      "paid": "Paid ✓",
+      "paid": "Paid",
       "cashRecorded": "The technician recorded {{amount}} received in cash",
       "cashDisputeHint": "If this is not correct, raise a complaint.",
       "raiseCashDispute": "Report a cash payment issue",
       "confirmingPayment": "Confirming your payment… this can take a moment.",
+      "confirmingPaymentHint": "Do not pay again — this page updates on its own once the bank confirms.",
       "paymentFailed": "The payment did not go through. Please try again.",
+      "paymentFailedHint": "No money has been taken. You can try again below.",
       "payNow": "Pay {{amount}} now",
       "payDescription": "Booking payment",
+      "gatewayLoading": "Getting the payment page ready…",
       "declineWork": "Decline the work",
       "declineWorkTitle": "Decline the work",
       "declineWorkFeeExplanation": "If you decline the work, a visit charge of {{fee}} is still payable for the technician's trip.",
+      "declineWorkFeeLabel": "Visit charge",
+      "declineWorkFeeReason": "The technician still travelled to you, so this trip charge stays payable even if no work is done.",
       "declineWorkNoteLabel": "Add a reason (optional)",
       "confirmDeclineWork": "Yes, decline the work",
       "cancelBooking": "Cancel booking",
@@ -277,13 +301,16 @@
       "categoryLabel": "What is this about",
       "descriptionLabel": "Tell us what happened",
       "descriptionHint": "At least 10 characters",
-      "submit": "Submit complaint"
+      "submit": "Submit complaint",
+      "backToBooking": "Back to the booking"
     },
     "complaints": {
       "title": "My complaints",
       "empty": "No complaints raised yet",
       "emptyHint": "If something goes wrong on a booking, raise a complaint from there.",
-      "resolutionNote": "Team's response"
+      "resolutionNote": "Team's response",
+      "openCount": "{{count}} still open",
+      "raisedOn": "Raised on"
     },
     "complaintStatus": {
       "open": "Awaiting review",
@@ -332,7 +359,14 @@
       "title": "Notifications",
       "empty": "No notifications yet",
       "markAllRead": "Mark all as read",
-      "unreadBadge": "New"
+      "unreadBadge": "New",
+      "emptyHint": "Updates about your bookings will show up here.",
+      "unreadCountLabel": "Unread",
+      "group": {
+        "today": "Today",
+        "yesterday": "Yesterday",
+        "earlier": "Earlier"
+      }
     },
     "account": {
       "title": "Account",
@@ -340,7 +374,12 @@
       "profileHeading": "Profile",
       "emailLabel": "Email (optional)",
       "manageAddresses": "Manage your addresses",
-      "myComplaints": "My complaints"
+      "myComplaints": "My complaints",
+      "profileHint": "How we address you, and where we send booking receipts.",
+      "saved": "Saved",
+      "shortcutsLabel": "Shortcuts",
+      "manageAddressesHint": "Saved places a technician can be sent to",
+      "myComplaintsHint": "Issues you have raised and where they stand"
     }
   }
 }

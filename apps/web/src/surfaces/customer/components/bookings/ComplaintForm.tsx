@@ -4,7 +4,8 @@ import { useT, useLocale } from '@/i18n/useT';
 import { buildLocalizedHref } from '@/i18n/config';
 import { useRaiseComplaint } from '@/surfaces/customer/data/complaints';
 import { COMPLAINT_CATEGORIES, type ComplaintCategory } from '@/surfaces/customer/data/types';
-import { Button, Card, ErrorState, Field, Select, TextArea } from '@/components/ui';
+import { Button, ErrorState, Field, Select, TextArea } from '@/components/ui';
+import { IconComplaint } from './BookingIcons';
 
 /**
  * "From ARRIVED onwards" (`docs/API.md`) — before the door, a grievance is a
@@ -16,7 +17,11 @@ export function canRaiseComplaint(status: string): boolean {
   return ['IN_PROGRESS', 'WORK_DONE', 'CLOSED_QUOTE_DECLINED'].includes(status);
 }
 
-/** Ported from `legacy-next-src/components/customer/bookings/ComplaintForm.tsx`. */
+/**
+ * One panel, not a `Card` inside a page that is already a card-shaped column.
+ * The heading is type on the page with the complaint glyph beside it; the only
+ * bordered thing left is the form you actually fill in.
+ */
 export function ComplaintForm({ bookingId }: { bookingId: string }) {
   const t = useT();
   const locale = useLocale();
@@ -27,8 +32,13 @@ export function ComplaintForm({ bookingId }: { bookingId: string }) {
   const [description, setDescription] = useState('');
 
   return (
-    <Card title={t('app.complaint.title')}>
-      <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3">
+      <h1 className="flex items-center gap-2 text-[19px] font-bold tracking-tight text-shop-ink">
+        <IconComplaint className="h-5 w-5 shrink-0 text-shop" aria-hidden="true" />
+        {t('app.complaint.title')}
+      </h1>
+
+      <div className="flex flex-col gap-3 rounded-xl border border-shop-line bg-white p-4">
         <Field label={t('app.complaint.categoryLabel')}>
           {(id) => (
             <Select
@@ -63,9 +73,10 @@ export function ComplaintForm({ bookingId }: { bookingId: string }) {
         {raise.isError ? <ErrorState error={raise.error} /> : null}
 
         <Button
-          variant="primary"
+          variant="shop"
           fullWidth
           disabled={raise.isPending || description.trim().length < 10}
+          className="border-transparent bg-shop text-shop-foreground hover:opacity-90"
           onClick={() =>
             raise.mutate(
               { category, description: description.trim() },
@@ -78,6 +89,6 @@ export function ComplaintForm({ bookingId }: { bookingId: string }) {
           {raise.isPending ? t('common.loading') : t('app.complaint.submit')}
         </Button>
       </div>
-    </Card>
+    </div>
   );
 }

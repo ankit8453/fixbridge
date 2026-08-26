@@ -198,6 +198,57 @@ export function IconTag({ className = 'h-5 w-5' }: { className?: string }) {
   );
 }
 
+/** A phone handset — the technician's number, once the API releases it. */
+export function IconPhone({ className = 'h-5 w-5' }: { className?: string }) {
+  return (
+    <Svg className={className}>
+      <path
+        d="M8.1 3.6 9.9 7.4 8 9.3a12.4 12.4 0 0 0 6.7 6.7l1.9-1.9 3.8 1.8v3.2a1.8 1.8 0 0 1-2 1.8C10.9 20.1 3.9 13.1 3.1 5.6a1.8 1.8 0 0 1 1.8-2h3.2Z"
+        {...STROKE}
+      />
+    </Svg>
+  );
+}
+
+/**
+ * A padlock, shackle closed — the technician's number *before* the API
+ * releases it. A lock rather than a struck-through phone: the number is being
+ * held back deliberately for the technician's privacy, not missing.
+ */
+export function IconLocked({ className = 'h-5 w-5' }: { className?: string }) {
+  return (
+    <Svg className={className}>
+      <rect x="4.6" y="10.4" width="14.8" height="10.2" rx="2.4" {...STROKE} />
+      <path d="M8.4 10.4V7.9a3.6 3.6 0 0 1 7.2 0v2.5" {...STROKE} />
+      <path d="M12 14.4v2.4" {...STROKE} />
+    </Svg>
+  );
+}
+
+/** A pin over a rooftop — the address the technician is coming to. */
+export function IconWhere({ className = 'h-5 w-5' }: { className?: string }) {
+  return (
+    <Svg className={className}>
+      <path
+        d="M12 20.8c3.6-4 5.4-6.9 5.4-9.2A5.4 5.4 0 0 0 6.6 11.6c0 2.3 1.8 5.2 5.4 9.2Z"
+        {...STROKE}
+      />
+      <path d="m9.6 11.7 2.4-2.1 2.4 2.1v3h-4.8Z" {...STROKE} />
+    </Svg>
+  );
+}
+
+/** A sheet with two written lines — what the customer said was wrong. */
+export function IconNote({ className = 'h-5 w-5' }: { className?: string }) {
+  return (
+    <Svg className={className}>
+      <path d="M5.4 3.6h9l4.2 4.2v12.6H5.4Z" {...STROKE} />
+      <path d="M14.4 3.6v4.2h4.2" {...STROKE} />
+      <path d="M8.4 12.6h7.2M8.4 16.2h4.8" {...STROKE} />
+    </Svg>
+  );
+}
+
 /**
  * The status glyph for a booking, by status string.
  *

@@ -111,6 +111,13 @@ export function toQuotationView(quotation: QuotationWithItems): QuotationView {
     bookingId: quotation.bookingId,
     version: quotation.version,
     status: quotation.status,
+    // The split, not just the sum: a customer approving ₹500 of labour is
+    // entitled to see that ₹300 of it is what they agreed to and ₹200 is new,
+    // with the reason attached. Sending only the total hides exactly the thing
+    // this feature exists to show.
+    agreedLabourPaise: quotation.agreedLabourPaise,
+    extraLabourPaise: quotation.extraLabourPaise,
+    extraLabourReason: quotation.extraLabourReason,
     labourPaise: quotation.labourPaise,
     partsTotalPaise: quotation.partsTotalPaise,
     totalPaise: quotation.totalPaise,

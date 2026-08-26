@@ -19,7 +19,7 @@ const MAX_VISIBLE_SKILLS = 2;
  * own emphasised footer rather than being one more item in a run-on line).
  *
  * The previous version put all six facts in two undifferentiated rows of
- * `text-sm text-slate-700` separated by middots, which gave the rating exactly
+ * `text-sm` grey separated by middots, which gave the rating exactly
  * as much visual weight as the skill list — so a customer scanning ten results
  * had to read every card in full instead of triaging them at a glance. That
  * hierarchy is the whole point of the redesign.
@@ -69,7 +69,7 @@ export function ProviderCard({ result }: { result: SearchResultCard }) {
                 {name}
               </p>
               <ChevronRight
-                className="mt-0.5 h-4 w-4 shrink-0 text-slate-300 transition-colors group-hover:text-shop"
+                className="mt-0.5 h-4 w-4 shrink-0 text-shop-line transition-colors group-hover:text-shop"
                 aria-hidden="true"
               />
             </div>
@@ -116,7 +116,7 @@ export function ProviderCard({ result }: { result: SearchResultCard }) {
             {visibleSkills.map((skill) => (
               <span
                 key={skill.categoryId}
-                className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700"
+                className="rounded-lg bg-shop-soft px-2 py-1 text-[11px] font-medium text-shop-deep"
               >
                 {skill.name}
               </span>
@@ -136,7 +136,7 @@ export function ProviderCard({ result }: { result: SearchResultCard }) {
             {t('app.find.distanceKm', { distance: result.distanceKm.toFixed(1) })}
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <JobsDoneIcon className="h-4 w-4 shrink-0 text-slate-400" />
+            <JobsDoneIcon className="h-4 w-4 shrink-0 text-shop-ink-soft" />
             {t('app.find.jobsCompleted', { count: result.jobsCompleted })}
           </span>
         </div>
@@ -146,7 +146,7 @@ export function ProviderCard({ result }: { result: SearchResultCard }) {
           Its own tinted band at the foot of the card. Price is the last thing
           a customer checks and the one thing they compare across results, so
           it gets a fixed position they can scan straight down a column. */}
-      <div className="relative flex items-end justify-between gap-3 border-t border-slate-100 bg-slate-50/80 px-4 py-2.5">
+      <div className="relative flex items-end justify-between gap-3 border-t border-shop-line bg-shop-soft/40 px-4 py-2.5">
         <span className="min-w-0">
           <span className="block text-[10.5px] font-semibold uppercase tracking-wide text-shop-ink-soft">
             {t('app.find.priceLabel')}
@@ -154,11 +154,19 @@ export function ProviderCard({ result }: { result: SearchResultCard }) {
           {/* `startingPrice.display` is the API's own rendering of the integer
               paise amount (see `SearchResultCard` in `data/types.ts`), used
               verbatim so this surface never does money arithmetic of its own. */}
-          <span className="mt-0.5 flex items-center gap-1 text-[14px] font-bold text-shop-ink">
+          {/* Two genuinely different price bases, said differently. A listed
+              starting price is a number the customer can compare across cards;
+              "after inspection" is not a missing price but a different promise,
+              so it is set in the muted weight rather than dressed up as one. */}
+          <span
+            className={`mt-0.5 flex items-center gap-1 text-[14px] ${
+              result.startingPrice ? 'font-bold text-shop-ink' : 'font-semibold text-shop-ink-soft'
+            }`}
+          >
             <span className="truncate">
               {result.startingPrice
                 ? t('app.find.startingFrom', { price: result.startingPrice.display })
-                : t('app.find.priceOnInspection')}
+                : t('app.find.priceOnInspectionShort')}
             </span>
           </span>
         </span>
@@ -167,8 +175,8 @@ export function ProviderCard({ result }: { result: SearchResultCard }) {
           <span className="block text-[10.5px] font-semibold uppercase tracking-wide text-shop-ink-soft">
             {t('app.find.availabilityLabel')}
           </span>
-          <span className="mt-0.5 flex items-center justify-end gap-1 text-[13px] font-semibold text-slate-700">
-            <ClockIcon className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+          <span className="mt-0.5 flex items-center justify-end gap-1 text-[13px] font-semibold text-shop-ink">
+            <ClockIcon className="h-3.5 w-3.5 shrink-0 text-shop-ink-soft" />
             <span className="truncate">
               {result.nextAvailability
                 ? `${t(`app.dayOfWeek.${result.nextAvailability.dayOfWeek}`)} ${result.nextAvailability.startTime}`

@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useT } from '@/i18n/useT';
 import { getCurrentLocation, GeoError, type GeoErrorReason } from '@/surfaces/customer/data/geo';
 import { useCreateAddress, useUpdateAddress } from '@/surfaces/customer/data/addresses';
-import { Button, ErrorState, Field, Modal, Select, TextArea, TextInput } from '@/components/ui';
+import { ErrorState, Field, Modal, Select, TextArea, TextInput } from '@/components/ui';
+import { PinIcon, ShopButton } from '@/surfaces/customer/components/notifications/shopUi';
 import type { AddressResponse, AddressLabel } from '@/surfaces/customer/data/types';
 
 /**
@@ -124,39 +125,49 @@ export function AddressForm({
           )}
         </Field>
 
-        <div className="rounded-lg border border-shop-line bg-slate-50 p-3">
-          <p className="text-xs text-shop-ink-soft">{t('app.addresses.coordsExplanation')}</p>
-          <Button
-            type="button"
-            variant="secondary"
+        {/* The map-less-v1 explainer and its one control, in the customer's
+            own palette — the shared kit's filled button is the partner
+            surface's indigo. */}
+        <div className="rounded-xl border border-shop-line bg-shop-soft/50 p-3">
+          <p className="text-[12.5px] leading-snug text-shop-ink-soft">
+            {t('app.addresses.coordsExplanation')}
+          </p>
+          <ShopButton
+            tone="quiet"
+            size="sm"
             className="mt-2"
             disabled={geoStatus === 'requesting'}
             onClick={() => void handleUseLocation()}
           >
+            <PinIcon className="h-4 w-4" />
             {geoStatus === 'requesting' ? t('common.loading') : t('app.addresses.useMyLocation')}
-          </Button>
+          </ShopButton>
           {geoStatus === 'done' && coords ? (
-            <p className="mt-1 text-xs text-green-700">{t('app.addresses.locationCaptured')}</p>
+            <p role="status" className="mt-1.5 text-xs font-semibold text-green-700">
+              {t('app.addresses.locationCaptured')}
+            </p>
           ) : null}
           {geoError ? (
-            <p className="mt-1 text-xs text-red-700">{t(`app.find.geoError.${geoError}`)}</p>
+            <p role="alert" className="mt-1.5 text-xs font-semibold text-red-700">
+              {t(`app.find.geoError.${geoError}`)}
+            </p>
           ) : null}
         </div>
 
         {mutation.isError ? <ErrorState error={mutation.error} /> : null}
 
         <div className="flex gap-2">
-          <Button variant="secondary" fullWidth onClick={onClose}>
+          <ShopButton tone="quiet" className="flex-1" onClick={onClose}>
             {t('common.cancel')}
-          </Button>
-          <Button
-            variant="primary"
-            fullWidth
+          </ShopButton>
+          <ShopButton
+            tone="primary"
+            className="flex-1"
             disabled={mutation.isPending || addressText.trim().length < 5}
             onClick={handleSubmit}
           >
             {mutation.isPending ? t('common.loading') : t('common.save')}
-          </Button>
+          </ShopButton>
         </div>
       </div>
     </Modal>

@@ -11,6 +11,7 @@ import {
   useRazorpayReady,
   useStartPayment,
 } from '@/surfaces/customer/data/payments';
+import { IconRupee, IconAccepted, IconWaiting, IconStopped } from './BookingIcons';
 import { Button, ErrorState, QueryState } from '@/components/ui';
 import type { PayableView } from '@/surfaces/customer/data/types';
 
@@ -34,8 +35,21 @@ function payableLabelKey(serverKey: string): string {
  * closed mid-checkout safe: there is no "did I finish paying?" local flag to
  * have gone stale, only a re-fetch of the same list a fresh page load would
  * also see. See `derivePaymentState` in `data/payments.ts` for the state
- * derivation this renders. Ported from
- * `legacy-next-src/components/customer/bookings/PaymentPanel.tsx`.
+ * derivation this renders.
+ *
+ * ## Why every state gets its own coloured strip
+ *
+ * Money is the one place on this surface where an ambiguous screen is worse
+ * than an ugly one. "Paid", "we are still confirming", "it failed, try again"
+ * and "the technician says you paid cash" are four genuinely different
+ * situations, and a customer must never have to read a sentence carefully to
+ * tell which one they are in. Each therefore gets its own tint, its own glyph
+ * and — where the customer can do something about it — its own action, rather
+ * than four variations of grey body text.
+ *
+ * "Still confirming" in particular is deliberately not styled as an error: the
+ * webhook resolves it on its own, the list is polling for that, and an alarmed
+ * screen would push somebody into paying a second time.
  */
 export function PaymentPanel({ bookingId, payable }: { bookingId: string; payable: PayableView }) {
   const t = useT();
@@ -85,24 +99,45 @@ export function PaymentPanel({ bookingId, payable }: { bookingId: string; payabl
   }
 
   return (
-    <div className="rounded-xl border border-shop-line p-4">
-      <h3 className="text-sm font-semibold text-shop-ink">{t('app.booking.payableHeading')}</h3>
+    <div className="overflow-hidden rounded-xl border border-shop-line bg-white">
+      <div className="flex items-center gap-2.5 border-b border-shop-line px-4 py-2.5">
+        <IconRupee className="h-[18px] w-[18px] shrink-0 text-shop" aria-hidden="true" />
+        <h3 className="text-[13px] font-semibold text-shop-ink">
+          {t('app.booking.payableHeading')}
+        </h3>
+      </div>
 
-      <dl className="mt-2 divide-y divide-slate-100 text-sm">
-        {payable.components.map((component, index) => (
-          <div key={index} className="flex items-center justify-between py-1">
-            <dt className="text-slate-700">
-              {t(payableLabelKey(component.labelKey))}
-              {component.waived ? ` (${t('app.booking.waived')})` : ''}
-            </dt>
-            <dd className="tabular-nums text-shop-ink">{formatPaise(component.amountPaise)}</dd>
+      <div className="px-4 py-3">
+        <dl className="text-sm">
+          {payable.components.map((component, index) => (
+            <div key={index} className="flex items-baseline justify-between gap-3 py-1">
+              <dt className="text-shop-ink-soft">
+                {t(payableLabelKey(component.labelKey))}
+                {component.waived ? (
+                  <span className="ml-1.5 rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-800">
+                    {t('app.booking.waived')}
+                  </span>
+                ) : null}
+              </dt>
+              <dd
+                className={`shrink-0 tabular-nums ${
+                  component.waived ? 'text-shop-ink-soft line-through' : 'text-shop-ink'
+                }`}
+              >
+                {formatPaise(component.amountPaise)}
+              </dd>
+            </div>
+          ))}
+
+          <div className="mt-1.5 flex items-baseline justify-between gap-3 border-t-2 border-shop-ink/10 pt-2">
+            <dt className="text-[15px] font-bold text-shop-ink">{t('app.booking.payableTotal')}</dt>
+            {/* The API's own rendering of the integer paise total, verbatim. */}
+            <dd className="shrink-0 text-[19px] font-bold leading-none tabular-nums text-shop-ink">
+              {payable.payableDisplay}
+            </dd>
           </div>
-        ))}
-        <div className="flex items-center justify-between py-2 text-base font-semibold">
-          <dt>{t('app.booking.payableTotal')}</dt>
-          <dd className="tabular-nums">{payable.payableDisplay}</dd>
-        </div>
-      </dl>
+        </dl>
+      </div>
 
       <QueryState
         status={query.status}
@@ -116,51 +151,108 @@ export function PaymentPanel({ bookingId, payable }: { bookingId: string; payabl
 
           if (state.kind === 'captured') {
             return (
-              <p className="mt-3 text-sm font-medium text-green-700">{t('app.booking.paid')}</p>
+              <div className="flex items-center gap-2.5 border-t border-emerald-200 bg-emerald-50 px-4 py-3">
+                <IconAccepted className="h-5 w-5 shrink-0 text-emerald-700" aria-hidden="true" />
+                <p className="text-sm font-semibold text-emerald-900">{t('app.booking.paid')}</p>
+              </div>
             );
           }
 
           if (state.kind === 'cash_recorded') {
             return (
-              <div className="mt-3 flex flex-col gap-2">
-                <p className="text-sm font-medium text-green-700">
-                  {t('app.booking.cashRecorded', { amount: state.payment.amountDisplay })}
-                </p>
-                <p className="text-xs text-shop-ink-soft">{t('app.booking.cashDisputeHint')}</p>
-                <Link
-                  to={buildLocalizedHref(locale, `/app/bookings/${bookingId}/complaint`)}
-                  className="text-sm font-medium text-shop underline-offset-2 hover:underline"
-                >
-                  {t('app.booking.raiseCashDispute')}
-                </Link>
+              <div className="border-t border-emerald-200 bg-emerald-50 px-4 py-3">
+                <div className="flex items-start gap-2.5">
+                  <IconAccepted
+                    className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700"
+                    aria-hidden="true"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-emerald-900">
+                      {t('app.booking.cashRecorded', { amount: state.payment.amountDisplay })}
+                    </p>
+                    {/* Recoverable, always: a cash amount is a claim by the
+                        other party, so the way to dispute it is on the same
+                        strip as the claim itself. */}
+                    <p className="mt-1 text-xs leading-relaxed text-emerald-900/80">
+                      {t('app.booking.cashDisputeHint')}
+                    </p>
+                    <Link
+                      to={buildLocalizedHref(locale, `/app/bookings/${bookingId}/complaint`)}
+                      className="mt-1.5 inline-block text-sm font-semibold text-emerald-900 underline underline-offset-2"
+                    >
+                      {t('app.booking.raiseCashDispute')}
+                    </Link>
+                  </div>
+                </div>
               </div>
             );
           }
 
           if (state.kind === 'awaiting_confirmation') {
             return (
-              <p className="mt-3 text-sm text-shop-ink-soft">
-                {t('app.booking.confirmingPayment')}
-              </p>
+              <div className="flex items-start gap-2.5 border-t border-amber-200 bg-amber-50 px-4 py-3">
+                <IconWaiting
+                  className="mt-0.5 h-5 w-5 shrink-0 text-amber-700"
+                  aria-hidden="true"
+                />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-amber-900">
+                    {t('app.booking.confirmingPayment')}
+                  </p>
+                  {/* Said plainly, because the alternative is somebody paying
+                      twice out of doubt. The payments query polls while this
+                      state holds; nothing here needs a manual refresh. */}
+                  <p className="mt-1 text-xs leading-relaxed text-amber-900/80">
+                    {t('app.booking.confirmingPaymentHint')}
+                  </p>
+                </div>
+              </div>
             );
           }
 
           return (
-            <div className="mt-3 flex flex-col gap-2">
+            <div className="flex flex-col gap-2 border-t border-shop-line bg-shop-soft/40 px-4 py-3">
               {state.kind === 'failed' ? (
-                <p className="text-sm text-red-700">{t('app.booking.paymentFailed')}</p>
+                <div className="flex items-start gap-2.5 rounded-lg bg-rose-50 px-3 py-2">
+                  <IconStopped
+                    className="mt-0.5 h-5 w-5 shrink-0 text-rose-700"
+                    aria-hidden="true"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-rose-900">
+                      {t('app.booking.paymentFailed')}
+                    </p>
+                    {/* Explicit, because a failed attempt is the state people
+                        most often assume has taken their money. */}
+                    <p className="mt-0.5 text-xs leading-relaxed text-rose-900/80">
+                      {t('app.booking.paymentFailedHint')}
+                    </p>
+                  </div>
+                </div>
               ) : null}
+
               {startPayment.isError ? <ErrorState error={startPayment.error} /> : null}
+
               <Button
-                variant="primary"
+                variant="shop"
                 fullWidth
                 disabled={!razorpayReady || startPayment.isPending}
                 onClick={() => void handlePayNow()}
+                className="border-transparent bg-shop text-shop-foreground hover:opacity-90"
               >
                 {startPayment.isPending
                   ? t('common.loading')
                   : t('app.booking.payNow', { amount: payable.payableDisplay })}
               </Button>
+
+              {/* The gateway script is loaded lazily, and a customer tapping a
+                  dead button learns nothing. Only shown while it is actually
+                  the thing blocking them. */}
+              {!razorpayReady ? (
+                <p className="text-center text-xs text-shop-ink-soft">
+                  {t('app.booking.gatewayLoading')}
+                </p>
+              ) : null}
             </div>
           );
         }}

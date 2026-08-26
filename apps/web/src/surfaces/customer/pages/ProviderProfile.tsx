@@ -6,18 +6,41 @@ import { ProviderHeader } from '@/surfaces/customer/components/provider/Provider
 import { SlotPicker } from '@/surfaces/customer/components/provider/SlotPicker';
 import { ReviewsList } from '@/surfaces/customer/components/provider/ReviewsList';
 import { BookingModal } from '@/surfaces/customer/components/provider/BookingModal';
-import { QueryState, Select } from '@/components/ui';
+import { ClockIcon, ShieldTickIcon } from '@/surfaces/customer/components/find/TrustIcons';
+import { ErrorState, Skeleton } from '@/components/ui';
 import type { PublicSlot } from '@/surfaces/customer/data/types';
 
 const SLOT_WINDOW_DAYS = 7;
 
+function ProfileSkeleton() {
+  return (
+    <div className="flex flex-col gap-4" role="status">
+      <Skeleton className="h-48 w-full rounded-2xl" />
+      <Skeleton className="h-32 w-full rounded-xl" />
+      <Skeleton className="h-24 w-full rounded-xl" />
+    </div>
+  );
+}
+
 /**
- * `/app/providers/:providerId` — profile, reviews, slot picker, booking
- * modal. Fetches the public profile from `GET /providers/:providerId`
- * (added in Phase 12) rather than the legacy `sessionStorage` cache of a
- * search result card, so a link forwarded on WhatsApp — a cold visit with no
- * prior search this session — renders a complete profile, not a "please go
- * back and search again" degraded state.
+ * `/app/providers/:providerId` — profile, slots, reviews, booking modal.
+ *
+ * Fetches the public profile from `GET /providers/:providerId` rather than a
+ * `sessionStorage` cache of a search result card, so a link forwarded on
+ * WhatsApp — a cold visit with no prior search this session — renders a
+ * complete profile, not a "please go back and search again" degraded state.
+ *
+ * ## What this page deliberately does not show
+ *
+ * No phone number, no address, no map, no coordinates. The API withholds all
+ * of them until a booking is accepted, and the safety note under the slot
+ * picker says so out loud rather than leaving the absence to be noticed — a
+ * customer who understands *why* the technician's number is missing is
+ * considerably less likely to go looking for it off-platform, which is the
+ * whole point of the rule.
+ *
+ * The service selector only appears for a multi-skill technician: a select
+ * with one option is a control that cannot be used.
  */
 export default function ProviderProfile() {
   const t = useT();
@@ -37,83 +60,118 @@ export default function ProviderProfile() {
 
   const slotsQuery = useProviderSlots(id, from, to);
 
+  if (profileQuery.status === 'pending') {
+    return (
+      <div className="w-full">
+        <ProfileSkeleton />
+      </div>
+    );
+  }
+
+  if (profileQuery.status === 'error' || profileQuery.data === undefined) {
+    return (
+      <div className="w-full">
+        <ErrorState error={profileQuery.error} onRetry={() => void profileQuery.refetch()} />
+      </div>
+    );
+  }
+
+  const profile = profileQuery.data;
+
+  // First render after the profile loads: default the service selector to the
+  // provider's first skill, same as the legacy page.
+  const effectiveCategoryId = categoryId ?? profile.skills[0]?.categoryId ?? null;
+
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-4 px-4 py-4">
-      <QueryState
-        status={profileQuery.status}
-        error={profileQuery.error}
-        data={profileQuery.data}
-        loadingLabel={t('common.loading')}
-        onRetry={() => void profileQuery.refetch()}
-      >
-        {(profile) => {
-          // First render after the profile loads: default the service
-          // selector to the provider's first skill, same as the legacy page.
-          const effectiveCategoryId = categoryId ?? profile.skills[0]?.categoryId ?? null;
+    <div className="flex w-full flex-col gap-4">
+      <ProviderHeader profile={profile} />
 
-          return (
-            <>
-              <ProviderHeader profile={profile} />
+      {/* ---------------- Book ---------------- */}
+      <section className="overflow-hidden rounded-xl border border-shop-line bg-white">
+        <div className="flex items-center gap-2.5 border-b border-shop-line px-4 py-2.5">
+          <ClockIcon className="h-[18px] w-[18px] shrink-0 text-shop" aria-hidden="true" />
+          <h2 className="min-w-0 flex-1 text-[13px] font-semibold text-shop-ink">
+            {t('app.provider.availableSlots')}
+          </h2>
+        </div>
 
-              {profile.skills.length > 1 ? (
-                <label className="flex items-center gap-2 text-sm text-slate-700">
-                  {t('app.provider.serviceLabel')}
-                  <Select
-                    value={effectiveCategoryId ?? ''}
-                    onChange={(e) => setCategoryId(Number(e.target.value))}
+        <div className="flex flex-col gap-3 px-4 py-3">
+          {profile.skills.length > 1 ? (
+            // Chips, not a native select: this is a two-or-three-way choice
+            // and the current one should be readable without opening anything.
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-shop-ink-soft">
+                {t('app.provider.serviceLabel')}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {profile.skills.map((skill) => (
+                  <button
+                    key={skill.categoryId}
+                    type="button"
+                    aria-pressed={effectiveCategoryId === skill.categoryId}
+                    onClick={() => setCategoryId(skill.categoryId)}
+                    className={`min-h-touch rounded-xl border px-3.5 text-[13px] font-semibold transition-colors ${
+                      effectiveCategoryId === skill.categoryId
+                        ? 'border-shop bg-shop text-shop-foreground'
+                        : 'border-shop-line bg-white text-shop-ink-soft hover:border-shop/40'
+                    }`}
                   >
-                    {profile.skills.map((skill) => (
-                      <option key={skill.categoryId} value={skill.categoryId}>
-                        {skill.slug}
-                      </option>
-                    ))}
-                  </Select>
-                </label>
-              ) : null}
+                    {skill.slug}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
-              <section>
-                <h2 className="mb-2 text-base font-semibold text-shop-ink">
-                  {t('app.provider.availableSlots')}
-                </h2>
-                <QueryState
-                  status={slotsQuery.status}
-                  error={slotsQuery.error}
-                  data={slotsQuery.data}
-                  loadingLabel={t('app.provider.loadingSlots')}
-                  empty={{ title: t('app.provider.noSlots') }}
-                  isEmpty={(data) => data.slots.length === 0}
-                  onRetry={() => void slotsQuery.refetch()}
-                >
-                  {(data) => (
-                    <SlotPicker
-                      slots={data.slots}
-                      selectedSlotId={selectedSlot?.id ?? null}
-                      onSelect={(slotId) =>
-                        setSelectedSlot(data.slots.find((s) => s.id === slotId) ?? null)
-                      }
-                    />
-                  )}
-                </QueryState>
-              </section>
-
-              <section>
-                <h2 className="mb-2 text-base font-semibold text-shop-ink">
-                  {t('app.provider.reviewsHeading')}
-                </h2>
-                <ReviewsList providerId={id} />
-              </section>
-
-              {selectedSlot && effectiveCategoryId ? (
-                <BookingModal
-                  categoryId={effectiveCategoryId}
-                  slot={selectedSlot}
-                  onClose={() => setSelectedSlot(null)}
-                />
+          {slotsQuery.status === 'pending' ? (
+            <div
+              className="flex flex-wrap gap-2"
+              role="status"
+              aria-label={t('app.provider.loadingSlots')}
+            >
+              <Skeleton className="h-11 w-20 rounded-xl" />
+              <Skeleton className="h-11 w-20 rounded-xl" />
+              <Skeleton className="h-11 w-20 rounded-xl" />
+            </div>
+          ) : slotsQuery.status === 'error' || slotsQuery.data === undefined ? (
+            <ErrorState error={slotsQuery.error} onRetry={() => void slotsQuery.refetch()} />
+          ) : (
+            <>
+              <SlotPicker
+                slots={slotsQuery.data.slots}
+                selectedSlotId={selectedSlot?.id ?? null}
+                onSelect={(slotId) =>
+                  setSelectedSlot(slotsQuery.data.slots.find((s) => s.id === slotId) ?? null)
+                }
+              />
+              {slotsQuery.data.slots.length > 0 ? (
+                <p className="text-[11.5px] text-shop-ink-soft">{t('app.provider.slotHelp')}</p>
               ) : null}
             </>
-          );
-        }}
-      </QueryState>
+          )}
+        </div>
+
+        <p className="flex items-start gap-2 border-t border-shop-line bg-shop-soft/50 px-4 py-2.5 text-[11.5px] leading-relaxed text-shop-deep">
+          <ShieldTickIcon className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          {t('app.provider.safetyNote')}
+        </p>
+      </section>
+
+      {/* ---------------- Reviews ---------------- */}
+      <section>
+        <h2 className="mb-2.5 text-[15px] font-bold tracking-tight text-shop-ink">
+          {t('app.provider.reviewsHeading')}
+        </h2>
+        <ReviewsList providerId={id} />
+      </section>
+
+      {selectedSlot && effectiveCategoryId ? (
+        <BookingModal
+          categoryId={effectiveCategoryId}
+          slot={selectedSlot}
+          onClose={() => setSelectedSlot(null)}
+        />
+      ) : null}
     </div>
   );
 }
