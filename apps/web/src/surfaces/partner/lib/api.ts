@@ -211,7 +211,15 @@ export interface QuotationItemInput {
 
 export const sendQuotation = (
   bookingId: string,
-  input: { labourPaise: number; items: QuotationItemInput[]; note?: string },
+  input: {
+    labourPaise: number;
+    /** The booked rate, echoed back so the server never has to infer the split. */
+    agreedLabourPaise?: number;
+    extraLabourPaise?: number;
+    extraLabourReason?: string;
+    items: QuotationItemInput[];
+    note?: string;
+  },
 ): Promise<{ quotation: QuotationView }> =>
   apiRequest(`/api/v1/bookings/${bookingId}/quotations`, { method: 'POST', body: input });
 

@@ -304,6 +304,8 @@ export interface BookingDetail {
   endsAt: string;
   problemNote: string | null;
   visitFeePaise: number;
+  /** The rate the customer booked on. The quotation form is built from it. */
+  agreedLabour: AgreedLabour;
   quotations: QuotationView[];
   pendingQuotation: QuotationView | null;
   approvedQuotation: QuotationView | null;
@@ -453,4 +455,15 @@ export interface NotificationsResponse {
   pageSize: number;
   total: number;
   unread: number;
+}
+
+/**
+ * The rate the customer booked on, snapshotted at creation.
+ *
+ * `fixed` locks labour exactly, `starting_from` makes it a floor, and
+ * `inspection_based` leaves it open. Null on a booking made without a card.
+ */
+export interface AgreedLabour {
+  priceType: 'fixed' | 'starting_from' | 'inspection_based' | null;
+  amountPaise: number | null;
 }

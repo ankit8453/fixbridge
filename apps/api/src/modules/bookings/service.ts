@@ -839,6 +839,11 @@ async function toDetail(
     endsAt: booking.endsAt.toISOString(),
     problemNote: booking.problemNote,
     visitFeePaise: booking.visitFeePaise,
+    // The snapshot, never the technician's live card — see `freezePayable`.
+    agreedLabour: {
+      priceType: booking.priceCardType,
+      amountPaise: booking.priceCardAmountPaise,
+    },
     quotations,
     pendingQuotation: quotations.find((quote) => quote.status === 'sent') ?? null,
     approvedQuotation: quotations.find((quote) => quote.status === 'approved') ?? null,

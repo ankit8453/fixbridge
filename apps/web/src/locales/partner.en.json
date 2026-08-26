@@ -388,8 +388,27 @@
         "bad_unit": "Unit price must be between ₹0.01 and ₹50,000",
         "line_too_large": "A single line cannot exceed ₹2,00,000",
         "total_too_large": "The total cannot exceed ₹2,00,000",
-        "bad_labour": "Labour charge must be zero or more"
-      }
+        "bad_labour": "Labour charge must be zero or more",
+        "reason_required": "Please write why the extra labour is needed.",
+        "reason_too_short": "Please give a fuller reason — at least 10 characters.",
+        "below_floor": "Labour cannot be less than the rate the customer booked."
+      },
+      "agreedHeading": "Agreed labour",
+      "agreedFixed": "Locked to what the customer booked. You cannot change it here.",
+      "agreedFloor": "The customer booked \"from\" this rate. You can charge more, with a reason.",
+      "agreedOpen": "This job was booked for inspection, so you set the labour.",
+      "agreedNone": "No rate card was attached to this booking, so you set the labour.",
+      "openLabourLabel": "Labour charge (₹)",
+      "openLabourHint": "What you are charging for your work on this job",
+      "extraHeading": "Extra labour",
+      "extraAmountLabel": "Extra amount (₹)",
+      "extraReasonLabel": "Why is this needed?",
+      "extraReasonPlaceholder": "e.g. Wiring inside the wall had to be replaced, took two extra hours",
+      "extraReasonHint": "The customer reads this before approving. At least 10 characters.",
+      "extraRemove": "Remove extra labour",
+      "addExtraLabour": "+ Add extra labour",
+      "labourLine": "Labour",
+      "extraLine": "Extra labour"
     },
     "earnings": {
       "title": "Earnings",

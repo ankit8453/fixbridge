@@ -110,6 +110,19 @@ export interface BookingDetail {
   problemNote: string | null;
   /** Resolved from `fee_config` at creation. Whether it is charged is decided at the end. */
   visitFeePaise: number;
+  /**
+   * The rate the customer actually booked on, snapshotted at creation.
+   *
+   * Both sides see it, and the technician's quotation form is built from it
+   * rather than from a blank labour box: the whole point of the pricing rules
+   * is that the agreed figure is not something either party retypes. A
+   * `fixed` card locks labour exactly, `starting_from` makes it a floor, and
+   * `inspection_based` leaves it open. Null on a booking made without a card.
+   */
+  agreedLabour: {
+    priceType: 'fixed' | 'starting_from' | 'inspection_based' | null;
+    amountPaise: number | null;
+  };
   /** Every version, both sides, fully itemised. */
   quotations: QuotationView[];
   /** Awaiting the customer's decision, if any. */

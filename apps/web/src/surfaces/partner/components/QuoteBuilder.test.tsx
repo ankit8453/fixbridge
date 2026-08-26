@@ -5,36 +5,86 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import { mockApi, testQueryClient, waitForCall } from '../../../test/harness';
 import { QuoteBuilder } from './QuoteBuilder';
+import type { AgreedLabour } from '../lib/types';
 
 /**
- * The running total is the whole point of the line-item builder
- * (description/qty/unit price, running total, send) — this exercises it the
- * way a technician would: type labour, add a part line, watch the number on
- * screen, then send and check the exact paise the API receives matches what
- * was shown. Ported from
- * `legacy-next-src/components/partner/QuoteBuilder.test.tsx`; the
- * `next/navigation` locale mock is replaced with a real `<MemoryRouter>` —
- * this app's `useT()`/`useLocale()` read `useLocation()` directly
- * (`i18n/useT.ts`), no context provider or router-agnostic mock to swap in —
- * so the test asserts against the default `hi` catalog's copy, not English.
+ * These tests exist for the pricing promise, not the arithmetic.
+ *
+ * The rule the product sells is that the labour a customer agreed to is not
+ * something the technician retypes at the door — so the important assertions
+ * here are that a `fixed` booking offers no labour input at all, that extra
+ * labour cannot be sent without a reason the customer can read, and that the
+ * split reaches the API explicitly rather than as one merged figure the server
+ * would have to guess at.
+ *
+ * The `next/navigation` locale mock of the legacy version is replaced with a
+ * real `<MemoryRouter>` — this app's `useT()`/`useLocale()` read
+ * `useLocation()` directly (`i18n/useT.ts`) — so assertions are against the
+ * default `hi` catalog's copy, not English.
  */
-function renderQuoteBuilder(bookingId: string) {
+const FIXED: AgreedLabour = { priceType: 'fixed', amountPaise: 30000 };
+const OPEN: AgreedLabour = { priceType: 'inspection_based', amountPaise: null };
+
+function renderQuoteBuilder(bookingId: string, agreedLabour: AgreedLabour = FIXED) {
   return render(
     <MemoryRouter>
       <QueryClientProvider client={testQueryClient()}>
-        <QuoteBuilder bookingId={bookingId} />
+        <QuoteBuilder bookingId={bookingId} agreedLabour={agreedLabour} />
       </QueryClientProvider>
     </MemoryRouter>,
   );
 }
 
 describe('QuoteBuilder', () => {
-  it('shows no total until an amount is entered', () => {
+  it('shows the agreed labour as locked, with no way to retype it', () => {
     renderQuoteBuilder('booking-1');
-    expect(screen.getByTestId('quote-total')).toHaveTextContent('—');
+
+    expect(screen.getByText('तय मेहनताना')).toBeInTheDocument();
+    // The ₹300 the customer booked, shown and already in the total.
+    expect(screen.getByTestId('quote-total')).toHaveTextContent('₹300');
+    // The whole point: no labour field exists to type a different number into.
+    expect(screen.queryByLabelText('मेहनताना (₹)')).not.toBeInTheDocument();
   });
 
-  it('computes the running total from labour plus every line, and sends the same figure', async () => {
+  it('sends the agreed figure untouched when nothing is added', async () => {
+    const user = userEvent.setup();
+    const api = mockApi({
+      'POST /api/v1/bookings/booking-1/quotations': {
+        status: 201,
+        body: { quotation: { id: 'q1', bookingId: 'booking-1', version: 1 } },
+      },
+    });
+
+    renderQuoteBuilder('booking-1');
+    await user.click(screen.getByRole('button', { name: 'क्वोटेशन भेजें' }));
+
+    const call = await waitForCall(api, 'POST /api/v1/bookings/booking-1/quotations');
+    expect(call.body).toEqual({
+      labourPaise: 30000,
+      agreedLabourPaise: 30000,
+      items: [],
+      note: undefined,
+    });
+  });
+
+  it('will not send extra labour until a reason is written', async () => {
+    const user = userEvent.setup();
+    renderQuoteBuilder('booking-1');
+
+    await user.click(screen.getByRole('button', { name: '+ अतिरिक्त मेहनताना जोड़ें' }));
+    await user.type(screen.getByLabelText('अतिरिक्त रक़म (₹)'), '200');
+
+    // The money is in the total immediately — but the send is barred, because
+    // an unexplained increase is exactly what the rules exist to stop.
+    expect(screen.getByTestId('quote-total')).toHaveTextContent('₹500');
+    expect(screen.getByRole('button', { name: 'क्वोटेशन भेजें' })).toBeDisabled();
+
+    await user.type(screen.getByLabelText('यह क्यों ज़रूरी है?'), 'Wall wiring had to be replaced');
+
+    expect(screen.getByRole('button', { name: 'क्वोटेशन भेजें' })).toBeEnabled();
+  });
+
+  it('sends the labour split explicitly, so the server never has to infer it', async () => {
     const user = userEvent.setup();
     const api = mockApi({
       'POST /api/v1/bookings/booking-1/quotations': {
@@ -45,54 +95,43 @@ describe('QuoteBuilder', () => {
 
     renderQuoteBuilder('booking-1');
 
-    // ₹100 labour.
-    await user.type(screen.getByLabelText('मज़दूरी (₹)'), '100');
+    await user.click(screen.getByRole('button', { name: '+ अतिरिक्त मेहनताना जोड़ें' }));
+    await user.type(screen.getByLabelText('अतिरिक्त रक़म (₹)'), '200');
+    await user.type(screen.getByLabelText('यह क्यों ज़रूरी है?'), 'Wall wiring had to be replaced');
 
-    // One part line: 2 × ₹250 = ₹500.
     await user.click(screen.getByRole('button', { name: '+ पार्ट जोड़ें' }));
     await user.type(screen.getByLabelText('विवरण'), 'Door gasket');
-    const qtyInput = screen.getByLabelText('मात्रा');
-    await user.clear(qtyInput);
-    await user.type(qtyInput, '2');
+    const qty = screen.getByLabelText('मात्रा');
+    await user.clear(qty);
+    await user.type(qty, '2');
     await user.type(screen.getByLabelText('एक की कीमत (₹)'), '250');
 
-    // ₹100 + (2 × ₹250) = ₹600.
-    expect(screen.getByTestId('quote-total')).toHaveTextContent('₹600');
+    // ₹300 agreed + ₹200 extra + (2 × ₹250) = ₹1,000.
+    expect(screen.getByTestId('quote-total')).toHaveTextContent('₹1,000');
 
     await user.click(screen.getByRole('button', { name: 'क्वोटेशन भेजें' }));
 
     const call = await waitForCall(api, 'POST /api/v1/bookings/booking-1/quotations');
     expect(call.body).toEqual({
-      labourPaise: 10000,
+      labourPaise: 50000,
+      agreedLabourPaise: 30000,
+      extraLabourPaise: 20000,
+      extraLabourReason: 'Wall wiring had to be replaced',
       items: [{ kind: 'part', description: 'Door gasket', qty: 2, unitPaise: 25000 }],
       note: undefined,
     });
   });
 
-  it('adds a second, labour-only line and folds it into the same running total', async () => {
+  it('asks for a labour figure only when the booking was left open', async () => {
     const user = userEvent.setup();
-    renderQuoteBuilder('booking-1');
+    renderQuoteBuilder('booking-1', OPEN);
 
-    await user.click(screen.getByRole('button', { name: '+ अतिरिक्त मज़दूरी जोड़ें' }));
-    await user.type(screen.getByLabelText('विवरण'), 'Extra hour on site');
-    const qtyInput = screen.getByLabelText('मात्रा');
-    await user.clear(qtyInput);
-    await user.type(qtyInput, '1');
-    await user.type(screen.getByLabelText('एक की कीमत (₹)'), '150');
+    // No card was priced, so there is nothing to lock to and the technician
+    // sets the figure — the one case where typing labour is correct.
+    expect(screen.queryByText('तय मेहनताना')).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText('मेहनताना (₹)'), '450');
 
-    expect(screen.getByTestId('quote-total')).toHaveTextContent('₹150');
-
-    await user.click(screen.getByRole('button', { name: '+ पार्ट जोड़ें' }));
-    const [, secondDescription] = screen.getAllByLabelText('विवरण');
-    await user.type(secondDescription!, 'Sealant tube');
-    const [, secondQty] = screen.getAllByLabelText('मात्रा');
-    await user.clear(secondQty!);
-    await user.type(secondQty!, '2');
-    const [, secondUnit] = screen.getAllByLabelText('एक की कीमत (₹)');
-    await user.type(secondUnit!, '120');
-
-    // ₹150 (labour-extra line) + 2 × ₹120 (part line) = ₹390.
-    expect(screen.getByTestId('quote-total')).toHaveTextContent('₹390');
+    expect(screen.getByTestId('quote-total')).toHaveTextContent('₹450');
   });
 
   it('refuses to send once a line total blows past the per-line cap', async () => {

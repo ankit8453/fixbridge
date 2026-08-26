@@ -297,7 +297,11 @@ export default function JobDetail() {
 
                   {!booking.approvedQuotation ? (
                     <Panel title={t('partner.job.newQuoteTitle')}>
-                      <QuoteBuilder bookingId={id} onSent={invalidateBooking} />
+                      <QuoteBuilder
+                        bookingId={id}
+                        agreedLabour={booking.agreedLabour}
+                        onSent={invalidateBooking}
+                      />
                     </Panel>
                   ) : null}
                 </>
