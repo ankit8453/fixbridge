@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { AppContext } from '../../core/context';
 import { AppError } from '../../core/errors';
 import type { Translator } from '../../core/i18n';
@@ -513,3 +514,173 @@ export async function deleteAvailability(
  */
 
 export { recomputeListing };
+
+/* -------------------------------------------------------------------------- */
+/* Profile photo                                                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The technician's public-facing photo.
+ *
+ * Deliberately not a KYC document, and the difference is not cosmetic:
+ *
+ *   - **Opposite privacy posture.** A KYC file is evidence only a reviewer ever
+ *     sees; this is the one file a customer is *meant* to see. Reusing the
+ *     document endpoints would have meant reusing their access rules, which are
+ *     built to keep everyone out.
+ *   - **Images only, and never SVG.** This is the one object served inline
+ *     rather than as an attachment, so a file that can carry script cannot be
+ *     allowed anywhere near it.
+ *   - **A human approves it before any customer sees it.** Anyone can upload a
+ *     photograph of anything; the moderation state is the whole point.
+ */
+const PHOTO_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+
+/** Provider id first, so one person's objects share a prefix for DPDP erasure. */
+function profilePhotoObjectKey(providerId: string, photoId: string): string {
+  return `provider-photos/${providerId}/${photoId}`;
+}
+
+export interface ProfilePhotoView {
+  status: 'pending' | 'approved' | 'rejected';
+  /**
+   * Short-lived signed URL, present in every status — a technician whose photo
+   * was refused needs to see which photo it was in order to replace it.
+   */
+  url: string;
+  uploadedAt: string | null;
+  reviewedAt: string | null;
+  rejectionNote: string | null;
+}
+
+async function toProfilePhotoView(
+  context: AppContext,
+  photo: {
+    storageKey: string;
+    contentType: string;
+    status: string;
+    uploadedAt: Date | null;
+    reviewedAt: Date | null;
+    rejectionNote: string | null;
+  },
+): Promise<ProfilePhotoView> {
+  return {
+    status: photo.status as ProfilePhotoView['status'],
+    url: await context.storage.getDownloadUrl(photo.storageKey, {
+      /**
+       * Inline, unlike every other signed URL in the product — this one is the
+       * `src` of an `<img>`. Safe only because the content type is pinned to one
+       * of three raster formats at upload and re-checked on confirm: an inline
+       * SVG or HTML would be a stored XSS on our own origin.
+       */
+      disposition: 'inline',
+      contentType: photo.contentType,
+    }),
+    uploadedAt: photo.uploadedAt?.toISOString() ?? null,
+    reviewedAt: photo.reviewedAt?.toISOString() ?? null,
+    rejectionNote: photo.rejectionNote,
+  };
+}
+
+export async function requestPhotoUploadUrl(
+  context: AppContext,
+  providerId: string,
+  input: { contentType: string; sizeBytes: number },
+): Promise<{
+  photoId: string;
+  upload: Awaited<ReturnType<AppContext['storage']['getUploadUrl']>>;
+}> {
+  // A photo without a technician profile has nowhere to appear.
+  const aggregate = await repo.loadAggregate(context.prisma, providerId);
+  if (!aggregate) throw profileNotFound();
+
+  if (!PHOTO_CONTENT_TYPES.includes(input.contentType as (typeof PHOTO_CONTENT_TYPES)[number])) {
+    throw AppError.badRequest(`${input.contentType} is not an allowed photo type`, {
+      messageKey: 'errors.providers.photoTypeNotAllowed',
+      details: { allowed: PHOTO_CONTENT_TYPES },
+    });
+  }
+
+  if (input.sizeBytes > context.config.STORAGE_MAX_UPLOAD_BYTES) {
+    throw AppError.badRequest(
+      `Photo is ${input.sizeBytes} bytes; the limit is ${context.config.STORAGE_MAX_UPLOAD_BYTES}`,
+      {
+        messageKey: 'errors.providers.photoTooLarge',
+        details: { maxBytes: context.config.STORAGE_MAX_UPLOAD_BYTES },
+      },
+    );
+  }
+
+  const photoId = randomUUID();
+  const storageKey = profilePhotoObjectKey(providerId, photoId);
+
+  const upload = await context.storage.getUploadUrl({
+    key: storageKey,
+    contentType: input.contentType,
+    contentLength: input.sizeBytes,
+  });
+
+  await repo.createProfilePhoto(context.prisma, {
+    id: photoId,
+    providerId,
+    storageKey,
+    contentType: input.contentType,
+    sizeBytes: input.sizeBytes,
+  });
+
+  return { photoId, upload };
+}
+
+/**
+ * Confirms the bytes actually landed, then puts the photo into the ops queue.
+ *
+ * The object is checked rather than trusted: a client that says "done" without
+ * uploading would otherwise leave a technician showing a broken image to
+ * customers, and the recorded size would be a number nobody verified.
+ */
+export async function confirmPhotoUpload(
+  context: AppContext,
+  providerId: string,
+  photoId: string,
+): Promise<ProfilePhotoView> {
+  const photo = await repo.findProfilePhoto(context.prisma, providerId, photoId);
+
+  if (!photo) {
+    throw notFound(
+      'PROVIDER_PHOTO_NOT_FOUND',
+      'errors.providers.photoNotFound',
+      `No profile photo ${photoId} for this technician`,
+    );
+  }
+
+  if (photo.status !== 'draft') return toProfilePhotoView(context, photo);
+
+  const stored = await context.storage.head(photo.storageKey);
+
+  if (!stored) {
+    throw AppError.badRequest('The photo was never uploaded to storage', {
+      messageKey: 'errors.providers.photoNotUploaded',
+    });
+  }
+
+  const updated = await repo.markProfilePhotoUploaded(
+    context.prisma,
+    photo.id,
+    stored.sizeBytes,
+    new Date(),
+  );
+
+  // The photo counts toward completeness, and the score gates search listing.
+  await getProfile(context, providerId, (key: string) => key);
+
+  return toProfilePhotoView(context, updated);
+}
+
+/** Null when the technician has never finished an upload. */
+export async function getMyPhoto(
+  context: AppContext,
+  providerId: string,
+): Promise<ProfilePhotoView | null> {
+  const photo = await repo.findLatestProfilePhoto(context.prisma, providerId);
+  return photo ? toProfilePhotoView(context, photo) : null;
+}

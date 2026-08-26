@@ -126,7 +126,8 @@ function isConnectionLost(error: unknown): boolean {
 
 /** Reads a method off the in-memory mock without widening the whole object to any. */
 function mockMethod(mock: object, prop: string | symbol): (...args: unknown[]) => unknown {
-  return (mock as Record<string | symbol, (...args: unknown[]) => unknown>)[prop];
+  // Every caller guards with `prop in mock` first; the index signature cannot carry that proof.
+  return (mock as Record<string | symbol, (...args: unknown[]) => unknown>)[prop]!;
 }
 
 export function createRedisClient(config: AppConfig, logger: AppLogger): Redis {

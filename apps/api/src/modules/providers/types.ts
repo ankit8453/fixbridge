@@ -252,3 +252,24 @@ export interface ProviderProfileResponse {
   createdAt: string;
   updatedAt: string;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Profile photo                                                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The content type is validated again in the service against the allow-list.
+ * Both checks matter: this one rejects nonsense early, the service one is the
+ * security boundary that keeps a scriptable type (SVG, HTML) out of the one
+ * object we serve inline.
+ */
+export const requestPhotoUploadUrlSchema = z
+  .object({
+    contentType: z.string().trim().min(1).max(100),
+    sizeBytes: z.number().int().positive(),
+  })
+  .strict();
+
+export type RequestPhotoUploadUrlInput = z.infer<typeof requestPhotoUploadUrlSchema>;
+
+export const photoIdParamSchema = z.object({ photoId: z.string().uuid() });

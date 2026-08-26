@@ -79,6 +79,11 @@ export interface QuotationView {
   version: number;
   status: 'sent' | 'approved' | 'rejected' | 'superseded' | 'withdrawn';
   labourPaise: number;
+  /** The labour the customer agreed to at booking time — the anchor the rules hold labour to. */
+  agreedLabourPaise: number | null;
+  /** Labour beyond the agreed anchor; always travels with its reason. */
+  extraLabourPaise: number | null;
+  extraLabourReason: string | null;
   partsTotalPaise: number;
   totalPaise: number;
   /** Formatted for display, e.g. `₹1,250`. */

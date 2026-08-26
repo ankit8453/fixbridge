@@ -69,8 +69,12 @@ export default function AuditPage() {
       header: 'Actor',
       render: (row) => (
         <>
-          <span className="font-medium text-slate-900">{row.actor?.name ?? row.actorUserId}</span>
-          <div className="text-xs tabular-nums text-slate-500">{row.actor?.phone}</div>
+          <span className="font-medium text-slate-900">
+            {row.actorAdmin?.name ?? row.actor?.name ?? row.actorAdminId ?? row.actorUserId}
+          </span>
+          <div className="text-xs tabular-nums text-slate-500">
+            {row.actorAdmin?.email ?? row.actor?.phone}
+          </div>
         </>
       ),
     },

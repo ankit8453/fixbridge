@@ -123,7 +123,7 @@ export async function issueAdminSession(
 
   return {
     tokenType: 'Bearer',
-    accessToken: signAccessToken(context.config, { sub: admin.id, roles, deviceId }),
+    accessToken: signAccessToken(context.config, { sub: admin.id, roles, deviceId, staff: true }),
     expiresIn: context.config.JWT_ACCESS_TTL_SECONDS,
     refreshToken,
     refreshExpiresAt: expiresAt.toISOString(),
@@ -206,6 +206,7 @@ export async function refreshAdminSession(
     accessToken: signAccessToken(context.config, {
       sub: existing.adminId,
       roles,
+      staff: true,
       deviceId,
     }),
     expiresIn: context.config.JWT_ACCESS_TTL_SECONDS,

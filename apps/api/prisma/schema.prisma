@@ -137,6 +137,7 @@ model User {
   notifications          Notification[]
   notificationDeliveries NotificationDelivery[]
   auditLogs              AuditLog[]
+  profilePhotos          ProviderProfilePhoto[]
   couponRedemptions      CouponRedemption[]
 
   @@index([status])
@@ -207,9 +208,10 @@ model AdminUser {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  auditLogs      AuditLog[]
-  refreshTokens  AdminRefreshToken[]
-  couponsCreated Coupon[]
+  auditLogs             AuditLog[]
+  refreshTokens         AdminRefreshToken[]
+  couponsCreated        Coupon[]
+  reviewedProfilePhotos ProviderProfilePhoto[]
 
   @@index([status])
   @@map("admin_users")
@@ -1288,6 +1290,10 @@ enum AccountType {
   platform_revenue
   /// Refunds owed but not yet settled. A liability.
   refunds_payable
+  /// Coupon money the platform spent on a customer's behalf. An expense —
+  /// debited at capture so the provider and commission credits stay at their
+  /// pre-discount values (coupons are platform-funded, never the technician's).
+  marketing_discount
 
   @@map("account_type")
 }
@@ -1687,6 +1693,56 @@ model KycAccessLog {
   @@index([providerId, createdAt])
   @@index([actorUserId, createdAt])
   @@map("kyc_access_logs")
+}
+
+
+// ---------------------------------------------------------------------------
+// Provider profile photo (public-facing, moderated)
+// ---------------------------------------------------------------------------
+
+/// Where a technician's public photo stands. Deliberately NOT the KYC document
+/// enum: a KYC file is private evidence, this is the one file a customer is
+/// meant to see — and nothing shows it to anyone until a human approves it.
+enum ProfilePhotoStatus {
+  /// Upload URL issued; bytes not yet confirmed. Invisible everywhere.
+  draft
+  /// Confirmed in storage, awaiting ops review.
+  pending
+  approved
+  rejected
+
+  @@map("profile_photo_status")
+}
+
+/// One row per upload, newest confirmed row wins — so a replacement can sit in
+/// review while the previously approved photo keeps serving, and a rejected
+/// photo stays visible to its owner (they need to see what to replace).
+model ProviderProfilePhoto {
+  id         String @id @default(uuid()) @db.Uuid
+  providerId String @map("provider_id") @db.Uuid
+
+  storageKey  String @unique @map("storage_key") @db.VarChar(300)
+  contentType String @map("content_type") @db.VarChar(100)
+  sizeBytes   Int    @map("size_bytes")
+
+  status ProfilePhotoStatus @default(draft)
+
+  uploadedAt DateTime? @map("uploaded_at") @db.Timestamptz(3)
+  reviewedAt DateTime? @map("reviewed_at") @db.Timestamptz(3)
+  /// The staff reviewer — admin_users, not users (see the audit log's dual columns).
+  reviewedById  String? @map("reviewed_by_id") @db.Uuid
+  /// Ops' reason, verbatim. Only ever set when the status is rejected.
+  rejectionNote String? @map("rejection_note") @db.VarChar(500)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  provider   User       @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  reviewedBy AdminUser? @relation(fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([providerId, createdAt(sort: Desc)])
+  /// The ops moderation queue: pending photos, oldest first.
+  @@index([status, uploadedAt])
+  @@map("provider_profile_photos")
 }
 
 // ---------------------------------------------------------------------------

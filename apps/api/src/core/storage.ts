@@ -36,6 +36,17 @@ export interface DownloadOptions {
   /** Pinned into the signed URL so the browser cannot be told otherwise. */
   contentType?: string;
   filename?: string;
+  /**
+   * `attachment` (the default) forces the browser to save the file rather than
+   * render it — the right posture for KYC documents, where a "certificate" may
+   * be HTML or SVG carrying script that would otherwise execute on our origin
+   * in a logged-in reviewer's browser.
+   *
+   * `inline` is only for objects whose type was pinned to a raster image at
+   * upload and re-checked on confirm (the provider profile photo), because that
+   * is the one file that has to appear in an `<img>`.
+   */
+  disposition?: 'attachment' | 'inline';
 }
 
 /** Keeps a crafted filename out of the `Content-Disposition` header. */
@@ -132,7 +143,7 @@ export function createS3StorageService(config: AppConfig, logger: AppLogger): St
       const command = new GetObjectCommand({
         Bucket: bucket,
         Key: key,
-        ResponseContentDisposition: `attachment; filename="${sanitizeFilename(filename)}"`,
+        ResponseContentDisposition: `${options?.disposition ?? 'attachment'}; filename="${sanitizeFilename(filename)}"`,
         // Pinned to what we recorded at upload, never to what the object says.
         ResponseContentType: options?.contentType ?? 'application/octet-stream',
       });

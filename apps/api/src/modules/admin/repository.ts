@@ -493,11 +493,12 @@ export async function listAuditLogs(
    * than combining with it. A scope you can widen by passing a query parameter
    * is not a scope.
    */
-  query: ListAuditQuery & { actorUserId?: string },
+  query: ListAuditQuery & { actorUserId?: string; actorAdminId?: string },
 ) {
   const where: Prisma.AuditLogWhereInput = {
     ...(query.actor_user_id ? { actorUserId: query.actor_user_id } : {}),
     ...(query.actorUserId ? { actorUserId: query.actorUserId } : {}),
+    ...(query.actorAdminId ? { actorAdminId: query.actorAdminId } : {}),
     ...(query.action ? { action: query.action } : {}),
     ...(query.target_type ? { targetType: query.target_type } : {}),
     ...(query.target_id ? { targetId: query.target_id } : {}),
@@ -517,7 +518,10 @@ export async function listAuditLogs(
       orderBy: { createdAt: 'desc' },
       skip: (query.page - 1) * query.page_size,
       take: query.page_size,
-      include: { actor: { select: { id: true, name: true, phone: true } } },
+      include: {
+        actor: { select: { id: true, name: true, phone: true } },
+        actorAdmin: { select: { id: true, name: true, email: true } },
+      },
     }),
     prisma.auditLog.count({ where }),
   ]);

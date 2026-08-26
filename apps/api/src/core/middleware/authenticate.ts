@@ -67,6 +67,7 @@ async function resolveUser(req: Request): Promise<void> {
     id: result.claims.sub,
     roles: result.claims.roles,
     deviceId: result.claims.deviceId,
+    ...(result.claims.staff ? { staff: true } : {}),
   };
 }
 

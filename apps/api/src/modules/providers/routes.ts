@@ -10,7 +10,9 @@ import {
   categoryIdParamSchema,
   createAvailabilitySchema,
   createPriceCardSchema,
+  photoIdParamSchema,
   providerIdParamSchema,
+  requestPhotoUploadUrlSchema,
   registerProviderSchema,
   updateAvailabilitySchema,
   updatePriceCardSchema,
@@ -127,6 +129,46 @@ router.delete(
     );
 
     res.status(200).json({ profile, message: req.t('providers.skillRemoved') });
+  }),
+);
+
+/* ---- profile photo ---- */
+
+/**
+ * The public-facing photo lives here rather than under /verification/documents
+ * on purpose: a KYC document is private evidence, this is the one file a
+ * customer is meant to see. Same three-step signed-URL flow, opposite privacy
+ * posture — and nothing shows it to a customer until ops approves it.
+ */
+router.post(
+  '/me/photo/upload-url',
+  handle(async (req, res) => {
+    const input = requestPhotoUploadUrlSchema.parse(req.body);
+    const result = await service.requestPhotoUploadUrl(getContext(req), getAuthUser(req).id, input);
+
+    res.status(201).json({
+      photoId: result.photoId,
+      upload: result.upload,
+      message: req.t('providers.photoUploadUrlIssued'),
+    });
+  }),
+);
+
+router.post(
+  '/me/photo/:photoId/confirm',
+  handle(async (req, res) => {
+    const { photoId } = photoIdParamSchema.parse(req.params);
+    const photo = await service.confirmPhotoUpload(getContext(req), getAuthUser(req).id, photoId);
+
+    res.status(200).json({ photo, message: req.t('providers.photoUploaded') });
+  }),
+);
+
+router.get(
+  '/me/photo',
+  handle(async (req, res) => {
+    const photo = await service.getMyPhoto(getContext(req), getAuthUser(req).id);
+    res.status(200).json({ photo });
   }),
 );
 

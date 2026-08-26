@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import type { PriceType, Prisma } from '@prisma/client';
 import type { AppContext } from '../../core/context';
 import { AppError } from '../../core/errors';
 import { formatPaise } from '../search/service';

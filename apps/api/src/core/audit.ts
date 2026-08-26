@@ -193,7 +193,15 @@ export function isAdminOnlyRoute(method: string, path: string): boolean {
 
 /** Who is acting, and from where. Assembled once per request at the route. */
 export interface AuditActor {
-  userId: string;
+  /**
+   * Exactly one of the two is set, mirroring the audit table's dual actor
+   * columns (and its CHECK constraint). Staff sessions authenticate from
+   * `admin_users`, everything else from `users` — the ids live in different
+   * tables, so writing either one into the other's foreign-keyed column is a
+   * constraint violation, which is exactly the bug this shape prevents.
+   */
+  adminId: string | null;
+  userId: string | null;
   ip: string | null;
   requestId: string | null;
 }
@@ -208,8 +216,11 @@ export interface AuditEntry {
 
 /** Pulls the actor out of an authenticated request. */
 export function auditActor(req: Request): AuditActor {
+  const user = getAuthUser(req);
+
   return {
-    userId: getAuthUser(req).id,
+    adminId: user.staff ? user.id : null,
+    userId: user.staff ? null : user.id,
     ip: req.ip ?? null,
     // Set by the request-id middleware, so a decision can be traced back to the
     // whole HTTP exchange around it.
@@ -233,6 +244,7 @@ export async function writeAuditLog(
   await tx.auditLog.create({
     data: {
       actorUserId: actor.userId,
+      actorAdminId: actor.adminId,
       action: entry.action,
       targetType: entry.targetType,
       targetId: entry.targetId,

@@ -60,6 +60,13 @@ export interface AuthenticatedUser {
   id: string;
   roles: Role[];
   deviceId: string;
+  /**
+   * True when this session belongs to an `admin_users` staff account rather
+   * than a `users` row. The two tables share nothing but a uuid shape, so
+   * anything that stores the actor (the audit log above all) must know which
+   * one the id points into.
+   */
+  staff?: boolean;
 }
 
 /** A user as returned to a client — the phone is always masked. */

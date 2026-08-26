@@ -8,6 +8,7 @@ import type {
   ProviderDocument,
   ProviderPriceCard,
   ProviderProfile,
+  ProviderProfilePhoto,
   ProviderSkill,
   ProviderVerificationSummary,
   PriceType,
@@ -295,5 +296,76 @@ export async function grantTechnicianRole(prisma: PrismaClient, userId: string):
     where: { userId_role: { userId, role: 'technician' } },
     update: {},
     create: { userId, role: 'technician' },
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Profile photo                                                              */
+/* -------------------------------------------------------------------------- */
+
+export function createProfilePhoto(
+  prisma: PrismaClient,
+  input: {
+    id: string;
+    providerId: string;
+    storageKey: string;
+    contentType: string;
+    sizeBytes: number;
+  },
+): Promise<ProviderProfilePhoto> {
+  return prisma.providerProfilePhoto.create({ data: input });
+}
+
+export function findProfilePhoto(
+  prisma: PrismaClient,
+  providerId: string,
+  photoId: string,
+): Promise<ProviderProfilePhoto | null> {
+  return prisma.providerProfilePhoto.findFirst({ where: { id: photoId, providerId } });
+}
+
+/**
+ * The row the technician is shown: the newest one that is not still a draft.
+ *
+ * Drafts are upload URLs nobody finished using, and showing one would tell a
+ * technician they have a photo when storage holds nothing.
+ */
+export function findLatestProfilePhoto(
+  prisma: PrismaClient,
+  providerId: string,
+): Promise<ProviderProfilePhoto | null> {
+  return prisma.providerProfilePhoto.findFirst({
+    where: { providerId, status: { not: 'draft' } },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
+/**
+ * The row a *customer* may see: the newest approved one.
+ *
+ * Deliberately separate from `findLatestProfilePhoto` — a replacement sitting in
+ * review must not blank out the picture customers already trust, so the
+ * previously approved photo keeps serving until the new one passes.
+ */
+export function findApprovedProfilePhoto(
+  prisma: PrismaClient,
+  providerId: string,
+): Promise<ProviderProfilePhoto | null> {
+  return prisma.providerProfilePhoto.findFirst({
+    where: { providerId, status: 'approved' },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
+/** Marks the bytes as landed and puts the photo into the ops queue. */
+export function markProfilePhotoUploaded(
+  prisma: PrismaClient,
+  photoId: string,
+  sizeBytes: number,
+  at: Date,
+): Promise<ProviderProfilePhoto> {
+  return prisma.providerProfilePhoto.update({
+    where: { id: photoId },
+    data: { status: 'pending', sizeBytes, uploadedAt: at },
   });
 }

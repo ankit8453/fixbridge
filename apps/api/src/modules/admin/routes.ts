@@ -459,7 +459,7 @@ router.get(
 
     const { rows, total } = await repo.listAuditLogs(getContext(req).prisma, {
       ...query,
-      ...(isAdmin ? {} : { actorUserId: viewer.id }),
+      ...(isAdmin ? {} : viewer.staff ? { actorAdminId: viewer.id } : { actorUserId: viewer.id }),
     });
 
     res.status(200).json({

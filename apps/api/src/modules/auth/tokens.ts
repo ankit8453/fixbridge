@@ -11,26 +11,32 @@ export interface AccessTokenClaims {
   sub: string;
   roles: Role[];
   deviceId: string;
+  /** Present (true) only on admin-session tokens — `sub` is then an `admin_users` id. */
+  staff?: boolean;
 }
 
 export type AccessTokenVerification =
   { status: 'valid'; claims: AccessTokenClaims } | { status: 'expired' } | { status: 'invalid' };
 
 export function signAccessToken(config: AppConfig, claims: AccessTokenClaims): string {
-  return jwt.sign({ roles: claims.roles, deviceId: claims.deviceId }, config.JWT_SECRET, {
-    algorithm: 'HS256',
-    subject: claims.sub,
-    expiresIn: config.JWT_ACCESS_TTL_SECONDS,
-    // Config-driven, never a hardcoded brand.
-    issuer: config.APP_NAME,
-    /**
-     * Without a unique id, two tokens minted for the same user, device and roles
-     * inside the same second are byte-identical — a refresh would hand back the
-     * very token it was supposed to replace. It also gives future phases
-     * something to denylist an individual access token by.
-     */
-    jwtid: randomUUID(),
-  });
+  return jwt.sign(
+    { roles: claims.roles, deviceId: claims.deviceId, ...(claims.staff ? { staff: true } : {}) },
+    config.JWT_SECRET,
+    {
+      algorithm: 'HS256',
+      subject: claims.sub,
+      expiresIn: config.JWT_ACCESS_TTL_SECONDS,
+      // Config-driven, never a hardcoded brand.
+      issuer: config.APP_NAME,
+      /**
+       * Without a unique id, two tokens minted for the same user, device and roles
+       * inside the same second are byte-identical — a refresh would hand back the
+       * very token it was supposed to replace. It also gives future phases
+       * something to denylist an individual access token by.
+       */
+      jwtid: randomUUID(),
+    },
+  );
 }
 
 /**
@@ -51,9 +57,10 @@ export function verifyAccessToken(config: AppConfig, token: string): AccessToken
       return { status: 'invalid' };
     }
 
-    const { roles, deviceId } = payload as jwt.JwtPayload & {
+    const { roles, deviceId, staff } = payload as jwt.JwtPayload & {
       roles?: unknown;
       deviceId?: unknown;
+      staff?: unknown;
     };
 
     if (!Array.isArray(roles) || typeof deviceId !== 'string') {
@@ -62,7 +69,12 @@ export function verifyAccessToken(config: AppConfig, token: string): AccessToken
 
     return {
       status: 'valid',
-      claims: { sub: payload.sub, roles: roles as Role[], deviceId },
+      claims: {
+        sub: payload.sub,
+        roles: roles as Role[],
+        deviceId,
+        ...(staff === true ? { staff: true } : {}),
+      },
     };
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) return { status: 'expired' };

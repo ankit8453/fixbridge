@@ -434,8 +434,11 @@ export interface AuditRow {
   ip: string | null;
   requestId: string | null;
   createdAt: string;
-  actorUserId: string;
+  actorUserId: string | null;
+  actorAdminId: string | null;
   actor?: { id: string; name: string | null; phone: string } | null;
+  /** Set when the action was taken from a staff (admin_users) session. */
+  actorAdmin?: { id: string; name: string; email: string } | null;
 }
 
 /**
