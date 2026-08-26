@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 /**
  * Category icons, drawn rather than typed.
  *
@@ -81,7 +82,7 @@ function MechanicsIcon() {
   );
 }
 
-const ICONS: Record<CategorySlug, () => JSX.Element> = {
+const ICONS: Record<CategorySlug, () => ReactElement> = {
   electrical: ElectricalIcon,
   plumbing: PlumbingIcon,
   'motors-generators': MotorIcon,

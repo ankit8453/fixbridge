@@ -39,7 +39,9 @@ export default function Contact() {
           {t('marketing.contact.hoursValue')}
         </DetailRow>
         <DetailRow label={t('marketing.contact.addressTitle')}>
-          {t('marketing.contact.addressPlaceholder')}
+          {/* One source of truth with the footer — the address lives under
+              `contactInfo` so it can never drift between the two. */}
+          {t('marketing.contactInfo.address')}
         </DetailRow>
       </dl>
 

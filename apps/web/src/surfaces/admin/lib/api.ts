@@ -1,5 +1,6 @@
 import { apiRequest, paginationParams, parsePage, type Page, type RequestOptions } from '@/lib/api';
 import type {
+  CouponStats,
   AdminSummary,
   AuditRow,
   AuditScope,
