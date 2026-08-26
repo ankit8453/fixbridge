@@ -177,8 +177,6 @@ export async function sendQuotation(
     );
   }
 
-  const totals = totalsOrBadRequest(input);
-
   /**
    * Labour is checked against what the customer actually agreed to.
    *
@@ -188,6 +186,19 @@ export async function sendQuotation(
    * app is not a trust boundary.
    */
   const labour = labourOrBadRequest(booking, input);
+
+  /**
+   * Totals are computed from the **decided** labour, never the client's raw
+   * `labourPaise`.
+   *
+   * The two can legitimately disagree: a request may send a split whose parts
+   * are authoritative while `labourPaise` is stale or simply wrong. Totalling
+   * the client's figure and storing the decided one wrote a row where
+   * `total ≠ labour + parts`, which the database CHECK constraint rejected as
+   * a 500 — a validation failure surfacing as a crash. One source of truth
+   * removes the possibility.
+   */
+  const totals = totalsOrBadRequest({ ...input, labourPaise: labour.totalLabourPaise });
 
   const payload = {
     agreedLabourPaise: labour.agreedLabourPaise,

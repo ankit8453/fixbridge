@@ -29,6 +29,14 @@ const WRIGHT_TOWN = { lat: 23.1618, lng: 79.9492 };
 
 /** ₹180 — the flat-rate job. */
 const FIXED_PRICE_PAISE = 18_000;
+/**
+ * The second category's rate.
+ *
+ * This fixture was an `inspection_based` card until prices became one honest
+ * number per service; most tests below only ever used it as "a second bookable
+ * category", so it keeps that role as a fixed card.
+ */
+const SECOND_PRICE_PAISE = 25_000;
 
 let app: Express | undefined;
 let context: AppContext | undefined;
@@ -213,14 +221,14 @@ beforeAll(async () => {
 
   await context.prisma.providerPriceCard.upsert({
     where: { id: inspectionCardId },
-    update: { isActive: true },
+    update: { amountPaise: SECOND_PRICE_PAISE, isActive: true },
     create: {
       id: inspectionCardId,
       providerId: technicianId,
       categoryId: inspectCategory.id,
-      title: 'Needs a look first',
-      priceType: 'inspection_based',
-      amountPaise: null,
+      title: 'Second service',
+      priceType: 'fixed',
+      amountPaise: SECOND_PRICE_PAISE,
     },
   });
 
@@ -362,8 +370,18 @@ async function bookingInProgress(
   return { bookingId, customer, technician };
 }
 
+/**
+ * Every booking now carries an agreed rate, so a quotation must say which part
+ * of its labour is that rate and which is new — the split, not one merged
+ * figure. These tests are about money math and versioning rather than the
+ * labour rules themselves, so the fixture simply states it honestly:
+ *  agreed, the remainder extra with a reason.
+ */
 const QUOTE = {
   labourPaise: 50_000,
+  agreedLabourPaise: SECOND_PRICE_PAISE,
+  extraLabourPaise: 50_000 - SECOND_PRICE_PAISE,
+  extraLabourReason: 'Hinge seized; had to cut and refit the frame.',
   items: [
     { kind: 'part' as const, description: 'Door gasket', qty: 1, unitPaise: 85_000 },
     { kind: 'part' as const, description: 'Sealant tube', qty: 2, unitPaise: 12_000 },
@@ -452,9 +470,9 @@ describe('Phase 7 — quotations and pricing', () => {
       await expect(
         context.prisma.$executeRaw`
           INSERT INTO quotations
-            (id, booking_id, version, status, labour_paise, parts_total_paise, total_paise, created_by, created_at)
+            (id, booking_id, version, status, labour_paise, agreed_labour_paise, extra_labour_paise, parts_total_paise, total_paise, created_by, created_at)
           VALUES (${fixtureUuid('e01')}::uuid, ${bookingId}::uuid, 99, 'superseded'::quotation_status,
-                  10000, 5000, 99999, ${fixture.technicianId}::uuid, NOW())
+                  10000, 10000, 0, 5000, 99999, ${fixture.technicianId}::uuid, NOW())
         `,
       ).rejects.toThrow(/quotations_total_check|decided_check/);
     });
@@ -493,13 +511,17 @@ describe('Phase 7 — quotations and pricing', () => {
       }
     });
 
-    it('refuses an empty quotation through the API', async () => {
+    it('refuses a quotation that charges nothing at all', async () => {
       if (unavailableReason || !context || !fixture) return;
 
       const { bookingId, technician } = await bookingInProgress('inspection');
 
+      // Every booking now carries an agreed rate, so "empty" can only mean a
+      // quote that explicitly zeroes it and adds no lines — a bill for nothing.
       const response = await sendQuote(bookingId, technician.accessToken, {
         labourPaise: 0,
+        agreedLabourPaise: 0,
+        extraLabourPaise: 0,
         items: [],
       });
 
@@ -651,9 +673,9 @@ describe('Phase 7 — quotations and pricing', () => {
       await expectDbError(
         context.prisma.$executeRaw`
           INSERT INTO quotations
-            (id, booking_id, version, status, labour_paise, parts_total_paise, total_paise, created_by, created_at)
+            (id, booking_id, version, status, labour_paise, agreed_labour_paise, extra_labour_paise, parts_total_paise, total_paise, created_by, created_at)
           VALUES (${fixtureUuid('e04')}::uuid, ${bookingId}::uuid, 77, 'sent'::quotation_status,
-                  10000, 0, 10000, ${fixture.technicianId}::uuid, NOW())
+                  10000, 10000, 0, 0, 10000, ${fixture.technicianId}::uuid, NOW())
         `,
         /Key \(booking_id\)=.* already exists/,
       );
@@ -668,9 +690,9 @@ describe('Phase 7 — quotations and pricing', () => {
       await expectDbError(
         context.prisma.$executeRaw`
           INSERT INTO quotations
-            (id, booking_id, version, status, labour_paise, parts_total_paise, total_paise, created_by, decided_at, created_at)
+            (id, booking_id, version, status, labour_paise, agreed_labour_paise, extra_labour_paise, parts_total_paise, total_paise, created_by, decided_at, created_at)
           VALUES (${fixtureUuid('e05')}::uuid, ${bookingId}::uuid, 1, 'withdrawn'::quotation_status,
-                  10000, 0, 10000, ${fixture.technicianId}::uuid, NOW(), NOW())
+                  10000, 10000, 0, 0, 10000, ${fixture.technicianId}::uuid, NOW(), NOW())
         `,
         /Key \(booking_id, version\)=.* already exists/,
       );
@@ -783,9 +805,17 @@ describe('Phase 7 — quotations and pricing', () => {
       expect(booking?.payablePaise).toBeNull();
     });
 
-    it('blocks completion of an inspection-based job with no approved price', async () => {
+    it('lets a fixed-price job finish without any quotation', async () => {
       if (unavailableReason || !context || !fixture || !app) return;
 
+      /**
+       * Since prices became one honest number per service, every booking
+       * carries an agreed rate — settled before anyone left the house, so
+       * there is nothing left to quote and the job may finish. This is the
+       * guard's first arm (a fixed price card), not a hole in it: anything
+       * beyond the agreed rate is extra labour, which still needs the
+       * customer's approval before the job can end.
+       */
       const { bookingId, technician } = await bookingInProgress('inspection');
 
       const response = await request(app)
@@ -793,11 +823,10 @@ describe('Phase 7 — quotations and pricing', () => {
         .set(auth(technician.accessToken))
         .send({ otp: (await endOtpFor(bookingId)) ?? '0000' });
 
-      expect(response.status).toBe(409);
-      expect(response.body.error.code).toBe('QUOTATION_REQUIRED');
+      expect(response.status).toBe(200);
     });
 
-    it('blocks completion after the customer rejected the only quote', async () => {
+    it('falls back to the agreed rate when the customer rejects the extra', async () => {
       if (unavailableReason || !context || !fixture || !app) return;
 
       const { bookingId, customer, technician } = await bookingInProgress('inspection');
@@ -809,14 +838,32 @@ describe('Phase 7 — quotations and pricing', () => {
         .send({ reason: 'Too expensive' })
         .expect(200);
 
-      // Rejection does not end the job — but it does not price it either.
+      /**
+       * Rejecting the quote rejects the *extra*, not the booking.
+       *
+       * The customer already agreed to the rate card before anyone left the
+       * house; refusing an unexplained increase must not trap the job or let
+       * the technician bill the higher figure anyway. So the job finishes and
+       * settles at exactly the number the customer agreed to — which is a
+       * stronger outcome for them than a booking nobody can close.
+       *
+       * A quote still *awaiting* a decision blocks, and that is asserted by
+       * the pending-quotation guard above.
+       */
       const response = await request(app)
         .post(`/api/v1/bookings/${bookingId}/complete`)
         .set(auth(technician.accessToken))
         .send({ otp: (await endOtpFor(bookingId)) ?? '0000' });
 
-      expect(response.status).toBe(409);
-      expect(response.body.error.code).toBe('QUOTATION_REQUIRED');
+      expect(response.status).toBe(200);
+
+      const booking = await context.prisma.booking.findUniqueOrThrow({
+        where: { id: bookingId },
+        select: { payablePaise: true, visitFeePaise: true },
+      });
+
+      // The agreed rate plus the visit fee — never the rejected total.
+      expect(booking.payablePaise).toBe(SECOND_PRICE_PAISE + booking.visitFeePaise);
     });
 
     it('leaves the flat-rate path completely untouched', async () => {
@@ -1057,6 +1104,9 @@ describe('Phase 7 — quotations and pricing', () => {
       // ₹500 labour + ₹950 part = ₹1,450
       const v2 = await sendQuote(bookingId, technician.accessToken, {
         labourPaise: 50_000,
+        agreedLabourPaise: SECOND_PRICE_PAISE,
+        extraLabourPaise: 50_000 - SECOND_PRICE_PAISE,
+        extraLabourReason: 'Hinge seized; had to cut and refit the frame.',
         items: [{ kind: 'part', description: 'Local gasket', qty: 1, unitPaise: 95_000 }],
         note: 'Local part, six month warranty.',
       }).expect(201);

@@ -138,13 +138,44 @@ describe('Phase 5 — the trust gates', () => {
         // a number somebody has to remember to update.
         OR: [{ suspendedUntil: null }, { suspendedUntil: { lte: new Date() } }],
       },
-      select: { userId: true },
+      select: { userId: true, baseLat: true, baseLng: true, serviceRadiusKm: true },
     });
 
-    // 12 verified and listed, of whom one is suspended — see the trust seed.
-    expect(expected.length).toBe(11);
-    expect(returned.size).toBe(expected.length);
-    for (const profile of expected) {
+    /**
+     * Reach is a gate too, and it cannot be expressed in the query above.
+     *
+     * A technician who passes every trust gate is still absent from results
+     * outside the radius they said they travel — which is correct, and which
+     * this test could not see, so an ordinary day's testing (a new technician
+     * verified in the console, based further out) looked like a broken gate.
+     */
+    const withinReach = expected.filter((profile) => {
+      if (profile.baseLat === null || profile.baseLng === null) return false;
+
+      const toRad = (degrees: number) => (degrees * Math.PI) / 180;
+      const dLat = toRad(WRIGHT_TOWN.lat - profile.baseLat);
+      const dLng = toRad(WRIGHT_TOWN.lng - profile.baseLng);
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(profile.baseLat)) *
+          Math.cos(toRad(WRIGHT_TOWN.lat)) *
+          Math.sin(dLng / 2) ** 2;
+
+      return 2 * 6371 * Math.asin(Math.sqrt(a)) <= profile.serviceRadiusKm;
+    });
+
+    /**
+     * Derived, not hardcoded.
+     *
+     * This asserted a literal 11 from the trust seed, which broke the moment
+     * anyone verified a technician through the console on a shared dev
+     * database — a real gate change and an ordinary day's testing were
+     * indistinguishable. The comparison below is already exhaustive in both
+     * directions, so the count only needs to be non-trivial.
+     */
+    expect(withinReach.length).toBeGreaterThanOrEqual(11);
+    expect(returned.size).toBe(withinReach.length);
+    for (const profile of withinReach) {
       expect(returned.has(profile.userId), `expected ${profile.userId}`).toBe(true);
     }
   });
@@ -196,8 +227,15 @@ describe('Phase 5 — the trust gates', () => {
       select: { userId: true },
     });
 
-    // 3 unlisted + 3 mid-pipeline + 2 never started.
-    expect(forbidden.length).toBe(8);
+    /**
+     * At least the seed's 8: 3 unlisted + 3 mid-pipeline + 2 never started.
+     *
+     * Not an equality, for the same reason as the gate test above — every
+     * technician registered while testing on a shared database joins this set
+     * before they finish verifying, and that is not a regression. What matters
+     * is the assertion below: none of them appears under any parameters.
+     */
+    expect(forbidden.length).toBeGreaterThanOrEqual(8);
     const forbiddenIds = new Set(forbidden.map((p) => p.userId));
 
     const combinations: Record<string, string | number>[] = [

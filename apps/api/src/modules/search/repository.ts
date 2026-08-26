@@ -207,6 +207,29 @@ export async function searchProviders(
               AND ps.category_id IN (SELECT id FROM target_categories)
           )
         )
+        /**
+         * Claiming a skill is not the same as pricing it.
+         *
+         * Listing only requires *one* active price card in *any* category, so a
+         * technician could claim three skills, price two, and still be bookable
+         * in the third — arriving with no agreed rate, which silently disables
+         * the price-lock for that booking (found in testing: a motor-rewinding
+         * booking against a technician who had only priced gensets and fans).
+         *
+         * Matching the price card to the searched category closes it. He keeps
+         * every category he priced and loses only the one he did not, which his
+         * dashboard already flags as missing a price.
+         */
+        AND (
+          ${categoryId}::int IS NULL
+          OR EXISTS (
+            SELECT 1 FROM provider_price_cards pc
+            WHERE pc.provider_id = pp.user_id
+              AND pc.is_active = true
+              AND pc.amount_paise IS NOT NULL
+              AND pc.category_id IN (SELECT id FROM target_categories)
+          )
+        )
         -- Availability is checked against **real open slots**, not templates.
         -- Phase 5 matched templates and documented the gap; Phase 6 materialised
         -- slots, so a provider now only matches if the hour is genuinely free —

@@ -125,12 +125,6 @@
       "categoryLabel": "For which skill?",
       "titleLabel": "Price name",
       "titlePlaceholder": "e.g. Wiring per point",
-      "typeLabel": "Price type",
-      "type": {
-        "fixed": "Fixed price",
-        "starting_from": "Starting from",
-        "inspection_based": "Depends on inspection"
-      },
       "amountLabel": "Amount (₹)",
       "amountHint": "In rupees, e.g. 500",
       "add": "Add price",
@@ -139,11 +133,11 @@
       "inactive": "Paused",
       "pause": "Pause",
       "resume": "Resume",
-      "inspectionBased": "Quoted after inspection",
       "emptyHint": "No prices added yet",
       "needSkillFirst": "Add a skill first — a price has to belong to one",
       "addTitle": "Add a new price",
-      "emptyDescription": "Customers see these prices before they book. Add at least one."
+      "emptyDescription": "Customers see these prices before they book. Add at least one.",
+      "unpricedWarning": "You have not set a price for {{services}}. Customers cannot book you for those services until you add one below."
     },
     "availability": {
       "presetButton": "Weekday evenings + all of Sunday",

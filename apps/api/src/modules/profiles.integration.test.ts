@@ -641,7 +641,7 @@ describe('Phase 3 — technician registration and completeness', () => {
     const card = await request(app).post('/api/v1/providers/me/price-cards').set(headers).send({
       categoryId: leaf?.id,
       title: 'Visit',
-      priceType: 'starting_from',
+      priceType: 'fixed',
       amountPaise: 30000,
     });
 
@@ -843,7 +843,15 @@ describe('Phase 3 — provider validation rules', () => {
     expect(response.body.error.message).toMatch(/one entry per day/i);
   });
 
-  it('requires an amount for a fixed price and forbids one for inspection-based', async (ctx) => {
+  /**
+   * Every service carries one honest number.
+   *
+   * `starting_from` and `inspection_based` are gone: both let the listed price
+   * differ from the price charged, which is the gap the labour rules close.
+   * Work beyond the quoted service is extra labour — itemised, explained, and
+   * approved by the customer — not a vaguer headline price.
+   */
+  it('requires a real amount and refuses the retired price types', async (ctx) => {
     if (!app || !context) return ctx.skip();
 
     const session = await signInAsTechnician(app, PHONES.technician);
@@ -858,21 +866,30 @@ describe('Phase 3 — provider validation rules', () => {
       .send({ categoryId: leaf?.id, title: 'No amount', priceType: 'fixed' })
       .expect(400);
 
+    // Zero is not a price either — a free service is a discount, not a rate.
+    await request(app)
+      .post('/api/v1/providers/me/price-cards')
+      .set(headers)
+      .send({ categoryId: leaf?.id, title: 'Free', priceType: 'fixed', amountPaise: 0 })
+      .expect(400);
+
+    for (const priceType of ['inspection_based', 'starting_from']) {
+      await request(app)
+        .post('/api/v1/providers/me/price-cards')
+        .set(headers)
+        .send({ categoryId: leaf?.id, title: 'Retired type', priceType, amountPaise: 10_000 })
+        .expect(400);
+    }
+
     await request(app)
       .post('/api/v1/providers/me/price-cards')
       .set(headers)
       .send({
         categoryId: leaf?.id,
-        title: 'Amount not allowed',
-        priceType: 'inspection_based',
-        amountPaise: 10000,
+        title: 'Standard visit',
+        priceType: 'fixed',
+        amountPaise: 40_000,
       })
-      .expect(400);
-
-    await request(app)
-      .post('/api/v1/providers/me/price-cards')
-      .set(headers)
-      .send({ categoryId: leaf?.id, title: 'Inspection', priceType: 'inspection_based' })
       .expect(201);
   });
 

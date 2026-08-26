@@ -76,51 +76,37 @@ export const categoryIdParamSchema = z.object({
 /* -------------------------------------------------------------------------- */
 
 /**
- * `inspection_based` means "I need to see it first", so an amount would be a
- * lie; every other type must carry one. Cross-field, hence `superRefine`.
+ * One honest number per service — `fixed` is the only type a technician can
+ * set.
+ *
+ * `starting_from` ("from ₹200") and `inspection_based` ("I need to see it
+ * first") both allowed a listed price to differ from the price charged, which
+ * is precisely the gap the labour rules exist to close: a customer should know
+ * what a job costs *before* booking it. Work beyond the quoted service is not
+ * a vaguer headline price — it is extra labour, itemised, with a written
+ * reason the customer approves (`quotations/labour.ts`).
+ *
+ * The database enum still carries the two dead values so historical rows and
+ * frozen booking snapshots stay readable; nothing writes them any more.
  */
 const priceCardShape = {
   categoryId: z.coerce.number().int().min(1),
   title: z.string().trim().min(1).max(120),
-  priceType: z.enum(['fixed', 'starting_from', 'inspection_based']),
-  /** Integer paise. Never rupees, never a float. */
-  amountPaise: z.coerce.number().int().min(0).max(100_000_000).optional(),
+  priceType: z.literal('fixed').default('fixed'),
+  /** Integer paise. Never rupees, never a float. Always required now. */
+  amountPaise: z.coerce.number().int().min(1).max(100_000_000),
   isActive: z.boolean().optional(),
 };
 
-const enforceAmountPairing = (
-  value: { priceType: string; amountPaise?: number },
-  ctx: z.RefinementCtx,
-): void => {
-  if (value.priceType === 'inspection_based' && value.amountPaise !== undefined) {
-    ctx.addIssue({
-      code: 'custom',
-      path: ['amountPaise'],
-      message: 'must be omitted when priceType is inspection_based',
-    });
-  }
-
-  if (value.priceType !== 'inspection_based' && value.amountPaise === undefined) {
-    ctx.addIssue({
-      code: 'custom',
-      path: ['amountPaise'],
-      message: `is required when priceType is ${value.priceType}`,
-    });
-  }
-};
-
-export const createPriceCardSchema = z
-  .object(priceCardShape)
-  .strict()
-  .superRefine(enforceAmountPairing);
+export const createPriceCardSchema = z.object(priceCardShape).strict();
 
 export type CreatePriceCardInput = z.infer<typeof createPriceCardSchema>;
 
 export const updatePriceCardSchema = z
   .object({
     title: z.string().trim().min(1).max(120).optional(),
-    priceType: z.enum(['fixed', 'starting_from', 'inspection_based']).optional(),
-    amountPaise: z.union([z.coerce.number().int().min(0).max(100_000_000), z.null()]).optional(),
+    priceType: z.literal('fixed').optional(),
+    amountPaise: z.coerce.number().int().min(1).max(100_000_000).optional(),
     isActive: z.boolean().optional(),
   })
   .strict();

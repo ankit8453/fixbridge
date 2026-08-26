@@ -343,14 +343,51 @@ export async function createBooking(
    */
   const priceCard = input.priceCardId
     ? await context.prisma.providerPriceCard.findFirst({
-        where: { id: input.priceCardId, providerId: slot.providerId, isActive: true },
+        where: {
+          id: input.priceCardId,
+          providerId: slot.providerId,
+          categoryId: input.categoryId,
+          isActive: true,
+        },
         select: { id: true, priceType: true, amountPaise: true },
       })
-    : null;
+    : /**
+       * No card named: take the technician's own rate for this exact category.
+       *
+       * The customer picks a service, not a price row, so the client is not
+       * obliged to know card ids — but the booking must still carry an agreed
+       * amount, because that snapshot is what the labour rules hold the
+       * quotation to. Without it a technician quotes freely and the price-lock
+       * silently does not apply.
+       */
+      await context.prisma.providerPriceCard.findFirst({
+        where: {
+          providerId: slot.providerId,
+          categoryId: input.categoryId,
+          isActive: true,
+          amountPaise: { not: null },
+        },
+        orderBy: { amountPaise: 'asc' },
+        select: { id: true, priceType: true, amountPaise: true },
+      });
 
   if (input.priceCardId && !priceCard) {
     throw AppError.badRequest('That price does not belong to this technician', {
       messageKey: 'errors.providers.priceCardNotFound',
+    });
+  }
+
+  /**
+   * A technician who has not priced this service cannot be booked for it.
+   *
+   * Search hides them from the category already; this is the same rule at the
+   * point it actually protects money, for a stale result list or a hand-made
+   * request. Better a clear refusal now than a booking whose price nobody
+   * agreed to.
+   */
+  if (!priceCard || priceCard.amountPaise === null) {
+    throw AppError.badRequest('This technician has not set a price for this service', {
+      messageKey: 'errors.bookings.noPriceForService',
     });
   }
 

@@ -7,9 +7,7 @@ import { formatPaise, parseRupeesToPaise } from '../../../lib/money';
 import { createPriceCard, deletePriceCard, updatePriceCard } from '../lib/api';
 import { partnerKeys } from '../lib/query-keys';
 import { EmptyState, StatusPill } from './ui';
-import type { PriceType, ProviderPriceCardResponse, ProviderSkillResponse } from '../lib/types';
-
-const PRICE_TYPES: PriceType[] = ['fixed', 'starting_from', 'inspection_based'];
+import type { ProviderPriceCardResponse, ProviderSkillResponse } from '../lib/types';
 
 export function PriceCardsEditor({
   priceCards,
@@ -24,20 +22,16 @@ export function PriceCardsEditor({
 
   const [categoryId, setCategoryId] = useState<number | null>(skills[0]?.categoryId ?? null);
   const [title, setTitle] = useState('');
-  const [priceType, setPriceType] = useState<PriceType>('fixed');
   const [amount, setAmount] = useState('');
 
   const create = useMutation({
-    mutationFn: () => {
-      const amountPaise =
-        priceType === 'inspection_based' ? undefined : (parseRupeesToPaise(amount) ?? undefined);
-      return createPriceCard({
+    mutationFn: () =>
+      createPriceCard({
         categoryId: categoryId as number,
         title: title.trim(),
-        priceType,
-        amountPaise,
-      });
-    },
+        priceType: 'fixed',
+        amountPaise: parseRupeesToPaise(amount) as number,
+      }),
     onSuccess: () => {
       invalidate();
       setTitle('');
@@ -57,9 +51,16 @@ export function PriceCardsEditor({
   });
 
   const canCreate =
-    categoryId !== null &&
-    title.trim().length > 0 &&
-    (priceType === 'inspection_based' || parseRupeesToPaise(amount) !== null);
+    categoryId !== null && title.trim().length > 0 && (parseRupeesToPaise(amount) ?? 0) > 0;
+
+  /** Skills the technician claimed but never priced — unbookable until they do. */
+  const unpricedSkills = skills.filter(
+    (skill) =>
+      !priceCards.some(
+        (card) =>
+          card.categoryId === skill.categoryId && card.isActive && card.amountPaise !== null,
+      ),
+  );
 
   return (
     <div className="flex flex-col gap-5">
@@ -88,11 +89,7 @@ export function PriceCardsEditor({
                 <p className="mt-1 truncate text-xs text-slate-500">
                   {card.categoryName} ·{' '}
                   <span className="font-medium tabular-nums text-slate-700">
-                    {card.priceType === 'inspection_based'
-                      ? t('partner.pricing.inspectionBased')
-                      : card.amountPaise !== null
-                        ? formatPaise(card.amountPaise)
-                        : '—'}
+                    {card.amountPaise !== null ? formatPaise(card.amountPaise) : '—'}
                   </span>
                 </p>
               </div>
@@ -121,6 +118,27 @@ export function PriceCardsEditor({
           ))}
         </ul>
       )}
+
+      {/*
+        The one thing a technician must not discover by losing work: a skill
+        with no price is not bookable in that service. Search hides it and the
+        booking endpoint refuses it, so this warning names the exact services
+        and sits above the add form that fixes them.
+      */}
+      {unpricedSkills.length > 0 ? (
+        <p className="flex items-start gap-2.5 rounded-lg bg-warning/10 px-3 py-2.5 text-sm leading-relaxed text-slate-700 ring-1 ring-inset ring-warning/20">
+          <AlertTriangle
+            className="mt-0.5 h-4 w-4 shrink-0 text-warning"
+            aria-hidden="true"
+            strokeWidth={2.25}
+          />
+          <span>
+            {t('partner.pricing.unpricedWarning', {
+              services: unpricedSkills.map((skill) => skill.categoryName).join(', '),
+            })}
+          </span>
+        </p>
+      ) : null}
 
       {skills.length === 0 ? (
         <p className="flex items-start gap-2.5 rounded-lg bg-warning/10 px-3 py-2.5 text-sm leading-relaxed text-slate-700 ring-1 ring-inset ring-warning/20">
@@ -166,38 +184,28 @@ export function PriceCardsEditor({
                 )}
               </Field>
 
-              <Field label={t('partner.pricing.typeLabel')}>
+              {/*
+                No price-type selector any more: every service carries one
+                honest number. "From ₹200" and "I'll price it after I look"
+                both let the listed price differ from the price charged, which
+                is the gap the labour rules close — work beyond the quoted
+                service is extra labour, itemised and explained, not a vaguer
+                headline.
+              */}
+              <Field
+                label={t('partner.pricing.amountLabel')}
+                hint={t('partner.pricing.amountHint')}
+              >
                 {(id) => (
-                  <Select
+                  <TextInput
                     id={id}
-                    value={priceType}
-                    onChange={(e) => setPriceType(e.target.value as PriceType)}
-                  >
-                    {PRICE_TYPES.map((type) => (
-                      <option key={type} value={type}>
-                        {t(`partner.pricing.type.${type}`)}
-                      </option>
-                    ))}
-                  </Select>
+                    inputMode="decimal"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="500"
+                  />
                 )}
               </Field>
-
-              {priceType !== 'inspection_based' ? (
-                <Field
-                  label={t('partner.pricing.amountLabel')}
-                  hint={t('partner.pricing.amountHint')}
-                >
-                  {(id) => (
-                    <TextInput
-                      id={id}
-                      inputMode="decimal"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      placeholder="500"
-                    />
-                  )}
-                </Field>
-              ) : null}
             </div>
 
             {create.isError ? (
