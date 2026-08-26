@@ -126,6 +126,12 @@ export interface BookingDetail {
     /** Masked until ACCEPTED; both sides genuinely need to call after that. */
     phone: string | null;
     phoneRevealed: boolean;
+    /**
+     * The technician's photo, customer side only and from ACCEPTED — a
+     * short-lived signed URL, or null when they have not uploaded one. Same
+     * disclosure rule as the phone, for the same reason.
+     */
+    photoUrl: string | null;
   };
   /** Customer only, from ACCEPTED. The technician asks for it at the door. */
   startOtp: string | null;

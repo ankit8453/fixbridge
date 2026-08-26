@@ -19,6 +19,7 @@ import {
   computePayable,
   type PayableBreakdown,
 } from '../quotations/payable';
+import * as providerRepo from '../providers/repository';
 import * as quotationRepo from '../quotations/repository';
 import { toQuotationView } from '../quotations/service';
 import type { PayableView } from '../quotations/types';
@@ -780,7 +781,7 @@ async function toDetail(
   const { context } = deps;
   const store = createBookingOtpStore(context.redis, context.config);
 
-  const [customer, providerProfile, quotationRows] = await Promise.all([
+  const [customer, providerProfile, quotationRows, providerPhoto] = await Promise.all([
     context.prisma.user.findUnique({
       where: { id: booking.customerId },
       select: { phone: true, name: true },
@@ -791,6 +792,9 @@ async function toDetail(
     }),
     // Both sides see the whole quote history. Transparency is the feature.
     quotationRepo.listQuotationsForBooking(context.prisma, booking.id),
+    // The technician's live photo, for the customer who has to open the door to
+    // them. Null whenever they have not uploaded one, or ops took it down.
+    providerRepo.findApprovedProfilePhoto(context.prisma, booking.providerId),
   ]);
 
   const quotations = quotationRows.map(toQuotationView);
@@ -854,6 +858,25 @@ async function toDetail(
           : maskPhone(counterpartPhone)
         : null,
       phoneRevealed: revealPhones,
+      /**
+       * The technician's face, on the same disclosure rule as their phone.
+       *
+       * Before acceptance there is nobody to recognise yet, and handing a photo
+       * to someone whose request may be rejected leaks a technician's likeness
+       * to anyone willing to type an address. From ACCEPTED it is the point:
+       * the customer is about to open their door, and matching the face to the
+       * booking is the check the whole start-code handshake exists to support.
+       *
+       * Only ever the customer's view — a technician has no reason to be shown
+       * their customer's photo, and no customer uploads one.
+       */
+      photoUrl:
+        side === 'customer' && revealPhones && providerPhoto
+          ? await context.storage.getDownloadUrl(providerPhoto.storageKey, {
+              disposition: 'inline',
+              contentType: providerPhoto.contentType,
+            })
+          : null,
     },
     startOtp,
     endOtp,
