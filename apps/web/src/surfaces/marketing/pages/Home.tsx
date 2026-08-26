@@ -157,7 +157,17 @@ export default function Home() {
 
           {/* Photo collage — a real technician at real work, with the second
               trade overlapping. Organic radii and floating badges, no frames. */}
-          <div className="relative mx-auto hidden w-full max-w-[520px] lg:block">
+          <div className="hero-media relative mx-auto hidden w-full max-w-[520px] lg:block">
+            <style>{`
+              @media (prefers-reduced-motion: no-preference) {
+                .hero-media .float-a { animation: hero-float 5.5s ease-in-out infinite; }
+                .hero-media .float-b { animation: hero-float 6.5s ease-in-out 1s infinite; }
+                @keyframes hero-float {
+                  0%, 100% { transform: translateY(0); }
+                  50% { transform: translateY(-8px); }
+                }
+              }
+            `}</style>
             <span
               aria-hidden="true"
               className="absolute -inset-8 rounded-[4rem] bg-gradient-to-br from-brand-soft via-white to-amber-100 opacity-80 blur-2xl"
@@ -174,7 +184,7 @@ export default function Home() {
               className="absolute -bottom-12 -left-10 w-40 rotate-[-5deg] rounded-3xl object-cover shadow-xl ring-4 ring-white"
             />
             {/* Verified badge */}
-            <span className="absolute -right-4 top-8 flex items-center gap-2.5 rounded-2xl bg-white/95 px-4 py-3 shadow-xl backdrop-blur">
+            <span className="float-a absolute -right-4 top-8 flex items-center gap-2.5 rounded-2xl bg-white/95 px-4 py-3 shadow-xl backdrop-blur">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
                 <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
                   <path
@@ -199,7 +209,7 @@ export default function Home() {
               </span>
             </span>
             {/* Price-lock badge */}
-            <span className="absolute -bottom-5 right-10 flex items-center gap-2.5 rounded-2xl bg-white/95 px-4 py-3 shadow-xl backdrop-blur">
+            <span className="float-b absolute -bottom-5 right-10 flex items-center gap-2.5 rounded-2xl bg-white/95 px-4 py-3 shadow-xl backdrop-blur">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-soft text-brand">
                 <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
                   <rect
