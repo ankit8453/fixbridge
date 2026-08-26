@@ -95,12 +95,26 @@ describe('booking transition table', () => {
     }
   });
 
-  it('never lets ops move a booking', () => {
+  /**
+   * Ops moves a booking in exactly one place, and the enumeration is what keeps
+   * it that way.
+   *
+   * The exception is accepting a request for the technician the customer chose
+   * — pilot scaffolding for technicians who take work by phone before they
+   * trust the app (`acceptOnBehalf`, gated on `BOOKING_OPS_ACCEPT_ENABLED`).
+   * Everything else stays shut: ops cannot start work, finish it, or reject on
+   * somebody's behalf, because each of those is a claim about something that
+   * physically happened at a customer's door and only the two parties there can
+   * make it.
+   */
+  it('lets ops accept a request, and move a booking nowhere else', () => {
     for (const status of BOOKING_STATUSES) {
       for (const event of BOOKING_EVENT_TYPES) {
         if (NON_TRANSITIONING_EVENTS.includes(event)) continue;
 
-        expect(applyBookingEvent(status, event, 'ops').ok, `${status}/${event}`).toBe(false);
+        const allowed = status === 'REQUESTED' && event === 'accepted';
+
+        expect(applyBookingEvent(status, event, 'ops').ok, `${status}/${event}`).toBe(allowed);
       }
     }
   });

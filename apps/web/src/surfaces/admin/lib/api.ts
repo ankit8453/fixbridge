@@ -525,3 +525,13 @@ export async function decidePhotoReport(
     body: input,
   });
 }
+
+/**
+ * Accepts a booking for the technician the customer chose.
+ *
+ * Pilot scaffolding — the API refuses this once
+ * `BOOKING_OPS_ACCEPT_ENABLED` is switched off. Never a reassignment.
+ */
+export async function opsAcceptBooking(bookingId: string): Promise<{ booking: unknown }> {
+  return adminRequest(`/api/v1/admin/bookings/${bookingId}/accept`, { method: 'POST' });
+}

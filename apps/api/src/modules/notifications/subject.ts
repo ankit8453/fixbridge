@@ -105,7 +105,16 @@ async function resolveBookingSubject(
      * should say the trade in the language they read it in.
      */
     categoryName: P.key(booking.category.nameKey),
-    expiryMinutes: P.num(context.config.BOOKING_REQUEST_TTL_MINUTES),
+    /**
+     * What we *ask* for, not when the booking dies.
+     *
+     * The two parted company when the acceptance window was widened for the
+     * pilot: a technician is still asked to reply within fifteen minutes, but
+     * missing that no longer destroys the job. Telling him the real TTL would
+     * turn the nudge into "you have an hour", which is not the habit worth
+     * teaching.
+     */
+    expiryMinutes: P.num(context.config.BOOKING_RESPONSE_PROMPT_MINUTES),
     /**
      * First names only, on both sides. A full name plus a time and a trade is
      * enough to find somebody, and these messages leave our control the moment

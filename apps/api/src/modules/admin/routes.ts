@@ -235,6 +235,21 @@ router.post(
 );
 
 /**
+ * Ops accepting for the technician the customer booked.
+ *
+ * Pilot scaffolding — see `opsAcceptBooking`. Never a reassignment: the job
+ * stays with the person the customer chose.
+ */
+router.post(
+  '/bookings/:bookingId/accept',
+  handle(async (req, res) => {
+    const { bookingId } = bookingIdParamSchema.parse(req.params);
+
+    res.status(200).json(await service.opsAcceptBooking(deps(req), auditActor(req), bookingId));
+  }),
+);
+
+/**
  * Ops cancelling on somebody's behalf. Rare, and it follows the same state
  * machine rules a customer would — an ops button that could cancel a job already
  * in progress would be a way to lose money quietly.

@@ -468,14 +468,40 @@ export async function acceptBooking(
   bookingId: string,
 ): Promise<BookingDetail> {
   const { booking } = await loadOwnBooking(deps, bookingId, providerId);
-  const slot = await repo.findSlotForBooking(deps.context.prisma, bookingId);
+
+  return runAcceptance(deps, booking, providerId, null);
+}
+
+/**
+ * The acceptance itself, shared by the technician's own tap and ops accepting
+ * for him.
+ *
+ * One code path on purpose. An ops acceptance that took a different route
+ * would eventually drift — a missing OTP, an unreleased slot, an event the
+ * projection does not recognise — and the difference would surface as a broken
+ * booking at somebody's front door. Only the actor recorded on the event
+ * differs; everything downstream is identical.
+ */
+async function runAcceptance(
+  deps: BookingDeps,
+  booking: repo.BookingWithEvents,
+  providerId: string,
+  onBehalfOf: { staffId: string } | null,
+): Promise<BookingDetail> {
+  const slot = await repo.findSlotForBooking(deps.context.prisma, booking.id);
 
   const updated = await transition(deps, {
-    bookingId,
+    bookingId: booking.id,
     eventType: 'accepted',
-    actorType: 'provider',
+    actorType: onBehalfOf ? 'ops' : 'provider',
+    /**
+     * The technician either way — this is *his* acceptance, and the booking's
+     * history should read as his. Who pressed the button is carried in the
+     * payload and in the audit log, which is where that question belongs.
+     */
     actorUserId: providerId,
-    ...(slot ? { slot: { id: slot.id, status: 'booked' as const, bookingId } } : {}),
+    ...(onBehalfOf ? { payload: { onBehalfOf: true, staffId: onBehalfOf.staffId } } : {}),
+    ...(slot ? { slot: { id: slot.id, status: 'booked' as const, bookingId: booking.id } } : {}),
   });
 
   // Handshake codes exist from acceptance, but the end code stays hidden until
@@ -484,9 +510,45 @@ export async function acceptBooking(
     3_600,
     Math.ceil((booking.endsAt.getTime() - nowOf(deps).getTime()) / 1000) + 24 * 3_600,
   );
-  await createBookingOtpStore(deps.context.redis, deps.context.config).issue(bookingId, ttlSeconds);
+  await createBookingOtpStore(deps.context.redis, deps.context.config).issue(
+    booking.id,
+    ttlSeconds,
+  );
 
   return toDetail(deps, updated, 'provider', null);
+}
+
+/**
+ * Ops accepts a booking for the technician it was made with.
+ *
+ * **Pilot scaffolding.** The first technicians on the platform take work by
+ * phone and do not yet watch the app; a booking they verbally agreed to would
+ * otherwise expire unaccepted. Gated on `BOOKING_OPS_ACCEPT_ENABLED` so it can
+ * be switched off once they answer in-app, which is the point of the exercise.
+ *
+ * Strictly accept-on-behalf, never reassignment: the booking stays with the
+ * technician the customer chose. Handing the job to somebody else would break
+ * the promise the whole product rests on — the customer picked this person,
+ * at this person's price, having read this person's ratings — and the agreed
+ * rate snapshotted at booking would no longer belong to whoever turned up.
+ */
+export async function acceptOnBehalf(
+  deps: BookingDeps,
+  staffId: string,
+  bookingId: string,
+): Promise<BookingDetail> {
+  const { context } = deps;
+
+  if (!context.config.BOOKING_OPS_ACCEPT_ENABLED) {
+    throw new AppError(403, 'BOOKING_OPS_ACCEPT_DISABLED', 'Ops acceptance is switched off', {
+      messageKey: 'errors.bookings.opsAcceptDisabled',
+    });
+  }
+
+  const booking = await repo.findBooking(context.prisma, bookingId);
+  if (!booking) throw notFound(bookingId);
+
+  return runAcceptance(deps, booking, booking.providerId, { staffId });
 }
 
 export async function rejectBooking(

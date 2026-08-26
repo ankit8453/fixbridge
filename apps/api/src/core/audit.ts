@@ -50,6 +50,7 @@ export const AUDIT_ACTIONS = {
   providerPhotoDecide: 'provider.photo_decide',
 
   bookingOtpUnlock: 'booking.otp_unlock',
+  bookingOpsAccept: 'booking.ops_accept',
   bookingOpsCancel: 'booking.ops_cancel',
 
   complaintTakeUp: 'complaint.take_up',
@@ -105,6 +106,7 @@ export const AUDITED_ADMIN_ROUTES: Record<string, AuditAction> = {
 
   'POST /api/v1/admin/bookings/:bookingId/otp-unlock': AUDIT_ACTIONS.bookingOtpUnlock,
   'POST /api/v1/admin/bookings/:bookingId/cancel': AUDIT_ACTIONS.bookingOpsCancel,
+  'POST /api/v1/admin/bookings/:bookingId/accept': AUDIT_ACTIONS.bookingOpsAccept,
 
   'POST /api/v1/admin/complaints/:complaintId/take-up': AUDIT_ACTIONS.complaintTakeUp,
   'POST /api/v1/admin/complaints/:complaintId/resolve': AUDIT_ACTIONS.complaintResolve,

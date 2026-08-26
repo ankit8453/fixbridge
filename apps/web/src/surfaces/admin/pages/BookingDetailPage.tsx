@@ -1,8 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { useState } from 'react';
-import { ArrowLeft, Ban, History, KeyRound, Receipt } from 'lucide-react';
-import { fetchBookingTimeline, opsCancelBooking, unlockBookingOtp } from '../lib/api';
+import { ArrowLeft, Ban, Check, History, KeyRound, Receipt } from 'lucide-react';
+import {
+  fetchBookingTimeline,
+  opsAcceptBooking,
+  opsCancelBooking,
+  unlockBookingOtp,
+} from '../lib/api';
 import { useAdminMutation } from '../lib/mutations';
 import { BookingTimeline } from '../components/BookingTimeline';
 import { ConfirmDialog, noteField, reasonField } from '../components/ConfirmDialog';
@@ -24,7 +29,7 @@ import { formatPaise } from '@/lib/money';
 export default function BookingDetailPage() {
   const params = useParams<{ bookingId: string }>();
   const bookingId = params.bookingId ?? '';
-  const [action, setAction] = useState<'unlock' | 'cancel' | null>(null);
+  const [action, setAction] = useState<'unlock' | 'cancel' | 'accept' | null>(null);
   const [codes, setCodes] = useState<{ start: string | null; end: string | null } | null>(null);
 
   const query = useQuery({
@@ -53,6 +58,11 @@ export default function BookingDetailPage() {
     (values: { reason: string }) => opsCancelBooking(bookingId, values.reason),
     { invalidate, onDone: () => setAction(null) },
   );
+
+  const accept = useAdminMutation(() => opsAcceptBooking(bookingId), {
+    invalidate,
+    onDone: () => setAction(null),
+  });
 
   if (query.status === 'pending') {
     return (
@@ -94,6 +104,15 @@ export default function BookingDetailPage() {
               <AdminButton variant="danger" onClick={() => setAction('unlock')}>
                 <KeyRound className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
                 Unlock handshake
+              </AdminButton>
+            ) : null}
+            {/* Pilot scaffolding: the first technicians take work by phone, so
+                a booking they verbally agreed to still needs recording. Only
+                ever for the technician the customer chose. */}
+            {booking.status === 'REQUESTED' ? (
+              <AdminButton variant="primary" onClick={() => setAction('accept')}>
+                <Check className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
+                Accept for technician
               </AdminButton>
             ) : null}
             <AdminButton variant="danger" onClick={() => setAction('cancel')}>
@@ -246,6 +265,18 @@ export default function BookingDetailPage() {
               kind: (values.kind ?? 'both') as 'start' | 'end' | 'both',
             })
           }
+        />
+      ) : null}
+
+      {action === 'accept' ? (
+        <ConfirmDialog
+          title="Accept for the technician"
+          description="Records the acceptance this technician gave you by phone. The job stays theirs — this never moves it to anyone else — and everything after it (start code, quotation, payment) runs exactly as if they had tapped accept themselves."
+          confirmLabel="Accept"
+          pending={accept.isPending}
+          error={accept.error}
+          onClose={() => setAction(null)}
+          onConfirm={() => accept.mutate(undefined)}
         />
       ) : null}
 

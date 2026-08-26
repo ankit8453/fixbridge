@@ -346,7 +346,8 @@
       "cashConfirm": "Yes, I received this",
       "cashConfirming": "Recording…",
       "alreadyPaid": "This job has already been paid for.",
-      "paymentPending": "Online payment is being confirmed. Cash collection is unavailable until it finishes."
+      "paymentPending": "Online payment is being confirmed. Cash collection is unavailable until it finishes.",
+      "acceptedOnBehalf": "{{app}} accepted this job for you after speaking with you. It is yours — carry on as usual."
     },
     "otp": {
       "enteredLabel": "Code entered",

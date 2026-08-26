@@ -8,6 +8,7 @@ import { createOutboxDispatcher, enqueueOutbox, type DeliveredEvent } from '../.
 import { purgeBookingData } from './repository';
 import { registerAcceptanceRateProjector } from './stats';
 import { sweepExpiredRequests } from './jobs';
+import { acceptOnBehalf } from './service';
 import { generateSlotsForProvider } from './slots-service';
 import { BOOKING_TOPICS } from './state-machine';
 
@@ -1048,6 +1049,123 @@ describe('Phase 6 — slots and bookings', () => {
       expect((await context.prisma.booking.findUnique({ where: { id: bookingId } }))?.status).toBe(
         'EXPIRED',
       );
+    });
+
+    /**
+     * A booking never outlives the hour it was booked for.
+     *
+     * The acceptance window is an hour, but a 2:30 request for a 3:00 job is
+     * not still live at 3:30 — that job already failed, and leaving it pending
+     * tells the customer somebody may yet turn up while holding a slot that has
+     * physically passed. Whichever comes first ends it.
+     */
+    it('expires a request once its own start time has passed, whatever the TTL says', async () => {
+      if (unavailableReason || !context || !fixture || !app) return;
+
+      const slot = await nextOpenSlot(context, fixture.technicianId);
+      const customer = await signIn(app, PHONES.customer, 'device-expiry-start');
+
+      const created = await request(app)
+        .post('/api/v1/bookings')
+        .set(auth(customer.accessToken))
+        .send({
+          slotId: slot.id,
+          categoryId: fixture.categoryId,
+          addressId: fixture.addressId,
+        })
+        .expect(201);
+
+      const bookingId = created.body.booking.id as string;
+
+      // Well inside the acceptance window, but after the job was due to start.
+      const afterStart = new Date(slot.startsAt.getTime() + 60 * 1000);
+
+      await sweepExpiredRequests({ context, now: () => afterStart });
+
+      const swept = await context.prisma.booking.findUnique({ where: { id: bookingId } });
+      expect(swept?.status).toBe('EXPIRED');
+    });
+  });
+
+  describe('ops accepting for the technician', () => {
+    /**
+     * Pilot scaffolding: the first technicians take work by phone, so a job
+     * they verbally agreed to still has to be recorded before it expires.
+     *
+     * The acceptance must be indistinguishable downstream from the
+     * technician's own tap — same status, same slot, same handshake codes —
+     * because a second acceptance path would eventually drift and surface as a
+     * broken booking at somebody's front door.
+     */
+    it('accepts on behalf, and the booking proceeds exactly as a normal one', async () => {
+      if (unavailableReason || !context || !fixture || !app) return;
+
+      const slot = await nextOpenSlot(context, fixture.technicianId);
+      const customer = await signIn(app, PHONES.customer, 'device-onbehalf');
+
+      const created = await request(app)
+        .post('/api/v1/bookings')
+        .set(auth(customer.accessToken))
+        .send({
+          slotId: slot.id,
+          categoryId: fixture.categoryId,
+          addressId: fixture.addressId,
+        })
+        .expect(201);
+
+      const bookingId = created.body.booking.id as string;
+
+      const accepted = await acceptOnBehalf({ context }, fixture.technicianId, bookingId);
+
+      expect(accepted.status).toBe('ACCEPTED');
+
+      // The slot is genuinely taken, not merely marked.
+      const booked = await context.prisma.slot.findUnique({ where: { id: slot.id } });
+      expect(booked?.status).toBe('booked');
+      expect(booked?.bookingId).toBe(bookingId);
+
+      // The handshake exists, so the technician can start work at the door.
+      const startCode = await context.redis.get(`booking:otp:plain:start:${bookingId}`);
+      expect(startCode).toBeTruthy();
+
+      // The history records the technician as the actor — it is his
+      // acceptance — with the office noted in the payload.
+      const event = await context.prisma.bookingEvent.findFirst({
+        where: { bookingId, eventType: 'accepted' },
+      });
+
+      expect(event?.actorType).toBe('ops');
+      expect(event?.actorUserId).toBe(fixture.technicianId);
+      expect((event?.payload as { onBehalfOf?: boolean } | null)?.onBehalfOf).toBe(true);
+    });
+
+    it('refuses a booking that is not waiting to be accepted', async () => {
+      if (unavailableReason || !context || !fixture || !app) return;
+
+      const slot = await nextOpenSlot(context, fixture.technicianId);
+      const customer = await signIn(app, PHONES.customer, 'device-onbehalf-2');
+      const technician = await signIn(app, PHONES.technician, 'device-onbehalf-2t');
+
+      const created = await request(app)
+        .post('/api/v1/bookings')
+        .set(auth(customer.accessToken))
+        .send({
+          slotId: slot.id,
+          categoryId: fixture.categoryId,
+          addressId: fixture.addressId,
+        })
+        .expect(201);
+
+      const bookingId = created.body.booking.id as string;
+
+      await request(app)
+        .post(`/api/v1/bookings/${bookingId}/accept`)
+        .set(auth(technician.accessToken))
+        .expect(200);
+
+      // Already accepted by the technician himself — the state machine refuses
+      // a second acceptance rather than quietly reissuing the handshake.
+      await expect(acceptOnBehalf({ context }, fixture.technicianId, bookingId)).rejects.toThrow();
     });
 
     it('leaves an accepted booking alone however old the request was', async () => {

@@ -202,7 +202,8 @@
       "otpInvalid": "That code is not correct. Please check with the customer.",
       "otpLocked": "Too many wrong codes. Please contact support to continue.",
       "windowTooWide": "Please ask for a shorter date range.",
-      "noPriceForService": "This technician has not set a price for this service yet."
+      "noPriceForService": "This technician has not set a price for this service yet.",
+      "opsAcceptDisabled": "Accepting on a technician's behalf is switched off."
     },
     "reviews": {
       "notFound": "We could not find that review.",
@@ -277,7 +278,8 @@
     "admin": {
       "alreadyApproved": "That technician is already approved.",
       "bookingNotLocked": "That booking is not locked.",
-      "notCancellable": "A booking in this state cannot be cancelled."
+      "notCancellable": "A booking in this state cannot be cancelled.",
+      "notAcceptable": "This booking is not waiting to be accepted."
     },
     "common": {
       "notFound": "That item was not found."

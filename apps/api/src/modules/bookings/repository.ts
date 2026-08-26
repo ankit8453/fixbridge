@@ -375,13 +375,26 @@ export function findSlotForBooking(prisma: PrismaClient, bookingId: string): Pro
 }
 
 /** Requests nobody answered in time. Driven by the expiry job's injected clock. */
+/**
+ * Requests that should die: past the acceptance window, **or** past the hour
+ * the job was booked for.
+ *
+ * The second arm matters as much as the first. A booking made at 2:30 for a
+ * 3:00 job is not still live at 3:30 — that job already failed, and leaving it
+ * "pending" tells the customer someone may yet turn up and holds a slot that
+ * has physically passed. Whichever comes first ends it.
+ */
 export function findExpiredRequests(
   prisma: PrismaClient,
   olderThan: Date,
+  now: Date,
   limit: number,
 ): Promise<Booking[]> {
   return prisma.booking.findMany({
-    where: { status: 'REQUESTED', createdAt: { lt: olderThan } },
+    where: {
+      status: 'REQUESTED',
+      OR: [{ createdAt: { lt: olderThan } }, { startsAt: { lte: now } }],
+    },
     orderBy: { createdAt: 'asc' },
     take: limit,
   });

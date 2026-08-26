@@ -41,7 +41,7 @@ export async function sweepExpiredRequests(deps: JobDeps): Promise<ExpirySweepRe
   const at = nowOf(deps);
   const cutoff = new Date(at.getTime() - context.config.BOOKING_REQUEST_TTL_MINUTES * 60 * 1000);
 
-  const stale = await repo.findExpiredRequests(context.prisma, cutoff, EXPIRY_BATCH_SIZE);
+  const stale = await repo.findExpiredRequests(context.prisma, cutoff, at, EXPIRY_BATCH_SIZE);
   const bookingDeps: BookingDeps = deps.now ? { context, now: deps.now } : { context };
 
   let expired = 0;

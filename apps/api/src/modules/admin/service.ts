@@ -3,7 +3,7 @@ import { AUDIT_ACTIONS, audited, type AuditActor } from '../../core/audit';
 import type { AppContext } from '../../core/context';
 import { AppError } from '../../core/errors';
 import { bookingOtpKeys, createBookingOtpStore } from '../bookings/otp';
-import { cancelBooking } from '../bookings/service';
+import { acceptOnBehalf, cancelBooking } from '../bookings/service';
 import { platformPosition } from '../payments/ledger';
 import { sendDelivery } from '../notifications/service';
 import * as repo from './repository';
@@ -682,3 +682,73 @@ export async function updateCitySettings(
 
 const notFound = (what: string, id: string): AppError =>
   new AppError(404, 'NOT_FOUND', `No ${what} ${id}`, { messageKey: 'errors.common.notFound' });
+
+/**
+ * Ops accepts a booking on the technician's behalf.
+ *
+ * **Pilot scaffolding**, gated on `BOOKING_OPS_ACCEPT_ENABLED`.
+ *
+ * The first technicians on the platform take work over the phone: they have
+ * not yet learned to watch the app, and will not until it has earned them a
+ * job or two. Without this the sequence is absurd — the technician verbally
+ * agrees, and the booking expires anyway because nobody tapped a button.
+ *
+ * It is accept-on-behalf, never reassignment. The booking stays with the
+ * technician the customer chose; handing it to somebody else would break the
+ * promise the product is built on (the customer picked *this* person, at
+ * *this* person's price) and would strand the agreed rate snapshotted at
+ * booking. If the technician truly cannot come, the honest move is telling the
+ * customer so they can choose again.
+ */
+export async function opsAcceptBooking(deps: AdminDeps, actor: AuditActor, bookingId: string) {
+  const { context } = deps;
+
+  const booking = await context.prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: { id: true, status: true, providerId: true },
+  });
+
+  if (!booking) {
+    throw new AppError(404, 'BOOKING_NOT_FOUND', `Booking ${bookingId} not found`, {
+      messageKey: 'errors.bookings.notFound',
+    });
+  }
+
+  if (booking.status !== 'REQUESTED') {
+    throw new AppError(
+      409,
+      'BOOKING_NOT_ACCEPTABLE',
+      `A booking in ${booking.status} is not awaiting acceptance`,
+      { messageKey: 'errors.admin.notAcceptable', details: { status: booking.status } },
+    );
+  }
+
+  await audited(
+    context.prisma,
+    actor,
+    {
+      action: AUDIT_ACTIONS.bookingOpsAccept,
+      targetType: 'booking',
+      targetId: bookingId,
+      /** Who it was accepted for — the question anyone reading this row will ask. */
+      payload: { providerId: booking.providerId, statusBefore: booking.status },
+    },
+    async () => undefined,
+  );
+
+  // Straight through the ordinary acceptance, so the slot is booked, the
+  // handshake codes are issued and the outbox fires exactly as they would for
+  // the technician's own tap. No second acceptance path to drift.
+  const result = await acceptOnBehalf(
+    { context },
+    actor.adminId ?? actor.userId ?? 'unknown',
+    bookingId,
+  );
+
+  context.logger.info(
+    { bookingId, providerId: booking.providerId, actor: actor.adminId ?? actor.userId },
+    'ops accepted a booking for the technician',
+  );
+
+  return { booking: result };
+}

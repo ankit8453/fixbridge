@@ -228,8 +228,40 @@ const baseConfigSchema = z.object({
   SLOT_HORIZON_DAYS: z.coerce.number().int().min(1).max(90).default(14),
   /** Slot length. A template window shorter than this produces no slot. */
   SLOT_INCREMENT_MINUTES: z.coerce.number().int().min(15).max(480).default(60),
-  /** How long a technician has to answer before the request expires. */
-  BOOKING_REQUEST_TTL_MINUTES: z.coerce.number().int().min(1).max(240).default(15),
+  /**
+   * How long a request stays acceptable before it expires.
+   *
+   * Deliberately longer than the 15 minutes a technician is *asked* to respond
+   * in: that prompt is a nudge, not a deadline. During the pilot the people on
+   * the platform are five technicians who do not yet watch the app, and a
+   * booking that dies at minute 15 cannot be rescued by the phone call that
+   * actually gets it accepted. The technician can still accept it himself the
+   * whole time, which is the outcome worth having.
+   *
+   * A booking also never outlives its own start time — see `expiryCutoffFor`.
+   */
+  BOOKING_REQUEST_TTL_MINUTES: z.coerce.number().int().min(1).max(240).default(60),
+
+  /**
+   * Lets ops accept a booking on the technician's behalf.
+   *
+   * Pilot scaffolding, and meant to be switched off: it exists because the
+   * first few technicians take work by phone before they trust the app. Once
+   * they are answering in-app — say twenty or thirty active — set this false
+   * and the button disappears. See `acceptOnBehalf` in bookings/service.ts.
+   */
+  BOOKING_OPS_ACCEPT_ENABLED: z
+    .string()
+    .default('true')
+    .transform((value) => value === 'true'),
+
+  /**
+   * What the technician is *asked* for, in the message he receives.
+   *
+   * Separate from the TTL above because they answer different questions: this
+   * is "please reply quickly", that is "when does this booking die".
+   */
+  BOOKING_RESPONSE_PROMPT_MINUTES: z.coerce.number().int().min(1).max(240).default(15),
   /** Snapshot onto each booking at creation. Stored, never charged — Phase 8. */
   BOOKING_VISIT_FEE_PAISE: z.coerce.number().int().min(0).default(4_900),
   /** Start/end handshake codes. Shorter than a login OTP; spoken aloud, in person. */

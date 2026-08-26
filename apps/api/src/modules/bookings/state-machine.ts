@@ -121,7 +121,12 @@ export interface TransitionRule {
  */
 export const TRANSITIONS: readonly TransitionRule[] = [
   // A technician answers, or the clock does it for them.
-  { from: 'REQUESTED', event: 'accepted', to: 'ACCEPTED', actors: ['provider'] },
+  /**
+   * `ops` accepts *for* the technician, never instead of him — the booking
+   * stays with the person the customer chose (see `acceptOnBehalf`). Pilot
+   * scaffolding, gated on config, and the event payload records who pressed it.
+   */
+  { from: 'REQUESTED', event: 'accepted', to: 'ACCEPTED', actors: ['provider', 'ops'] },
   { from: 'REQUESTED', event: 'rejected', to: 'REJECTED', actors: ['provider'] },
   { from: 'REQUESTED', event: 'expired', to: 'EXPIRED', actors: ['system'] },
   {

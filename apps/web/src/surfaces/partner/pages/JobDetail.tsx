@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, KeyRound, MapPin, Phone, Wallet } from 'lucide-react';
+import { Check, CheckCircle2, KeyRound, MapPin, Phone, Wallet } from 'lucide-react';
+import { APP_NAME } from '../../../brand/tokens';
 import { useLocale, useT } from '../../../i18n/useT';
 import { Button, ErrorState, QueryState } from '../../../components/ui';
 import { DetailRow, Panel, StatusPill, type Tone } from '../components/ui';
@@ -198,6 +199,27 @@ export default function JobDetail() {
              the OTP keypad is never below the fold on a laptop. */
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-5 lg:gap-5">
             <div className="flex flex-col gap-4 lg:col-span-3 lg:gap-5">
+              {/*
+                When the office recorded an acceptance given over the phone.
+                Without this the technician opens the app hours later, finds a
+                job he has no memory of accepting, and rings to ask — so the
+                line exists to answer that call before it happens.
+              */}
+              {booking.events.some(
+                (event) =>
+                  event.eventType === 'accepted' &&
+                  (event.payload as { onBehalfOf?: boolean } | null)?.onBehalfOf === true,
+              ) ? (
+                <p className="flex items-start gap-2.5 rounded-lg bg-brand/5 px-3 py-2.5 text-sm leading-relaxed text-slate-700 ring-1 ring-inset ring-brand/20">
+                  <Check
+                    className="mt-0.5 h-4 w-4 shrink-0 text-brand"
+                    aria-hidden="true"
+                    strokeWidth={2.25}
+                  />
+                  {t('partner.job.acceptedOnBehalf', { app: APP_NAME })}
+                </p>
+              ) : null}
+
               <Panel
                 title={t('partner.job.title')}
                 action={
