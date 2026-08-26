@@ -11,14 +11,29 @@
  * left a row behind, and only if no later write could rewrite one.
  */
 
-export const VERIFICATION_LEVELS = [0, 1, 2, 3] as const;
+/**
+ * The verification ladder.
+ *
+ * References used to be level 3 and were removed: requiring two contactable
+ * referees assumed every technician has them, which is not true of the people
+ * this platform is for — someone working alone, or new to the trade, has no
+ * second employer to name. It gated the badge on a social fact rather than on
+ * anything about their work, and the honest checks (who they are, their record,
+ * whether they can do the job) are the other three.
+ *
+ * Levels are deliberately not renumbered. The passed-level sets stored on
+ * `provider_verification_summaries` and every event in the append-only log
+ * refer to these numbers, and shifting them would silently reinterpret
+ * history — a technician who passed "skill" would read as having passed
+ * something else. 3 simply stops being asked for.
+ */
+export const VERIFICATION_LEVELS = [0, 1, 2] as const;
 export type VerificationLevel = (typeof VERIFICATION_LEVELS)[number];
 
 export const LEVEL_NAMES: Record<VerificationLevel, string> = {
   0: 'identity',
   1: 'background',
   2: 'skill',
-  3: 'references',
 };
 
 export function isVerificationLevel(value: number): value is VerificationLevel {

@@ -12,7 +12,6 @@ const LEVELS = [
   { level: 0 as const, nameKey: 'partner.verification.levelName.identity' },
   { level: 1 as const, nameKey: 'partner.verification.levelName.background' },
   { level: 2 as const, nameKey: 'partner.verification.levelName.skill' },
-  { level: 3 as const, nameKey: 'partner.verification.levelName.references' },
 ];
 
 const BADGE_TONE: Record<Badge, Tone> = {

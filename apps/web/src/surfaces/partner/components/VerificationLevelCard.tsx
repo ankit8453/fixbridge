@@ -44,13 +44,6 @@ const STATUS_ICON: Record<VerificationCaseStatus, ComponentType<LucideProps>> = 
 };
 
 const ID_TYPES = ['aadhaar', 'pan', 'dl', 'voter'] as const;
-const REFERENCE_RELATIONSHIPS = [
-  'past_employer',
-  'shop_owner',
-  'senior_technician',
-  'other',
-] as const;
-
 function Level0Form({ onSubmitted }: { onSubmitted: (payload: unknown) => void }) {
   const t = useT();
   const [idType, setIdType] = useState<(typeof ID_TYPES)[number]>('aadhaar');
@@ -203,109 +196,6 @@ function Level2Form({ onSubmitted }: { onSubmitted: (payload: unknown) => void }
         disabled={!canSubmit}
         label={t('partner.verification.submitLevel')}
         onClick={submit}
-      />
-    </div>
-  );
-}
-
-interface ReferenceDraft {
-  name: string;
-  phone: string;
-  relationship: (typeof REFERENCE_RELATIONSHIPS)[number];
-}
-
-function normalizedReferencePhone(phone: string): string | null {
-  let value = phone.trim().replace(/[\s().\-‐-―]/g, '');
-  if (value.startsWith('+')) value = value.slice(1);
-  else if (value.startsWith('00')) value = value.slice(2);
-  if (value.startsWith('91') && value.length === 12) value = value.slice(2);
-  if (value.startsWith('0') && value.length === 11) value = value.slice(1);
-  return /^[6-9]\d{9}$/.test(value) ? `+91${value}` : null;
-}
-
-function Level3Form({ onSubmitted }: { onSubmitted: (payload: unknown) => void }) {
-  const t = useT();
-  const [refs, setRefs] = useState<[ReferenceDraft, ReferenceDraft]>([
-    { name: '', phone: '', relationship: 'past_employer' },
-    { name: '', phone: '', relationship: 'past_employer' },
-  ]);
-
-  function update(index: 0 | 1, patch: Partial<ReferenceDraft>) {
-    setRefs((prev) => {
-      const next = [...prev] as [ReferenceDraft, ReferenceDraft];
-      next[index] = { ...next[index], ...patch };
-      return next;
-    });
-  }
-
-  const normalizedPhones = refs.map((reference) => normalizedReferencePhone(reference.phone));
-  const canSubmit =
-    refs.every(
-      (reference, index) => reference.name.trim().length >= 2 && normalizedPhones[index],
-    ) && new Set(normalizedPhones).size === refs.length;
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {refs.map((ref, index) => {
-          // A phone that has been typed into but does not normalise is the
-          // one failure a technician can actually fix, so it is called out
-          // per-field rather than left implicit in a disabled submit button.
-          const phoneInvalid = ref.phone.trim().length > 0 && !normalizedPhones[index];
-          return (
-            <div key={index} className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                {t('partner.verification.referenceN', { n: index + 1 })}
-              </p>
-              <div className="flex flex-col gap-3">
-                <TextInput
-                  aria-label={t('partner.verification.referenceName')}
-                  placeholder={t('partner.verification.referenceName')}
-                  value={ref.name}
-                  onChange={(e) => update(index as 0 | 1, { name: e.target.value })}
-                />
-                <div>
-                  <TextInput
-                    aria-label={t('partner.verification.referencePhone')}
-                    placeholder={t('partner.verification.referencePhone')}
-                    inputMode="tel"
-                    aria-invalid={phoneInvalid || undefined}
-                    value={ref.phone}
-                    onChange={(e) => update(index as 0 | 1, { phone: e.target.value })}
-                    className={
-                      phoneInvalid ? 'border-danger focus:border-danger focus:ring-danger' : ''
-                    }
-                  />
-                  {phoneInvalid ? (
-                    <p role="alert" className="mt-1 text-sm font-medium text-danger">
-                      {t('partner.verification.referencePhoneInvalid')}
-                    </p>
-                  ) : null}
-                </div>
-                <Select
-                  aria-label={t('partner.verification.referenceRelationship')}
-                  value={ref.relationship}
-                  onChange={(e) =>
-                    update(index as 0 | 1, {
-                      relationship: e.target.value as ReferenceDraft['relationship'],
-                    })
-                  }
-                >
-                  {REFERENCE_RELATIONSHIPS.map((rel) => (
-                    <option key={rel} value={rel}>
-                      {t(`partner.verification.relationship.${rel}`)}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <SubmitRow
-        disabled={!canSubmit}
-        label={t('partner.verification.submitLevel')}
-        onClick={() => onSubmitted({ references: refs })}
       />
     </div>
   );
@@ -479,7 +369,6 @@ export function VerificationLevelCard({
             {level === 0 ? <Level0Form onSubmitted={(payload) => submit.mutate(payload)} /> : null}
             {level === 1 ? <Level1Form onSubmitted={(payload) => submit.mutate(payload)} /> : null}
             {level === 2 ? <Level2Form onSubmitted={(payload) => submit.mutate(payload)} /> : null}
-            {level === 3 ? <Level3Form onSubmitted={(payload) => submit.mutate(payload)} /> : null}
           </>
         ) : (
           <p

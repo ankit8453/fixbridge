@@ -189,8 +189,7 @@
       "levelName": {
         "identity": "Identity",
         "background": "Background",
-        "skill": "Skill",
-        "references": "References"
+        "skill": "Skill"
       },
       "levelTitle": "Level {{n}}: {{name}}",
       "status": {
@@ -225,16 +224,6 @@
       "certificateUpload": "Upload certificate",
       "notesLabel": "Notes",
       "notesHint": "Tell us how and when to reach you for this",
-      "referenceN": "Reference {{n}}",
-      "referenceName": "Name",
-      "referencePhone": "Phone number",
-      "referenceRelationship": "How do they know you?",
-      "relationship": {
-        "past_employer": "Past employer",
-        "shop_owner": "Shop owner",
-        "senior_technician": "Senior technician",
-        "other": "Other"
-      },
       "replyLabel": "Your reply",
       "replyDocUpload": "Add a document (optional)",
       "replySubmit": "Send reply",
@@ -253,8 +242,7 @@
       "levelLabel": "Level {{n}}",
       "progressLabel": "Levels passed",
       "progressCount": "{{passed}} of {{total}}",
-      "needsInfoHint": "We need a little more from you before this can move ahead.",
-      "referencePhoneInvalid": "Enter a valid 10-digit mobile number"
+      "needsInfoHint": "We need a little more from you before this can move ahead."
     },
     "jobs": {
       "title": "Jobs",

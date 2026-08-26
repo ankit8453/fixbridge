@@ -16,24 +16,38 @@ describe('badge enum', () => {
 
 describe('computeBadge', () => {
   it('awards VERIFIED only when every level has passed', () => {
-    expect(computeBadge([0, 1, 2, 3])).toBe('VERIFIED');
+    expect(computeBadge([0, 1, 2])).toBe('VERIFIED');
   });
 
   it('does not care about order or duplicates', () => {
-    expect(computeBadge([3, 1, 0, 2])).toBe('VERIFIED');
-    expect(computeBadge([0, 0, 1, 2, 3])).toBe('VERIFIED');
+    expect(computeBadge([1, 0, 2])).toBe('VERIFIED');
+    expect(computeBadge([0, 0, 1, 2])).toBe('VERIFIED');
+  });
+
+  /**
+   * Technicians verified under the old four-level ladder keep their badge.
+   *
+   * Their stored set is [0,1,2,3], and 3 is now a level nobody is asked for.
+   * Because the badge is derived by checking every *current* level is present
+   * rather than by comparing sets, the extra entry is simply ignored — the
+   * recompute that runs on their next event does not quietly strip a badge
+   * they earned.
+   */
+  it('keeps the badge for anyone verified under the old references ladder', () => {
+    expect(computeBadge([0, 1, 2, 3])).toBe('VERIFIED');
   });
 
   it('withholds the badge while any level is outstanding', () => {
     expect(computeBadge([])).toBe('NONE');
     expect(computeBadge([0])).toBe('NONE');
-    expect(computeBadge([0, 1, 2])).toBe('NONE');
-    expect(computeBadge([1, 2, 3])).toBe('NONE');
+    expect(computeBadge([0, 1])).toBe('NONE');
+    // Level 3 alone is not a substitute for the skill check.
+    expect(computeBadge([1, 3])).toBe('NONE');
   });
 
   it('never awards SILVER or GOLD — those are Phase 9 trust bands', () => {
-    expect(computeBadge([0, 1, 2, 3])).not.toBe('SILVER');
-    expect(computeBadge([0, 1, 2, 3])).not.toBe('GOLD');
+    expect(computeBadge([0, 1, 2])).not.toBe('SILVER');
+    expect(computeBadge([0, 1, 2])).not.toBe('GOLD');
   });
 
   /**
@@ -49,8 +63,10 @@ describe('computeBadge', () => {
 
 describe('remainingLevels', () => {
   it('lists what is left, in ladder order', () => {
-    expect(remainingLevels([])).toEqual([0, 1, 2, 3]);
-    expect(remainingLevels([0, 2])).toEqual([1, 3]);
+    expect(remainingLevels([])).toEqual([0, 1, 2]);
+    expect(remainingLevels([0, 2])).toEqual([1]);
+    expect(remainingLevels([1, 0, 2])).toEqual([]);
+    // A stale level 3 from the old ladder leaves nothing outstanding either.
     expect(remainingLevels([3, 1, 0, 2])).toEqual([]);
   });
 });

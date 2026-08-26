@@ -189,8 +189,7 @@
       "levelName": {
         "identity": "पहचान",
         "background": "बैकग्राउंड जांच",
-        "skill": "काम की जांच",
-        "references": "रेफरेंस"
+        "skill": "काम की जांच"
       },
       "levelTitle": "स्तर {{n}}: {{name}}",
       "status": {
@@ -225,16 +224,6 @@
       "certificateUpload": "सर्टिफिकेट अपलोड करें",
       "notesLabel": "नोट",
       "notesHint": "आपसे इस बारे में कब और कैसे संपर्क करें, बताएं",
-      "referenceN": "रेफरेंस {{n}}",
-      "referenceName": "नाम",
-      "referencePhone": "फ़ोन नंबर",
-      "referenceRelationship": "यह व्यक्ति आपको कैसे जानता है?",
-      "relationship": {
-        "past_employer": "पुराना मालिक/ठेकेदार",
-        "shop_owner": "दुकान मालिक",
-        "senior_technician": "सीनियर कारीगर",
-        "other": "अन्य"
-      },
       "replyLabel": "आपका जवाब",
       "replyDocUpload": "एक दस्तावेज़ जोड़ें (वैकल्पिक)",
       "replySubmit": "जवाब भेजें",
@@ -253,8 +242,7 @@
       "levelLabel": "स्तर {{n}}",
       "progressLabel": "पास किए स्तर",
       "progressCount": "{{total}} में से {{passed}}",
-      "needsInfoHint": "यह आगे बढ़े इससे पहले हमें आपसे थोड़ी और जानकारी चाहिए।",
-      "referencePhoneInvalid": "सही 10 अंकों का मोबाइल नंबर डालें"
+      "needsInfoHint": "यह आगे बढ़े इससे पहले हमें आपसे थोड़ी और जानकारी चाहिए।"
     },
     "jobs": {
       "title": "जॉब",

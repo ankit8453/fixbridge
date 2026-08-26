@@ -34,20 +34,25 @@ const VALID: [VerificationStatus, VerificationEventType, VerificationStatus][] =
 ];
 
 describe('levels', () => {
-  it('are exactly 0–3 and named', () => {
-    expect(VERIFICATION_LEVELS).toEqual([0, 1, 2, 3]);
+  it('are exactly 0–2 and named', () => {
+    expect(VERIFICATION_LEVELS).toEqual([0, 1, 2]);
     expect(LEVEL_NAMES).toEqual({
       0: 'identity',
       1: 'background',
       2: 'skill',
-      3: 'references',
     });
   });
 
   it('recognises only real levels', () => {
     expect(isVerificationLevel(0)).toBe(true);
-    expect(isVerificationLevel(3)).toBe(true);
-    expect(isVerificationLevel(4)).toBe(false);
+    expect(isVerificationLevel(2)).toBe(true);
+    /**
+     * 3 was references, and is no longer a level anyone can submit. It stays
+     * unrecognised rather than renumbered: the stored passed-level sets and
+     * every event in the log still use these numbers, so shifting them would
+     * reinterpret history.
+     */
+    expect(isVerificationLevel(3)).toBe(false);
     expect(isVerificationLevel(-1)).toBe(false);
   });
 });

@@ -2,6 +2,7 @@ import type { Express } from 'express';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../../app';
+import { redactPayloadForProvider } from './requirements';
 import { parseConfig, type AppConfig } from '../../core/config';
 import { createContext, disposeContext, type AppContext } from '../../core/context';
 import { denylistKey } from '../auth/denylist';
@@ -607,7 +608,7 @@ describe('Phase 4 — submission requirements', () => {
 });
 
 describe('Phase 4 — the full ladder', () => {
-  it('walks all four levels to a VERIFIED badge, then loses it to a failed re-check', async (ctx) => {
+  it('walks every level to a VERIFIED badge, then loses it to a failed re-check', async (ctx) => {
     if (!app || !context || !storageAvailable) return ctx.skip();
 
     const tech = await signInAsTechnician(app, PHONES.technician);
@@ -631,15 +632,6 @@ describe('Phase 4 — the full ladder', () => {
       },
       { level: 1, body: { consent: true } },
       { level: 2, body: { certificateDocumentId: certificate } },
-      {
-        level: 3,
-        body: {
-          references: [
-            { name: 'Ramesh Gupta', phone: '9812300021', relationship: 'past_employer' },
-            { name: 'Sunita Devi', phone: '9812300022', relationship: 'shop_owner' },
-          ],
-        },
-      },
     ];
 
     const caseIds: Record<number, string> = {};
@@ -700,7 +692,7 @@ describe('Phase 4 — the full ladder', () => {
       .expect(200);
 
     // Everything passes.
-    for (const level of [0, 1, 2, 3]) {
+    for (const level of [0, 1, 2]) {
       const decided = await request(app)
         .post(`/api/v1/admin/verification/cases/${caseIds[level]}/decide`)
         .set(opsHeaders)
@@ -712,7 +704,7 @@ describe('Phase 4 — the full ladder', () => {
     const verified = await request(app).get('/api/v1/verification/cases').set(techHeaders);
     expect(verified.body.summary.badge).toBe('VERIFIED');
     expect(verified.body.summary.badgeSince).not.toBeNull();
-    expect(verified.body.summary.levelsPassed).toEqual([0, 1, 2, 3]);
+    expect(verified.body.summary.levelsPassed).toEqual([0, 1, 2]);
 
     // The badge shows on the provider profile too.
     const profile = await request(app).get('/api/v1/providers/me').set(techHeaders).expect(200);
@@ -738,7 +730,7 @@ describe('Phase 4 — the full ladder', () => {
 
     expect(failed.body.summary.badge).toBe('NONE');
     expect(failed.body.summary.badgeSince).toBeNull();
-    expect(failed.body.summary.levelsPassed).toEqual([0, 2, 3]);
+    expect(failed.body.summary.levelsPassed).toEqual([0, 2]);
 
     const afterDowngrade = await request(app).get('/api/v1/providers/me').set(techHeaders);
     expect(afterDowngrade.body.profile.verification.badge).toBe('NONE');
@@ -903,29 +895,30 @@ describe('Phase 4 — authorisation', () => {
     expect(JSON.stringify(opsView.body)).toContain(secret);
   });
 
-  it('masks reference phone numbers in the provider’s own view', async (ctx) => {
-    if (!app) return ctx.skip();
+  /**
+   * References are no longer collected, but the ones already in the log are.
+   *
+   * Cases submitted under the old four-level ladder still hold third parties'
+   * phone numbers, and every read of that history must keep masking them — a
+   * technician re-reading their own old case must not be handed a referee's
+   * full number back. Written against the redaction directly, because there is
+   * no longer a submission endpoint that can produce such a payload.
+   */
+  it('still masks reference phone numbers in payloads from the old ladder', () => {
+    const historical = {
+      references: [
+        { name: 'Ramesh Gupta', phone: '+919812300031', relationship: 'past_employer' },
+        { name: 'Sunita Devi', phone: '+919812300032', relationship: 'shop_owner' },
+      ],
+    };
 
-    const tech = await signInAsTechnician(app, PHONES.technician);
-    const created = await request(app)
-      .post('/api/v1/verification/levels/3/submit')
-      .set(auth(tech.accessToken))
-      .send({
-        references: [
-          { name: 'Ramesh Gupta', phone: '9812300031', relationship: 'past_employer' },
-          { name: 'Sunita Devi', phone: '9812300032', relationship: 'shop_owner' },
-        ],
-      })
-      .expect(201);
+    const redacted = JSON.stringify(redactPayloadForProvider(historical));
 
-    const view = await request(app)
-      .get(`/api/v1/verification/cases/${created.body.case.id}`)
-      .set(auth(tech.accessToken))
-      .expect(200);
-
-    const body = JSON.stringify(view.body);
-    expect(body).not.toContain('9812300031');
-    expect(body).toContain('+9198123*****');
+    expect(redacted).not.toContain('9812300031');
+    expect(redacted).not.toContain('9812300032');
+    expect(redacted).toContain('+9198123*****');
+    // The names stay: they are what make the entry meaningful to read back.
+    expect(redacted).toContain('Ramesh Gupta');
   });
 });
 

@@ -109,13 +109,6 @@ function payloadForLevel(level: number, index: number): Prisma.InputJsonValue {
       return index % 2 === 0
         ? { tradeTest: true, notes: 'Bench test at the Adhartal hub.' }
         : { fieldAudit: true, notes: 'Observed on a live job.' };
-    case 3:
-      return {
-        references: [
-          { name: 'Ramesh Gupta', phone: '+919812300011', relationship: 'past_employer' },
-          { name: 'Sunita Devi', phone: '+919812300012', relationship: 'shop_owner' },
-        ],
-      };
     default:
       return {};
   }
@@ -131,9 +124,9 @@ interface CasePlan {
  * Phase 5 search tests depend on this distribution.
  */
 function planFor(index: number): CasePlan[] {
-  // Providers 0–11: all four levels passed, some with a needs-info detour.
+  // Providers 0–11: every level passed, some with a needs-info detour.
   if (index < 12) {
-    return [0, 1, 2, 3].map((level) => ({
+    return [0, 1, 2].map((level) => ({
       level,
       script: index % 4 === 1 && level === 0 ? PASS_WITH_DETOUR : CLEAN_PASS,
     }));
@@ -150,7 +143,7 @@ function planFor(index: number): CasePlan[] {
     return [
       { level: 0, script: CLEAN_PASS },
       { level: 1, script: CLEAN_PASS },
-      { level: 3, script: WAITING_ON_PROVIDER },
+      { level: 2, script: WAITING_ON_PROVIDER },
     ];
   }
   if (index === 14) {

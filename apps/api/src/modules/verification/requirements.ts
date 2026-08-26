@@ -58,8 +58,17 @@ export const REFERENCE_RELATIONSHIPS = [
 ] as const;
 export type ReferenceRelationship = (typeof REFERENCE_RELATIONSHIPS)[number];
 
-export const REQUIRED_REFERENCE_COUNT = 2;
-
+/**
+ * References are no longer collected — the level that asked for them was
+ * removed, because requiring two contactable referees assumed every technician
+ * has them.
+ *
+ * These shapes stay because the append-only log does not: cases submitted
+ * before the change still hold reference phone numbers, and
+ * `redactPayloadForProvider` below must keep masking them when that history is
+ * read back. Deleting this would leave a third party's number readable in an
+ * old payload.
+ */
 const referencePhone = z
   .string()
   .trim()
@@ -141,37 +150,17 @@ export const level2Schema = z
     }
   });
 
-/** Level 3 — references. Exactly two, and not the same person twice. */
-export const level3Schema = z
-  .object({
-    references: z.array(referenceSchema).length(REQUIRED_REFERENCE_COUNT),
-  })
-  .strict()
-  .superRefine((value, ctx) => {
-    const phones = new Set(value.references.map((reference) => reference.phone));
-
-    if (phones.size !== value.references.length) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['references'],
-        message: 'the two references must be different people',
-      });
-    }
-  });
-
 export const LEVEL_SCHEMAS = {
   0: level0Schema,
   1: level1Schema,
   2: level2Schema,
-  3: level3Schema,
 } as const;
 
 export type Level0Payload = z.infer<typeof level0Schema>;
 export type Level1Payload = z.infer<typeof level1Schema>;
 export type Level2Payload = z.infer<typeof level2Schema>;
-export type Level3Payload = z.infer<typeof level3Schema>;
 
-export type LevelPayload = Level0Payload | Level1Payload | Level2Payload | Level3Payload;
+export type LevelPayload = Level0Payload | Level1Payload | Level2Payload;
 
 export function schemaForLevel(
   level: VerificationLevel,

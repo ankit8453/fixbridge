@@ -3,7 +3,6 @@ import {
   level0Schema,
   level1Schema,
   level2Schema,
-  level3Schema,
   isIdentityScanExempt,
   looksLikeFullIdNumber,
   redactPayloadForProvider,
@@ -103,72 +102,11 @@ describe('level 2 — skill', () => {
   });
 });
 
-describe('level 3 — references', () => {
-  const reference = (phone: string, name = 'Ramesh Gupta') => ({
-    name,
-    phone,
-    relationship: 'past_employer' as const,
-  });
-
-  it('accepts exactly two distinct references', () => {
-    const parsed = level3Schema.parse({
-      references: [reference('9876543210'), reference('9876543211', 'Sunita Devi')],
-    });
-
-    // Phones are normalised to E.164 on the way in, like everywhere else.
-    expect(parsed.references[0]?.phone).toBe('+919876543210');
-  });
-
-  it('refuses one reference or three', () => {
-    expect(level3Schema.safeParse({ references: [reference('9876543210')] }).success).toBe(false);
-    expect(
-      level3Schema.safeParse({
-        references: [reference('9876543210'), reference('9876543211'), reference('9876543212')],
-      }).success,
-    ).toBe(false);
-  });
-
-  it('refuses the same person listed twice', () => {
-    expect(
-      level3Schema.safeParse({
-        references: [reference('9876543210'), reference('9876543210', 'Different Name')],
-      }).success,
-    ).toBe(false);
-  });
-
-  it('refuses an invalid phone', () => {
-    expect(
-      level3Schema.safeParse({
-        references: [reference('12345'), reference('9876543211')],
-      }).success,
-    ).toBe(false);
-  });
-
-  it('accepts every relationship kind', () => {
-    for (const relationship of [
-      'past_employer',
-      'shop_owner',
-      'senior_technician',
-      'other',
-    ] as const) {
-      expect(
-        level3Schema.safeParse({
-          references: [
-            { ...reference('9876543210'), relationship },
-            { ...reference('9876543211'), relationship },
-          ],
-        }).success,
-      ).toBe(true);
-    }
-  });
-});
-
 describe('schemaForLevel', () => {
   it('routes each level to its own schema', () => {
     expect(schemaForLevel(0)).toBe(level0Schema);
     expect(schemaForLevel(1)).toBe(level1Schema);
     expect(schemaForLevel(2)).toBe(level2Schema);
-    expect(schemaForLevel(3)).toBe(level3Schema);
   });
 });
 
@@ -189,9 +127,8 @@ describe('requiredDocumentIds', () => {
     expect(requiredDocumentIds(2, { tradeTest: true, notes: 'x' })).toEqual([]);
   });
 
-  it('needs no documents for background or references', () => {
+  it('needs no documents for background', () => {
     expect(requiredDocumentIds(1, { consent: true })).toEqual([]);
-    expect(requiredDocumentIds(3, { references: [] } as never)).toEqual([]);
   });
 });
 
