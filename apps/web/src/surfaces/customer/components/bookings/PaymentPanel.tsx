@@ -139,7 +139,9 @@ export function PaymentPanel({ bookingId, payable }: { bookingId: string; payabl
 
           if (state.kind === 'awaiting_confirmation') {
             return (
-              <p className="mt-3 text-sm text-shop-ink-soft">{t('app.booking.confirmingPayment')}</p>
+              <p className="mt-3 text-sm text-shop-ink-soft">
+                {t('app.booking.confirmingPayment')}
+              </p>
             );
           }
 

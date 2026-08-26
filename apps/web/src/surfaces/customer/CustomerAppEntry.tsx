@@ -55,16 +55,21 @@ export default function CustomerAppEntry() {
   const href = (path: string): string => buildLocalizedHref(locale, path);
 
   const items: ShopNavItem[] = [
-        { key: 'home', label: t('app.nav.find'), href: href('/app'), icon: Home },
-        { key: 'bookings', label: t('app.nav.bookings'), href: href('/app/bookings'), icon: ListChecks },
-        {
-          key: 'notifications',
-          label: t('app.nav.notifications'),
-          href: href('/app/notifications'),
-          icon: Bell,
-          badge: unreadData?.unread ?? 0,
-        },
-        { key: 'account', label: t('app.nav.account'), href: href('/app/account'), icon: User },
+    { key: 'home', label: t('app.nav.find'), href: href('/app'), icon: Home },
+    {
+      key: 'bookings',
+      label: t('app.nav.bookings'),
+      href: href('/app/bookings'),
+      icon: ListChecks,
+    },
+    {
+      key: 'notifications',
+      label: t('app.nav.notifications'),
+      href: href('/app/notifications'),
+      icon: Bell,
+      badge: unreadData?.unread ?? 0,
+    },
+    { key: 'account', label: t('app.nav.account'), href: href('/app/account'), icon: User },
   ];
 
   return (
@@ -107,4 +112,3 @@ export default function CustomerAppEntry() {
     </ShopShell>
   );
 }
-

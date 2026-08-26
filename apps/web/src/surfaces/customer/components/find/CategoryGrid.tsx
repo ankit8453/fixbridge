@@ -35,7 +35,7 @@ export function CategoryGrid({ cityId = 1 }: { cityId?: number }) {
       onRetry={() => void query.refetch()}
     >
       {(data) => (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {data.categories.map((category) => {
             const theme = themeFor(category.slug);
             return (
@@ -45,7 +45,7 @@ export function CategoryGrid({ cityId = 1 }: { cityId?: number }) {
                 onClick={() =>
                   navigate(buildLocalizedHref(locale, `/app/search?categoryId=${category.id}`))
                 }
-                className={`group relative flex min-h-touch flex-col items-start gap-3 overflow-hidden rounded-2xl border bg-gradient-to-br p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 ${theme.tile}`}
+                className={`group relative flex min-h-touch flex-col items-start gap-2.5 overflow-hidden rounded-2xl border bg-gradient-to-br p-3.5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 ${theme.tile}`}
               >
                 {/* A soft bloom behind the icon. Decorative, so it is
                     aria-hidden and carries no information of its own. */}
@@ -55,9 +55,9 @@ export function CategoryGrid({ cityId = 1 }: { cityId?: number }) {
                 />
 
                 <span
-                  className={`relative flex h-11 w-11 items-center justify-center rounded-xl text-white shadow-sm ${theme.icon}`}
+                  className={`relative flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-sm ${theme.icon}`}
                 >
-                  <CategoryIcon slug={category.slug} className="h-[22px] w-[22px]" />
+                  <CategoryIcon slug={category.slug} className="h-5 w-5" />
                 </span>
 
                 <span className="relative min-w-0">

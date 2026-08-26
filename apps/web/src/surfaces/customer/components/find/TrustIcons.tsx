@@ -46,7 +46,10 @@ function Svg({ className, children }: { className: string; children: React.React
 export function ShieldTickIcon({ className = 'h-4 w-4' }: { className?: string }) {
   return (
     <Svg className={className}>
-      <path d="M12 2.8 4.8 5.6v5.8c0 4.3 2.9 8.2 7.2 9.8 4.3-1.6 7.2-5.5 7.2-9.8V5.6z" {...STROKE} />
+      <path
+        d="M12 2.8 4.8 5.6v5.8c0 4.3 2.9 8.2 7.2 9.8 4.3-1.6 7.2-5.5 7.2-9.8V5.6z"
+        {...STROKE}
+      />
       <path d="m8.9 11.9 2.2 2.2 4-4.4" {...STROKE} />
     </Svg>
   );
@@ -101,7 +104,10 @@ export function RupeeIcon({ className = 'h-4 w-4' }: { className?: string }) {
   return (
     <Svg className={className}>
       <rect x="3.2" y="3.2" width="17.6" height="17.6" rx="4.2" {...STROKE} />
-      <path d="M8.6 7.6h6.8M8.6 10.6h6.8M13 7.6c1.7 0 2.4 1.3 2.4 2.6s-.8 2.6-2.7 2.6H9.4l5 4.4" {...STROKE} />
+      <path
+        d="M8.6 7.6h6.8M8.6 10.6h6.8M13 7.6c1.7 0 2.4 1.3 2.4 2.6s-.8 2.6-2.7 2.6H9.4l5 4.4"
+        {...STROKE}
+      />
     </Svg>
   );
 }
@@ -125,7 +131,10 @@ export function ClockIcon({ className = 'h-4 w-4' }: { className?: string }) {
 export function JobsDoneIcon({ className = 'h-4 w-4' }: { className?: string }) {
   return (
     <Svg className={className}>
-      <path d="M8.4 4.6H6.6a1.8 1.8 0 0 0-1.8 1.8v12.2a1.8 1.8 0 0 0 1.8 1.8h10.8a1.8 1.8 0 0 0 1.8-1.8V6.4a1.8 1.8 0 0 0-1.8-1.8h-1.8" {...STROKE} />
+      <path
+        d="M8.4 4.6H6.6a1.8 1.8 0 0 0-1.8 1.8v12.2a1.8 1.8 0 0 0 1.8 1.8h10.8a1.8 1.8 0 0 0 1.8-1.8V6.4a1.8 1.8 0 0 0-1.8-1.8h-1.8"
+        {...STROKE}
+      />
       <rect x="8.4" y="2.8" width="7.2" height="3.6" rx="1.2" {...STROKE} />
       <path d="m9.2 13.4 1.9 1.9 3.7-4" {...STROKE} />
     </Svg>

@@ -29,16 +29,16 @@ export default function Home() {
   const location = useResolvedLocation();
 
   return (
-    <div className="flex flex-col gap-6 lg:gap-8">
+    <div className="flex flex-col gap-5">
       {/* ---------------- Headline ---------------- */}
-      <section className="pt-2 lg:pt-6">
-        <h1 className="max-w-2xl text-[26px] font-bold leading-[1.15] tracking-tight text-shop-ink lg:text-[38px]">
+      <section>
+        <h1 className="max-w-2xl text-[24px] font-bold leading-[1.15] tracking-tight text-shop-ink lg:text-[30px]">
           {t('app.find.heroTitle')}
         </h1>
 
         {/* The trust line: inline, comma-free, one row. Three bordered cards
             said the same thing and cost three times the vertical space. */}
-        <ul className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+        <ul className="mt-2.5 flex flex-wrap items-center gap-x-5 gap-y-2">
           {[
             { icon: ShieldCheck, key: 'trustVerified' },
             { icon: Star, key: 'trustRated' },
@@ -53,7 +53,7 @@ export default function Home() {
           ))}
         </ul>
 
-        <div className="mt-5 lg:max-w-2xl">
+        <div className="mt-4 lg:max-w-2xl">
           <SearchBox />
         </div>
       </section>
@@ -63,7 +63,7 @@ export default function Home() {
 
       {/* ---------------- Categories ---------------- */}
       <section>
-        <h2 className="mb-3.5 text-[19px] font-bold tracking-tight text-shop-ink lg:text-[22px]">
+        <h2 className="mb-3 text-[17px] font-bold tracking-tight text-shop-ink lg:text-[19px]">
           {t('app.find.browseByCategory')}
         </h2>
         <CategoryGrid />

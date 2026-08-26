@@ -16,11 +16,7 @@
  */
 
 export type CategorySlug =
-  | 'electrical'
-  | 'plumbing'
-  | 'motors-generators'
-  | 'cooling-appliances'
-  | 'mechanics';
+  'electrical' | 'plumbing' | 'motors-generators' | 'cooling-appliances' | 'mechanics';
 
 const STROKE = {
   fill: 'none',

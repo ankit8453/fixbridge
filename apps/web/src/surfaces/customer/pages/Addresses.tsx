@@ -33,7 +33,9 @@ export default function Addresses() {
           {t('app.addresses.add')}
         </Button>
       </div>
-      {atLimit ? <p className="text-xs text-shop-ink-soft">{t('app.addresses.limitReached')}</p> : null}
+      {atLimit ? (
+        <p className="text-xs text-shop-ink-soft">{t('app.addresses.limitReached')}</p>
+      ) : null}
 
       <QueryState
         status={query.status}

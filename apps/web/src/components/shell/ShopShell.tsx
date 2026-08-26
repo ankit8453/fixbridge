@@ -16,7 +16,7 @@ import { APP_NAME, BrandLogo } from '../../brand/tokens';
  * full-width content, and the phone layout keeps a bottom tab bar because a
  * thumb cannot reach the top of a phone.
  *
- * Colour comes from the `shop-*` tokens (warm coral on cream), never the
+ * Colour comes from the `shop-*` tokens (deep plum), never the
  * `brand-*` indigo the partner surface uses — see `shopColors` in
  * `brand/tokens.ts`.
  */
@@ -91,7 +91,7 @@ export function ShopShell({
       {/* ---------------- Content ---------------- */}
       {/* `pb-24` clears the fixed tab bar on a phone; desktop has no bar, so
           the padding drops away with the breakpoint. */}
-      <main className="mx-auto w-full max-w-6xl px-4 pb-24 pt-4 lg:px-6 lg:pb-12 lg:pt-6">
+      <main className="mx-auto w-full max-w-6xl px-4 pb-24 pt-4 lg:px-6 lg:pb-8 lg:pt-5">
         {children}
       </main>
 

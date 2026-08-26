@@ -66,7 +66,10 @@ export function IconEnRoute({ className = 'h-5 w-5' }: { className?: string }) {
 export function IconArrived({ className = 'h-5 w-5' }: { className?: string }) {
   return (
     <Svg className={className}>
-      <path d="M12 21c3.7-4.2 5.6-7.2 5.6-9.6A5.6 5.6 0 0 0 6.4 11.4c0 2.4 1.9 5.4 5.6 9.6Z" {...STROKE} />
+      <path
+        d="M12 21c3.7-4.2 5.6-7.2 5.6-9.6A5.6 5.6 0 0 0 6.4 11.4c0 2.4 1.9 5.4 5.6 9.6Z"
+        {...STROKE}
+      />
       <circle cx="12" cy="11.2" r="2.1" {...STROKE} />
     </Svg>
   );
@@ -88,7 +91,10 @@ export function IconInProgress({ className = 'h-5 w-5' }: { className?: string }
 export function IconDone({ className = 'h-5 w-5' }: { className?: string }) {
   return (
     <Svg className={className}>
-      <path d="M9 4.5H7.2A1.7 1.7 0 0 0 5.5 6.2v13.1a1.7 1.7 0 0 0 1.7 1.7h9.6a1.7 1.7 0 0 0 1.7-1.7V6.2A1.7 1.7 0 0 0 16.8 4.5H15" {...STROKE} />
+      <path
+        d="M9 4.5H7.2A1.7 1.7 0 0 0 5.5 6.2v13.1a1.7 1.7 0 0 0 1.7 1.7h9.6a1.7 1.7 0 0 0 1.7-1.7V6.2A1.7 1.7 0 0 0 16.8 4.5H15"
+        {...STROKE}
+      />
       <rect x="9" y="2.8" width="6" height="3.4" rx="1.2" {...STROKE} />
       <path d="m8.8 13.4 2.2 2.2 4.2-4.3" {...STROKE} />
     </Svg>
@@ -135,7 +141,10 @@ export function IconRupee({ className = 'h-5 w-5' }: { className?: string }) {
 export function IconComplaint({ className = 'h-5 w-5' }: { className?: string }) {
   return (
     <Svg className={className}>
-      <path d="M20.5 12.8c0 3.6-3.4 6.4-7.6 6.4a9.4 9.4 0 0 1-2.5-.3L5.2 20.5l1-3.3a6 6 0 0 1-2.7-4.9c0-3.5 3.4-6.4 7.6-6.4h1.4c4.2 0 8 2.9 8 6.9Z" {...STROKE} />
+      <path
+        d="M20.5 12.8c0 3.6-3.4 6.4-7.6 6.4a9.4 9.4 0 0 1-2.5-.3L5.2 20.5l1-3.3a6 6 0 0 1-2.7-4.9c0-3.5 3.4-6.4 7.6-6.4h1.4c4.2 0 8 2.9 8 6.9Z"
+        {...STROKE}
+      />
       <path d="M12 9.6v3.1" {...STROKE} />
       <circle cx="12" cy="15.2" r=".85" fill="currentColor" stroke="none" />
     </Svg>
@@ -157,7 +166,10 @@ export function IconBellDrawn({ className = 'h-5 w-5' }: { className?: string })
 export function IconAddress({ className = 'h-5 w-5' }: { className?: string }) {
   return (
     <Svg className={className}>
-      <path d="M4 10.4 12 4l8 6.4v9a1.4 1.4 0 0 1-1.4 1.4H5.4A1.4 1.4 0 0 1 4 19.4v-9Z" {...STROKE} />
+      <path
+        d="M4 10.4 12 4l8 6.4v9a1.4 1.4 0 0 1-1.4 1.4H5.4A1.4 1.4 0 0 1 4 19.4v-9Z"
+        {...STROKE}
+      />
       <path d="M9.6 20.8v-5.4h4.8v5.4" {...STROKE} />
     </Svg>
   );
@@ -177,7 +189,10 @@ export function IconPerson({ className = 'h-5 w-5' }: { className?: string }) {
 export function IconTag({ className = 'h-5 w-5' }: { className?: string }) {
   return (
     <Svg className={className}>
-      <path d="M11.3 3.5H4.9a1.4 1.4 0 0 0-1.4 1.4v6.4a1.4 1.4 0 0 0 .4 1l8.3 8.3a1.4 1.4 0 0 0 2 0l6.4-6.4a1.4 1.4 0 0 0 0-2l-8.3-8.3a1.4 1.4 0 0 0-1-.4Z" {...STROKE} />
+      <path
+        d="M11.3 3.5H4.9a1.4 1.4 0 0 0-1.4 1.4v6.4a1.4 1.4 0 0 0 .4 1l8.3 8.3a1.4 1.4 0 0 0 2 0l6.4-6.4a1.4 1.4 0 0 0 0-2l-8.3-8.3a1.4 1.4 0 0 0-1-.4Z"
+        {...STROKE}
+      />
       <circle cx="7.9" cy="7.9" r="1.3" {...STROKE} />
     </Svg>
   );

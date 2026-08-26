@@ -68,7 +68,6 @@ export const brandColors = {
   accentAlt: '#7c3aed',
 } as const;
 
-
 /**
  * The customer storefront's palette — deep plum, deliberately NOT the indigo
  * the partner app uses nor the teal of the ops console.

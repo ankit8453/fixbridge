@@ -59,9 +59,7 @@ export function LocationBar({
       : null;
 
   const shell =
-    tone === 'brand'
-      ? 'border-shop/15 bg-shop-soft'
-      : 'border-shop-line bg-white shadow-sm';
+    tone === 'brand' ? 'border-shop/15 bg-shop-soft' : 'border-shop-line bg-white shadow-sm';
 
   return (
     <div className={`flex items-center gap-3 rounded-2xl border px-3.5 py-3 ${shell}`}>
@@ -74,9 +72,7 @@ export function LocationBar({
           {t('app.find.locationLabel')}
         </p>
         <p className="truncate text-[15px] font-bold leading-tight text-shop-ink">{chipText}</p>
-        {detailText ? (
-          <p className="truncate text-xs text-shop-ink-soft">{detailText}</p>
-        ) : null}
+        {detailText ? <p className="truncate text-xs text-shop-ink-soft">{detailText}</p> : null}
       </div>
 
       <Button variant="secondary" size="sm" onClick={() => setPickerOpen(true)}>
@@ -119,7 +115,9 @@ export function LocationBar({
                     >
                       <span
                         className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                          selected ? 'bg-shop text-shop-foreground' : 'bg-slate-100 text-shop-ink-soft'
+                          selected
+                            ? 'bg-shop text-shop-foreground'
+                            : 'bg-slate-100 text-shop-ink-soft'
                         }`}
                       >
                         <PinIcon className="h-4 w-4" />
