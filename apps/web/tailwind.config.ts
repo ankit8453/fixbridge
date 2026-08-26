@@ -25,6 +25,20 @@ const config: Config = {
         },
         'brand-accent': 'var(--color-brand-accent)',
         'brand-accent-alt': 'var(--color-brand-accent-alt)',
+        // The customer storefront — warm coral on cream, deliberately not the
+        // indigo of the partner app. See shopColors in brand/tokens.ts.
+        shop: {
+          DEFAULT: 'var(--color-shop-primary)',
+          foreground: 'var(--color-shop-primary-foreground)',
+          bright: 'var(--color-shop-bright)',
+          deep: 'var(--color-shop-deep)',
+          soft: 'var(--color-shop-soft)',
+          accent: 'var(--color-shop-accent)',
+          ground: 'var(--color-shop-ground)',
+          ink: 'var(--color-shop-ink)',
+          'ink-soft': 'var(--color-shop-ink-soft)',
+          line: 'var(--color-shop-line)',
+        },
         // The ops console's own accent — teal, deliberately not the indigo the
         // customer and partner surfaces use. See adminColors in brand/tokens.ts.
         admin: {

@@ -1,8 +1,11 @@
 import { Home, ListChecks, Bell, User } from 'lucide-react';
 import { Route, Routes, useLocation } from 'react-router-dom';
-import { useT } from '../../i18n/useT';
-import { MobileAppShell } from '../../components/shell/MobileAppShell';
-import { Card } from '../../components/ui';
+import { useLocale, useT } from '../../i18n/useT';
+import { buildLocalizedHref } from '../../i18n/config';
+import { useAuth } from '../../lib/auth/useAuth';
+import { ShopShell, type ShopNavItem } from '../../components/shell/ShopShell';
+import { LocaleToggle } from '../../components/shell/LocaleToggle';
+import { Button, Card } from '../../components/ui';
 import { useUnreadCount } from './data/notifications';
 import HomePage from './pages/Home';
 import SearchPage from './pages/Search';
@@ -47,22 +50,37 @@ export default function CustomerAppEntry() {
         ? 'account'
         : 'home';
 
-  return (
-    <MobileAppShell
-      title={t('nav.app')}
-      tabs={[
-        { key: 'home', label: t('app.nav.find'), href: '/app', icon: Home },
-        { key: 'bookings', label: t('app.nav.bookings'), href: '/app/bookings', icon: ListChecks },
+  const locale = useLocale();
+  const { logout } = useAuth();
+  const href = (path: string): string => buildLocalizedHref(locale, path);
+
+  const items: ShopNavItem[] = [
+        { key: 'home', label: t('app.nav.find'), href: href('/app'), icon: Home },
+        { key: 'bookings', label: t('app.nav.bookings'), href: href('/app/bookings'), icon: ListChecks },
         {
           key: 'notifications',
           label: t('app.nav.notifications'),
-          href: '/app/notifications',
+          href: href('/app/notifications'),
           icon: Bell,
           badge: unreadData?.unread ?? 0,
         },
-        { key: 'account', label: t('app.nav.account'), href: '/app/account', icon: User },
-      ]}
+        { key: 'account', label: t('app.nav.account'), href: href('/app/account'), icon: User },
+  ];
+
+  return (
+    <ShopShell
+      navLabel={t('nav.app')}
+      items={items}
       activeKey={activeKey}
+      homeHref={href('/app')}
+      topBarActions={
+        <>
+          <LocaleToggle />
+          <Button variant="ghost" size="sm" onClick={() => void logout()}>
+            {t('nav.logout')}
+          </Button>
+        </>
+      }
     >
       <Routes>
         <Route index element={<HomePage />} />
@@ -86,6 +104,7 @@ export default function CustomerAppEntry() {
           }
         />
       </Routes>
-    </MobileAppShell>
+    </ShopShell>
   );
 }
+

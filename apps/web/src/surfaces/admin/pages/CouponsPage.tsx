@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Info, TicketPercent } from 'lucide-react';
 import {
   createCoupon,
+  fetchCouponStats,
   fetchCoupons,
   pauseCoupon,
   resumeCoupon,

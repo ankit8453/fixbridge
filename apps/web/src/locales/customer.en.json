@@ -6,7 +6,12 @@
       "notifications": "Alerts",
       "account": "Account",
       "label": "Main menu",
-      "unreadCount": "{{count}} unread notifications"
+      "unreadCount": "{{count}} unread notifications",
+      "search": "Search results",
+      "provider": "Technician",
+      "bookingDetail": "Your booking",
+      "addresses": "Saved addresses",
+      "complaints": "Complaints"
     },
     "auth": {
       "title": "Sign in",
@@ -43,7 +48,11 @@
       "providerCount": "{{count}} technicians available",
       "resultsFor": "Results for \"{{query}}\"",
       "sortLabel": "Sort",
-      "sort": { "rank": "Best match", "distance": "Distance", "priceLow": "Lowest price" },
+      "sort": {
+        "rank": "Best match",
+        "distance": "Distance",
+        "priceLow": "Lowest price"
+      },
       "maxDistanceLabel": "Max distance",
       "maxDistanceAny": "Any distance",
       "searching": "Searching for technicians…",
@@ -56,7 +65,34 @@
       "startingFrom": "From {{price}}",
       "priceOnInspection": "Price after inspection",
       "nextSlot": "Next slot: {{day}}, {{time}}",
-      "noUpcomingSlot": "No upcoming slots"
+      "noUpcomingSlot": "No upcoming slots",
+      "heroTitle": "Verified mistris, at your door",
+      "heroSubtitle": "Electricians, plumbers, motor and AC technicians across Jabalpur — ID-checked, rated by real customers, and priced before the work starts.",
+      "trustVerified": "ID verified",
+      "trustRated": "Rated by customers",
+      "trustFast": "Same-day slots",
+      "filtersHeading": "Refine results",
+      "resultCount": "{{count}} technicians near you",
+      "resultCountOne": "1 technician near you",
+      "clearFilters": "Clear filters",
+      "searchAriaLabel": "Describe the problem",
+      "searchSubmit": "Search",
+      "suggestionsHeading": "Services that match",
+      "locationPickerHint": "Results are ranked by distance from here.",
+      "savedAddresses": "Saved addresses",
+      "noSavedAddresses": "No saved addresses yet.",
+      "orDivider": "or",
+      "ratingAria": "Rated {{average}} out of 5 by {{count}} customers",
+      "newTechnician": "New on the platform",
+      "viewProfile": "View profile",
+      "priceLabel": "Price",
+      "availabilityLabel": "Next free",
+      "badgeVerifiedNote": "ID checked by our team",
+      "skillsMore": "+{{count}} more",
+      "needLocationTitle": "Where should we look?",
+      "needLocationAction": "Set my location",
+      "clearSearch": "Clear search",
+      "heroEyebrow": "Jabalpur"
     },
     "dayOfWeek": {
       "0": "Sunday",
@@ -67,7 +103,12 @@
       "5": "Friday",
       "6": "Saturday"
     },
-    "badge": { "NONE": "New", "VERIFIED": "Verified", "SILVER": "Silver", "GOLD": "Gold" },
+    "badge": {
+      "NONE": "New",
+      "VERIFIED": "Verified",
+      "SILVER": "Silver",
+      "GOLD": "Gold"
+    },
     "provider": {
       "serviceLabel": "For which service",
       "availableSlots": "Available times",
@@ -85,14 +126,37 @@
       "noAddressYet": "Add an address first.",
       "problemNoteLabel": "Describe the problem (optional)",
       "problemNoteHint": "e.g. the fan stops working after a while",
-      "yearsExperienceLabel": "Experience"
+      "yearsExperienceLabel": "Experience",
+      "bookNow": "Book this technician",
+      "pickSlotFirst": "Pick a time to continue",
+      "selectedSlot": "Selected: {{day}}, {{date}} at {{time}}",
+      "aboutHeading": "About",
+      "skillsHeading": "Services offered",
+      "pricesHeading": "Prices",
+      "noPriceCards": "This technician quotes after seeing the problem.",
+      "priceOnInspectionShort": "After inspection",
+      "memberSince": "On {{app}} since {{date}}",
+      "jobsLabel": "Jobs done",
+      "ratingLabel": "Rating",
+      "experienceLabel": "Experience",
+      "yearsShort": "{{years}} yrs",
+      "whatCustomersSay": "What customers mention",
+      "tagCount": "{{count}}",
+      "reviewCount": "{{count}} reviews",
+      "noRatingBreakdown": "Ratings appear once customers review a completed job.",
+      "safetyNote": "Address and contact details are shared only after the booking is accepted.",
+      "slotHelp": "Times are shown in IST. Tap one to book.",
+      "changeService": "Change service"
     },
     "bookings": {
       "title": "My bookings",
       "loading": "Loading bookings…",
       "empty": "No bookings yet",
       "emptyHint": "Find a service and make your first booking.",
-      "tab": { "active": "Active", "past": "Past" }
+      "tab": {
+        "active": "Active",
+        "past": "Past"
+      }
     },
     "bookingStatus": {
       "REQUESTED": "Waiting for response",
@@ -248,7 +312,11 @@
       "limitReached": "You can save up to 5 addresses.",
       "default": "Default",
       "labelField": "This address is",
-      "label": { "home": "Home", "shop": "Shop", "other": "Other" },
+      "label": {
+        "home": "Home",
+        "shop": "Shop",
+        "other": "Other"
+      },
       "labelTextField": "Name it (optional)",
       "addressTextField": "Full address",
       "landmarkField": "Landmark",

@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Loader2, Search as SearchGlyph, X } from 'lucide-react';
 import { useLocale, useT } from '@/i18n/useT';
 import { buildLocalizedHref } from '@/i18n/config';
 import { resolveSearchQuery } from '@/surfaces/customer/data/search';
 import type { CategorySuggestion } from '@/surfaces/customer/data/types';
-import { TextInput } from '@/components/ui';
+import { CategoryIcon } from './CategoryIcon';
 
 const DEBOUNCE_MS = 300;
 
@@ -16,6 +17,15 @@ const DEBOUNCE_MS = 300;
  * keystroke would burn most of that budget on a single "motor jal gayi"
  * typed at a normal pace. Ported from
  * `legacy-next-src/components/customer/find/SearchBox.tsx`.
+ *
+ * Visually this is now built to sit on the home hero's indigo gradient as well
+ * as on a white results page, which is why it does not use the shared
+ * `TextInput`: that control's `border-slate-300` and slate focus ring are
+ * tuned for a white page and disappear into a coloured one. The field is a
+ * solid white pill instead — high contrast against any background, and it
+ * reads as the page's primary action from across the room, which is exactly
+ * what it is. `text-base` (16px) is kept because anything smaller makes iOS
+ * Safari zoom the whole page on focus.
  */
 export function SearchBox() {
   const t = useT();
@@ -76,32 +86,77 @@ export function SearchBox() {
 
   return (
     <div className="relative">
-      <TextInput
-        type="search"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onFocus={() => suggestions.length > 0 && setOpen(true)}
-        placeholder={t('app.find.searchPlaceholder')}
-        aria-label={t('app.find.searchPlaceholder')}
-      />
+      <div className="relative flex items-center">
+        <SearchGlyph
+          className="pointer-events-none absolute left-4 h-[18px] w-[18px] text-slate-400"
+          aria-hidden="true"
+          strokeWidth={2.25}
+        />
+
+        <input
+          type="search"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onFocus={() => suggestions.length > 0 && setOpen(true)}
+          placeholder={t('app.find.searchPlaceholder')}
+          aria-label={t('app.find.searchAriaLabel')}
+          // `appearance-none` kills WebKit's own search-field decorations,
+          // which otherwise draw a second clear button on top of ours.
+          className="w-full min-h-[52px] appearance-none rounded-2xl border border-white/40 bg-white py-3 pl-11 pr-11 text-base font-medium text-slate-900 shadow-lg shadow-slate-900/10 outline-none placeholder:font-normal placeholder:text-slate-400 focus:border-brand focus:ring-2 focus:ring-brand/25 [&::-webkit-search-cancel-button]:appearance-none"
+        />
+
+        {loading ? (
+          <Loader2
+            className="pointer-events-none absolute right-4 h-4 w-4 animate-spin text-slate-400"
+            aria-hidden="true"
+            strokeWidth={2.5}
+          />
+        ) : value.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => {
+              setValue('');
+              setOpen(false);
+            }}
+            aria-label={t('app.find.clearSearch')}
+            className="absolute right-2 flex h-9 w-9 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+          >
+            <X className="h-4 w-4" aria-hidden="true" strokeWidth={2.5} />
+          </button>
+        ) : null}
+      </div>
+
       {open ? (
-        <ul className="absolute inset-x-0 z-30 mt-1 max-h-72 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+        <ul className="absolute inset-x-0 z-30 mt-2 max-h-72 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-900/10">
           {loading ? (
-            <li className="px-3 py-2 text-sm text-slate-500">{t('common.loading')}</li>
+            <li className="px-3 py-3 text-sm text-slate-500">{t('common.loading')}</li>
           ) : suggestions.length === 0 ? (
-            <li className="px-3 py-2 text-sm text-slate-500">{t('app.find.noSuggestions')}</li>
+            <li className="px-3 py-3 text-sm text-slate-500">{t('app.find.noSuggestions')}</li>
           ) : (
             suggestions.map((suggestion) => (
               <li key={suggestion.categoryId}>
                 <button
                   type="button"
                   onClick={() => goToCategory(suggestion.categoryId)}
-                  className="flex min-h-touch w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50"
+                  className="flex min-h-touch w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-brand-soft"
                 >
-                  <span>{suggestion.name}</span>
-                  {suggestion.matchReason === 'synonym_fuzzy' ? (
-                    <span className="text-xs text-slate-500">{t('app.find.didYouMean')}</span>
-                  ) : null}
+                  {/* The same drawn glyph the category grid uses, so a
+                      suggestion and the tile it leads to are recognisably the
+                      same thing. Falls back to a generic tool icon for any
+                      category without a drawn one. */}
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand">
+                    <CategoryIcon slug={suggestion.slug} className="h-[18px] w-[18px]" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-semibold text-slate-900">
+                      {suggestion.name}
+                    </span>
+                    {suggestion.matchReason === 'synonym_fuzzy' ? (
+                      <span className="block text-xs text-slate-500">
+                        {t('app.find.didYouMean')}
+                      </span>
+                    ) : null}
+                  </span>
                 </button>
               </li>
             ))

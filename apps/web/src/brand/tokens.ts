@@ -68,6 +68,45 @@ export const brandColors = {
   accentAlt: '#7c3aed',
 } as const;
 
+
+/**
+ * The customer storefront's palette — warm, human, deliberately NOT the
+ * indigo the partner app uses.
+ *
+ * Three surfaces, three registers. The ops console is teal (an instrument
+ * panel), the partner app is indigo (the product a technician works for), and
+ * this is coral on cream — the one a customer sees when they are deciding
+ * whether to let somebody into their house. Warm colour and soft shapes read
+ * as a person; cool blue reads as enterprise software.
+ *
+ * Contrast measured, not guessed:
+ *   - `primary` #c2410c is 4.99:1 on the cream ground — clears WCAG AA for
+ *     body text, so it can carry real copy and not just chrome.
+ *   - `bright` #e2553d is 3.61:1 — DECORATIVE ONLY. Gradients, fills behind
+ *     white text, illustration. Never body text on a light ground.
+ */
+export const shopColors = {
+  /** Burnt coral. AA on cream — safe for text. */
+  primary: '#c2410c',
+  primaryForeground: '#ffffff',
+  /** Bright coral. Decorative only — see the note above. */
+  bright: '#e2553d',
+  /** Deep terracotta, for pressed states and the far end of a gradient. */
+  deep: '#9a3412',
+  /** The barely-there tint behind selected rows and icon chips. */
+  soft: '#fff1ea',
+  /** Warm gold, the gradient's other end. Decorative. */
+  accent: '#f0a04b',
+  /** The page ground. Cream, not white — white is what every app defaults to. */
+  ground: '#fffaf5',
+  /** Near-black with a warm cast, so text does not look blue on cream. */
+  ink: '#1c1917',
+  /** De-emphasised copy. 4.63:1 on cream. */
+  inkSoft: '#78716c',
+  /** Hairline borders, warm rather than slate. */
+  line: '#f0e4da',
+} as const;
+
 /**
  * The ops console's own accent, deliberately NOT the customer/partner indigo.
  *
@@ -152,6 +191,16 @@ export function BrandStyleVars(): ReactElement {
     `--color-brand-primary-soft:${brandColors.primarySoft};` +
     `--color-brand-accent:${brandColors.accent};` +
     `--color-brand-accent-alt:${brandColors.accentAlt};` +
+    `--color-shop-primary:${shopColors.primary};` +
+    `--color-shop-primary-foreground:${shopColors.primaryForeground};` +
+    `--color-shop-bright:${shopColors.bright};` +
+    `--color-shop-deep:${shopColors.deep};` +
+    `--color-shop-soft:${shopColors.soft};` +
+    `--color-shop-accent:${shopColors.accent};` +
+    `--color-shop-ground:${shopColors.ground};` +
+    `--color-shop-ink:${shopColors.ink};` +
+    `--color-shop-ink-soft:${shopColors.inkSoft};` +
+    `--color-shop-line:${shopColors.line};` +
     `--color-admin-primary:${adminColors.primary};` +
     `--color-admin-primary-foreground:${adminColors.primaryForeground};` +
     `--color-admin-primary-deep:${adminColors.primaryDeep};` +

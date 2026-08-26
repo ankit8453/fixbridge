@@ -9,6 +9,23 @@ class MemoryRedisMock {
   private map = new Map<string, string>();
   private sets = new Map<string, Set<string>>();
 
+  /**
+   * Pattern scan, matching the subset of glob ioredis callers actually use
+   * here (a trailing `*`). Returning `[]` from a missing method is not good
+   * enough: the caller does `.length` on the result, and `undefined.length`
+   * is the crash this mock existed to prevent.
+   */
+  keys(pattern: string): Promise<string[]> {
+    const prefix = pattern.endsWith('*') ? pattern.slice(0, -1) : pattern;
+    const exact = !pattern.endsWith('*');
+
+    const hits = [...this.map.keys(), ...this.sets.keys()].filter((key) =>
+      exact ? key === pattern : key.startsWith(prefix),
+    );
+
+    return Promise.resolve([...new Set(hits)]);
+  }
+
   on() {
     return this;
   }
@@ -72,6 +89,23 @@ class MemoryRedisMock {
   }
 }
 
+
+/**
+ * MISSING_MOCK_METHODS
+ *
+ * What an unimplemented method resolves to when the fallback is active.
+ *
+ * It used to be `Promise.resolve()` -- i.e. `undefined` -- which is the wrong
+ * shape for every read the app performs and turned a Redis blip into a
+ * `TypeError` far from the cause. Returning an empty array is right for the
+ * scan/list family and harmless for the rest, and the warning means the gap
+ * shows up in the log rather than as a crash three modules away.
+ */
+function fallbackResult(prop: string | symbol, logger: AppLogger): unknown {
+  logger.warn({ command: String(prop) }, 'redis: no in-memory fallback for this command');
+  return Promise.resolve([]);
+}
+
 /**
  * Narrowing helpers for the proxy below.
  *
@@ -114,7 +148,21 @@ export function createRedisClient(config: AppConfig, logger: AppLogger): Redis {
   });
 
   client.on('connect', () => logger.info('redis: connected'));
-  client.on('ready', () => logger.info('redis: ready'));
+  client.on('ready', () => {
+    /**
+     * Recovery. `useMock` used to be one-way: a single transient error latched
+     * it on and nothing ever turned it off, so one blip during startup meant
+     * the process served an in-memory stub for the rest of its life -- and
+     * because the stub silently answered `undefined` for anything it did not
+     * implement, the symptom surfaced somewhere else entirely (a 500 in
+     * /admin/summary, reading `.length` of nothing).
+     *
+     * A fallback that cannot recover is an outage with extra steps.
+     */
+    if (useMock) logger.info('redis: back, leaving in-memory fallback');
+    useMock = false;
+    logger.info('redis: ready');
+  });
   client.on('end', () => {
     logger.info('redis: connection closed');
     useMock = true;
@@ -138,7 +186,7 @@ export function createRedisClient(config: AppConfig, logger: AppLogger): Redis {
             if (prop in mock) {
               return mockMethod(mock, prop)(...args);
             }
-            return Promise.resolve();
+            return fallbackResult(prop, logger);
           }
           try {
             const res = val.apply(this || target, args);
@@ -150,7 +198,7 @@ export function createRedisClient(config: AppConfig, logger: AppLogger): Redis {
                   if (prop in mock) {
                     return mockMethod(mock, prop)(...args);
                   }
-                  return Promise.resolve();
+                  return fallbackResult(prop, logger);
                 }
                 throw err;
               });
@@ -162,7 +210,7 @@ export function createRedisClient(config: AppConfig, logger: AppLogger): Redis {
               if (prop in mock) {
                 return mockMethod(mock, prop)(...args);
               }
-              return Promise.resolve();
+              return fallbackResult(prop, logger);
             }
             throw err;
           }

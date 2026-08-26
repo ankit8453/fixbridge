@@ -6,7 +6,12 @@
       "notifications": "सूचनाएं",
       "account": "खाता",
       "label": "मुख्य मेन्यू",
-      "unreadCount": "{{count}} नई सूचनाएं"
+      "unreadCount": "{{count}} नई सूचनाएं",
+      "search": "खोज के नतीजे",
+      "provider": "कारीगर",
+      "bookingDetail": "आपकी बुकिंग",
+      "addresses": "सहेजे गए पते",
+      "complaints": "शिकायतें"
     },
     "auth": {
       "title": "लॉगिन करें",
@@ -43,7 +48,11 @@
       "providerCount": "{{count}} कारीगर उपलब्ध",
       "resultsFor": "\"{{query}}\" के नतीजे",
       "sortLabel": "क्रम",
-      "sort": { "rank": "सबसे सही", "distance": "दूरी", "priceLow": "कम कीमत पहले" },
+      "sort": {
+        "rank": "सबसे सही",
+        "distance": "दूरी",
+        "priceLow": "कम कीमत पहले"
+      },
       "maxDistanceLabel": "दूरी सीमा",
       "maxDistanceAny": "कोई सीमा नहीं",
       "searching": "कारीगर खोजे जा रहे हैं…",
@@ -56,7 +65,34 @@
       "startingFrom": "{{price}} से शुरू",
       "priceOnInspection": "देखने के बाद कीमत बताई जाएगी",
       "nextSlot": "अगला स्लॉट: {{day}}, {{time}}",
-      "noUpcomingSlot": "अभी कोई खाली स्लॉट नहीं"
+      "noUpcomingSlot": "अभी कोई खाली स्लॉट नहीं",
+      "heroTitle": "भरोसेमंद मिस्त्री, आपके घर पर",
+      "heroSubtitle": "जबलपुर के इलेक्ट्रीशियन, प्लंबर, मोटर और AC कारीगर — ID जाँची हुई, ग्राहकों की रेटिंग वाले, और काम शुरू होने से पहले तय दाम।",
+      "trustVerified": "ID जाँची हुई",
+      "trustRated": "ग्राहकों की रेटिंग",
+      "trustFast": "आज ही का समय",
+      "filtersHeading": "नतीजे छाँटें",
+      "resultCount": "आपके पास {{count}} कारीगर",
+      "resultCountOne": "आपके पास 1 कारीगर",
+      "clearFilters": "छँटनी हटाएं",
+      "searchAriaLabel": "समस्या बताएं",
+      "searchSubmit": "खोजें",
+      "suggestionsHeading": "मिलते-जुलते काम",
+      "locationPickerHint": "नतीजे यहीं से दूरी के हिसाब से लगाए जाते हैं।",
+      "savedAddresses": "सहेजे गए पते",
+      "noSavedAddresses": "अभी कोई पता सहेजा नहीं गया।",
+      "orDivider": "या",
+      "ratingAria": "{{count}} ग्राहकों ने 5 में से {{average}} रेटिंग दी",
+      "newTechnician": "नया कारीगर",
+      "viewProfile": "पूरी जानकारी देखें",
+      "priceLabel": "दाम",
+      "availabilityLabel": "अगला खाली समय",
+      "badgeVerifiedNote": "हमारी टीम ने ID जाँची है",
+      "skillsMore": "+{{count}} और",
+      "needLocationTitle": "कहाँ ढूँढ़ें?",
+      "needLocationAction": "लोकेशन चुनें",
+      "clearSearch": "खोज मिटाएं",
+      "heroEyebrow": "जबलपुर"
     },
     "dayOfWeek": {
       "0": "रविवार",
@@ -67,7 +103,12 @@
       "5": "शुक्रवार",
       "6": "शनिवार"
     },
-    "badge": { "NONE": "नया", "VERIFIED": "सत्यापित", "SILVER": "सिल्वर", "GOLD": "गोल्ड" },
+    "badge": {
+      "NONE": "नया",
+      "VERIFIED": "सत्यापित",
+      "SILVER": "सिल्वर",
+      "GOLD": "गोल्ड"
+    },
     "provider": {
       "serviceLabel": "किस काम के लिए",
       "availableSlots": "खाली समय",
@@ -85,14 +126,37 @@
       "noAddressYet": "पहले कोई पता जोड़ें।",
       "problemNoteLabel": "समस्या बताएं (वैकल्पिक)",
       "problemNoteHint": "जैसे: पंखा चलते-चलते बंद हो जाता है",
-      "yearsExperienceLabel": "अनुभव"
+      "yearsExperienceLabel": "अनुभव",
+      "bookNow": "इस कारीगर को बुक करें",
+      "pickSlotFirst": "आगे बढ़ने के लिए समय चुनें",
+      "selectedSlot": "चुना गया: {{day}}, {{date}} को {{time}} बजे",
+      "aboutHeading": "परिचय",
+      "skillsHeading": "कौन-कौन से काम",
+      "pricesHeading": "दाम",
+      "noPriceCards": "यह कारीगर समस्या देखने के बाद दाम बताता है।",
+      "priceOnInspectionShort": "देखने के बाद",
+      "memberSince": "{{date}} से {{app}} पर",
+      "jobsLabel": "पूरे किए काम",
+      "ratingLabel": "रेटिंग",
+      "experienceLabel": "अनुभव",
+      "yearsShort": "{{years}} साल",
+      "whatCustomersSay": "ग्राहक क्या कहते हैं",
+      "tagCount": "{{count}}",
+      "reviewCount": "{{count}} राय",
+      "noRatingBreakdown": "काम पूरा होने पर ग्राहक राय देंगे, तभी रेटिंग दिखेगी।",
+      "safetyNote": "पता और फ़ोन नंबर बुकिंग मंज़ूर होने के बाद ही साझा किए जाते हैं।",
+      "slotHelp": "समय भारतीय समय (IST) में है। बुक करने के लिए किसी एक पर टैप करें।",
+      "changeService": "दूसरा काम चुनें"
     },
     "bookings": {
       "title": "मेरी बुकिंग",
       "loading": "बुकिंग लोड हो रही हैं…",
       "empty": "अभी कोई बुकिंग नहीं है",
       "emptyHint": "काम खोजें और अपनी पहली बुकिंग करें।",
-      "tab": { "active": "चालू", "past": "पुरानी" }
+      "tab": {
+        "active": "चालू",
+        "past": "पुरानी"
+      }
     },
     "bookingStatus": {
       "REQUESTED": "जवाब का इंतज़ार",
@@ -248,7 +312,11 @@
       "limitReached": "ज़्यादा से ज़्यादा 5 पते जोड़े जा सकते हैं।",
       "default": "डिफ़ॉल्ट",
       "labelField": "यह पता किसका है",
-      "label": { "home": "घर", "shop": "दुकान", "other": "अन्य" },
+      "label": {
+        "home": "घर",
+        "shop": "दुकान",
+        "other": "अन्य"
+      },
       "labelTextField": "नाम दें (वैकल्पिक)",
       "addressTextField": "पूरा पता",
       "landmarkField": "लैंडमार्क",
