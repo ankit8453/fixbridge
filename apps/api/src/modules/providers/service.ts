@@ -542,10 +542,10 @@ function profilePhotoObjectKey(providerId: string, photoId: string): string {
 }
 
 export interface ProfilePhotoView {
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'approved' | 'removed';
   /**
    * Short-lived signed URL, present in every status — a technician whose photo
-   * was refused needs to see which photo it was in order to replace it.
+   * was taken down needs to see which photo it was in order to replace it.
    */
   url: string;
   uploadedAt: string | null;
@@ -601,12 +601,12 @@ export async function requestPhotoUploadUrl(
     });
   }
 
-  if (input.sizeBytes > context.config.STORAGE_MAX_UPLOAD_BYTES) {
+  if (input.sizeBytes > context.config.PROFILE_PHOTO_MAX_UPLOAD_BYTES) {
     throw AppError.badRequest(
-      `Photo is ${input.sizeBytes} bytes; the limit is ${context.config.STORAGE_MAX_UPLOAD_BYTES}`,
+      `Photo is ${input.sizeBytes} bytes; the limit is ${context.config.PROFILE_PHOTO_MAX_UPLOAD_BYTES}`,
       {
         messageKey: 'errors.providers.photoTooLarge',
-        details: { maxBytes: context.config.STORAGE_MAX_UPLOAD_BYTES },
+        details: { maxBytes: context.config.PROFILE_PHOTO_MAX_UPLOAD_BYTES },
       },
     );
   }
@@ -632,7 +632,7 @@ export async function requestPhotoUploadUrl(
 }
 
 /**
- * Confirms the bytes actually landed, then puts the photo into the ops queue.
+ * Confirms the bytes actually landed, then publishes the photo.
  *
  * The object is checked rather than trusted: a client that says "done" without
  * uploading would otherwise leave a technician showing a broken image to
@@ -683,4 +683,123 @@ export async function getMyPhoto(
 ): Promise<ProfilePhotoView | null> {
   const photo = await repo.findLatestProfilePhoto(context.prisma, providerId);
   return photo ? toProfilePhotoView(context, photo) : null;
+}
+
+/**
+ * A customer reports a photo.
+ *
+ * The photo keeps serving. An automatic takedown at some report threshold is a
+ * griefing tool — a competitor with three phone numbers could blank any
+ * technician's profile — so a report only ever queues the photo for a human.
+ */
+export async function reportProfilePhoto(
+  context: AppContext,
+  reporterId: string,
+  photoId: string,
+  reason: string,
+): Promise<{ reportCount: number }> {
+  const photo = await repo.findProfilePhotoById(context.prisma, photoId);
+
+  if (!photo || photo.status !== 'approved') {
+    throw notFound(
+      'PROVIDER_PHOTO_NOT_FOUND',
+      'errors.providers.photoNotFound',
+      `No live profile photo ${photoId}`,
+    );
+  }
+
+  const reportCount = await repo.reportProfilePhoto(context.prisma, {
+    photoId,
+    reporterId,
+    reason,
+  });
+
+  context.logger.warn(
+    { photoId, providerId: photo.providerId, reportCount },
+    'profile photo reported',
+  );
+
+  return { reportCount };
+}
+
+export interface ReportedPhotoView extends ProfilePhotoView {
+  photoId: string;
+  providerId: string;
+  providerName: string | null;
+  reportCount: number;
+  reports: { reason: string; createdAt: string }[];
+}
+
+/** The ops queue — only photos customers actually complained about. */
+export async function listReportedPhotos(
+  context: AppContext,
+  limit = 50,
+): Promise<ReportedPhotoView[]> {
+  const rows = await repo.listReportedProfilePhotos(context.prisma, limit);
+
+  return Promise.all(
+    rows.map(async (row) => ({
+      ...(await toProfilePhotoView(context, row)),
+      photoId: row.id,
+      providerId: row.providerId,
+      providerName: row.provider.name,
+      reportCount: row.reportCount,
+      reports: row.reports.map((report) => ({
+        reason: report.reason,
+        createdAt: report.createdAt.toISOString(),
+      })),
+    })),
+  );
+}
+
+/**
+ * Ops decides what happens to a reported photo.
+ *
+ * `remove` requires a note for the same reason every other ops decision does:
+ * this is somebody's face on their own livelihood, and "removed" with no reason
+ * is not something you can defend to the technician who asks why.
+ */
+export async function decideReportedPhoto(
+  context: AppContext,
+  reviewerId: string,
+  photoId: string,
+  input: { decision: 'remove' | 'keep'; note?: string },
+): Promise<ProfilePhotoView> {
+  const photo = await repo.findProfilePhotoById(context.prisma, photoId);
+
+  if (!photo) {
+    throw notFound(
+      'PROVIDER_PHOTO_NOT_FOUND',
+      'errors.providers.photoNotFound',
+      `No profile photo ${photoId}`,
+    );
+  }
+
+  const at = new Date();
+
+  if (input.decision === 'keep') {
+    const kept = await repo.clearProfilePhotoReports(context.prisma, {
+      photoId,
+      reviewedById: reviewerId,
+      at,
+    });
+    return toProfilePhotoView(context, kept);
+  }
+
+  const note = (input.note ?? '').trim();
+
+  if (note.length < 10) {
+    throw AppError.badRequest('A takedown needs a reason of at least 10 characters', {
+      messageKey: 'errors.providers.photoRemovalNeedsNote',
+    });
+  }
+
+  const removed = await repo.removeProfilePhoto(context.prisma, {
+    photoId,
+    reviewedById: reviewerId,
+    note,
+    at,
+  });
+
+  return toProfilePhotoView(context, removed);
 }

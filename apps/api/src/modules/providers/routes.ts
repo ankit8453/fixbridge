@@ -2,6 +2,7 @@ import { Router, type Request, type RequestHandler } from 'express';
 import { getContext } from '../../core/context';
 import { authenticate, getAuthUser } from '../../core/middleware/authenticate';
 import { requireRoles } from '../../core/middleware/require-roles';
+import { AUDIT_ACTIONS, audited, auditActor } from '../../core/audit';
 import { enforceSearchRateLimit } from '../search/service';
 import { getPublicProfile } from './public-profile';
 import * as service from './service';
@@ -10,8 +11,10 @@ import {
   categoryIdParamSchema,
   createAvailabilitySchema,
   createPriceCardSchema,
+  decidePhotoReportSchema,
   photoIdParamSchema,
   providerIdParamSchema,
+  reportPhotoSchema,
   requestPhotoUploadUrlSchema,
   registerProviderSchema,
   updateAvailabilitySchema,
@@ -138,7 +141,12 @@ router.delete(
  * The public-facing photo lives here rather than under /verification/documents
  * on purpose: a KYC document is private evidence, this is the one file a
  * customer is meant to see. Same three-step signed-URL flow, opposite privacy
- * posture — and nothing shows it to a customer until ops approves it.
+ * posture.
+ *
+ * It publishes on confirm. A technician's own face is their property, and
+ * holding it in a queue taxes the honest majority to catch a rare abuser —
+ * so moderation runs the other way round: customers report, ops decides, and
+ * only a human takes a photo down (see `photoReportRouter` below).
  */
 router.post(
   '/me/photo/upload-url',
@@ -270,3 +278,77 @@ router.delete(
  * `/api/v1/verification/documents/*`, which holds the pre-signed URL flow. They
  * are shown read-only on the profile response above.
  */
+
+/* -------------------------------------------------------------------------- */
+/* Photo reporting — customer-facing                                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Photos publish the moment a technician confirms the upload, so moderation is
+ * reactive: this is how a customer says "that photo is not this person" or
+ * "that is obscene". The report queues it for a human; it never takes a photo
+ * down on its own, because an automatic threshold is a griefing tool.
+ */
+export const photoReportRouter = Router();
+
+photoReportRouter.use(authenticate);
+
+photoReportRouter.post(
+  '/:photoId/report',
+  handle(async (req, res) => {
+    const { photoId } = photoIdParamSchema.parse(req.params);
+    const input = reportPhotoSchema.parse(req.body);
+
+    await service.reportProfilePhoto(getContext(req), getAuthUser(req).id, photoId, input.reason);
+
+    // The count is deliberately not returned — it is ops' business, and telling
+    // a reporter how close they are to a takedown invites brigading.
+    res.status(202).json({ message: req.t('providers.photoReported') });
+  }),
+);
+
+/* -------------------------------------------------------------------------- */
+/* Photo moderation — ops-facing                                              */
+/* -------------------------------------------------------------------------- */
+
+export const photoOpsRouter = Router();
+
+photoOpsRouter.use(authenticate, requireRoles('ops', 'admin'));
+
+photoOpsRouter.get(
+  '/reported',
+  handle(async (req, res) => {
+    const photos = await service.listReportedPhotos(getContext(req));
+    res.status(200).json({ photos });
+  }),
+);
+
+photoOpsRouter.post(
+  '/:photoId/decide',
+  handle(async (req, res) => {
+    const { photoId } = photoIdParamSchema.parse(req.params);
+    const input = decidePhotoReportSchema.parse(req.body);
+
+    const photo = await service.decideReportedPhoto(
+      getContext(req),
+      getAuthUser(req).id,
+      photoId,
+      input,
+    );
+
+    await audited(
+      getContext(req).prisma,
+      auditActor(req),
+      {
+        action: AUDIT_ACTIONS.providerPhotoDecide,
+        targetType: 'provider_profile_photo',
+        targetId: photoId,
+        /** The decision and the reason — what somebody will read if the technician appeals. */
+        payload: { decision: input.decision, note: input.note ?? null },
+      },
+      async () => photo,
+    );
+
+    res.status(200).json({ photo, message: req.t('providers.photoDecisionRecorded') });
+  }),
+);

@@ -138,6 +138,7 @@ model User {
   notificationDeliveries NotificationDelivery[]
   auditLogs              AuditLog[]
   profilePhotos          ProviderProfilePhoto[]
+  photoReportsMade       ProviderProfilePhotoReport[]
   couponRedemptions      CouponRedemption[]
 
   @@index([status])
@@ -1706,10 +1707,12 @@ model KycAccessLog {
 enum ProfilePhotoStatus {
   /// Upload URL issued; bytes not yet confirmed. Invisible everywhere.
   draft
-  /// Confirmed in storage, awaiting ops review.
-  pending
+  /// Live. A technician's own face is their property — it publishes on confirm
+  /// rather than waiting on a queue that would block them for days.
   approved
-  rejected
+  /// Customers reported it and ops agreed. Taken down, and the technician is
+  /// told why so they can replace it.
+  removed
 
   @@map("profile_photo_status")
 }
@@ -1728,21 +1731,54 @@ model ProviderProfilePhoto {
   status ProfilePhotoStatus @default(draft)
 
   uploadedAt DateTime? @map("uploaded_at") @db.Timestamptz(3)
+
+  /// How many customers reported this photo. Nonzero puts it in the ops queue;
+  /// the photo keeps serving until a human actually agrees, because an
+  /// automatic takedown on report count is a griefing tool.
+  reportCount Int @default(0) @map("report_count")
+
   reviewedAt DateTime? @map("reviewed_at") @db.Timestamptz(3)
   /// The staff reviewer — admin_users, not users (see the audit log's dual columns).
-  reviewedById  String? @map("reviewed_by_id") @db.Uuid
-  /// Ops' reason, verbatim. Only ever set when the status is rejected.
+  reviewedById String? @map("reviewed_by_id") @db.Uuid
+  /// Ops' reason, verbatim. Only ever set when the photo was removed.
   rejectionNote String? @map("rejection_note") @db.VarChar(500)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   provider   User       @relation(fields: [providerId], references: [id], onDelete: Cascade)
   reviewedBy AdminUser? @relation(fields: [reviewedById], references: [id], onDelete: SetNull)
+  reports    ProviderProfilePhotoReport[]
 
   @@index([providerId, createdAt(sort: Desc)])
-  /// The ops moderation queue: pending photos, oldest first.
-  @@index([status, uploadedAt])
+  /// The ops queue: reported photos still serving, most-reported first.
+  @@index([status, reportCount])
   @@map("provider_profile_photos")
+}
+
+/// One row per person who reported a photo.
+///
+/// The unique pair is the point: without it a single upset customer could
+/// report the same photo fifty times and manufacture an ops emergency. The
+/// count on the photo row is derived from these, never incremented blind.
+model ProviderProfilePhotoReport {
+  id       String @id @default(uuid()) @db.Uuid
+  photoId  String @map("photo_id") @db.Uuid
+  /// The customer who reported it. Nullable for DPDP erasure — the report
+  /// survives the person, like every other record in this system.
+  reporterId String? @map("reporter_id") @db.Uuid
+
+  /// Free text from the reporter. This is evidence a human reads before pulling
+  /// somebody's photo down, so it is stored verbatim.
+  reason String @db.VarChar(500)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  photo    ProviderProfilePhoto @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  reporter User?                @relation(fields: [reporterId], references: [id], onDelete: SetNull)
+
+  @@unique([photoId, reporterId])
+  @@index([photoId, createdAt])
+  @@map("provider_profile_photo_reports")
 }
 
 // ---------------------------------------------------------------------------

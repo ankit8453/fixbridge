@@ -1,9 +1,10 @@
 import { useId, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Camera, CheckCircle2, Clock, Loader2 } from 'lucide-react';
+import { AlertCircle, Camera, CheckCircle2, Loader2 } from 'lucide-react';
 import { useT } from '../../../i18n/useT';
 import { Avatar, ErrorState } from '../../../components/ui';
 import { ApiError } from '../../../lib/api';
+import { compressImage } from '../../../lib/compress-image';
 import { confirmPhotoUpload, fetchMyPhoto, requestPhotoUploadUrl } from '../lib/api';
 import { partnerKeys } from '../lib/query-keys';
 import type { ProfilePhotoStatus } from '../lib/types';
@@ -38,31 +39,27 @@ import type { ProfilePhotoStatus } from '../lib/types';
 
 const ALLOWED_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
+/** Mirrors PROFILE_PHOTO_MAX_UPLOAD_BYTES on the server. Checked after compression. */
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+
 /** The visual treatment for each moderation state. */
 const STATUS_STYLES: Record<
   ProfilePhotoStatus,
   { icon: typeof CheckCircle2; className: string; labelKey: string; hintKey: string }
 > = {
-  pending: {
-    icon: Clock,
-    className: 'text-warning',
-    labelKey: 'partner.photo.statusPending',
-    hintKey: 'partner.photo.statusPendingHint',
-  },
   approved: {
     icon: CheckCircle2,
     className: 'text-success',
     labelKey: 'partner.photo.statusApproved',
     hintKey: 'partner.photo.statusApprovedHint',
   },
-  rejected: {
+  removed: {
     icon: AlertCircle,
     className: 'text-danger',
-    labelKey: 'partner.photo.statusRejected',
-    hintKey: 'partner.photo.statusRejectedHint',
+    labelKey: 'partner.photo.statusRemoved',
+    hintKey: 'partner.photo.statusRemovedHint',
   },
 };
-
 export function ProfilePhotoUploader({ displayName }: { displayName?: string | null }) {
   const t = useT();
   const inputId = useId();
@@ -83,9 +80,20 @@ export function ProfilePhotoUploader({ displayName }: { displayName?: string | n
         throw new ApiError(400, 'UNSUPPORTED_FILE_TYPE', t('partner.photo.badType'), null);
       }
 
+      /**
+       * Downscale first, then ask for the URL — the size is signed into it, so
+       * the number we send has to be the number we upload. Best-effort: if
+       * compression fails the original goes up and the server's cap decides.
+       */
+      const upload_file = await compressImage(file);
+
+      if (upload_file.size > MAX_PHOTO_BYTES) {
+        throw new ApiError(413, 'FILE_TOO_LARGE', t('partner.photo.tooLarge'), null);
+      }
+
       const { photoId, upload } = await requestPhotoUploadUrl({
-        contentType: file.type,
-        sizeBytes: file.size,
+        contentType: upload_file.type,
+        sizeBytes: upload_file.size,
       });
 
       // `requiredHeaders` go on verbatim — the size is signed into the URL, so a
@@ -93,7 +101,7 @@ export function ProfilePhotoUploader({ displayName }: { displayName?: string | n
       const putResponse = await fetch(upload.url, {
         method: 'PUT',
         headers: upload.requiredHeaders,
-        body: file,
+        body: upload_file,
       });
 
       if (!putResponse.ok) {
@@ -149,12 +157,12 @@ export function ProfilePhotoUploader({ displayName }: { displayName?: string | n
       </div>
 
       {/*
-        Ops' reason, verbatim and prominent. A rejection the technician cannot
+        Ops' reason, verbatim and prominent. A takedown the technician cannot
         read is one they can only answer by guessing — they re-upload the same
-        photo, it is refused again, and both sides conclude the other is being
+        photo, it is pulled again, and both sides conclude the other is being
         difficult.
       */}
-      {photo?.status === 'rejected' && photo.rejectionNote ? (
+      {photo?.status === 'removed' && photo.rejectionNote ? (
         <p
           role="alert"
           className="rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-sm text-slate-700"

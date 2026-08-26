@@ -31,7 +31,9 @@
     "documentAdded": "Document added.",
     "documentDeleted": "Document removed.",
     "photoUploadUrlIssued": "Upload your photo to the link provided.",
-    "photoUploaded": "Photo uploaded. Our team will review it shortly."
+    "photoUploaded": "Photo uploaded. Our team will review it shortly.",
+    "photoReported": "Thank you. Our team will look into this photo.",
+    "photoDecisionRecorded": "Decision recorded."
   },
   "bookings": {
     "requested": "Request sent. The technician will confirm shortly.",
@@ -182,7 +184,8 @@
       "photoNotFound": "We could not find that photo.",
       "photoNotUploaded": "The photo was not uploaded. Please try again.",
       "photoTypeNotAllowed": "Please upload a JPG, PNG or WebP image.",
-      "photoTooLarge": "That photo is too large. Please upload a smaller one."
+      "photoTooLarge": "That photo is too large. Please upload a smaller one.",
+      "photoRemovalNeedsNote": "Please give a reason of at least 10 characters."
     },
     "bookings": {
       "notFound": "We could not find that booking.",

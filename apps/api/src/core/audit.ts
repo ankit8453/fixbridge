@@ -47,6 +47,7 @@ export const AUDIT_ACTIONS = {
   providerReinstate: 'provider.reinstate',
   providerRecompute: 'provider.recompute',
   providerApproveEntry: 'provider.approve_entry',
+  providerPhotoDecide: 'provider.photo_decide',
 
   bookingOtpUnlock: 'booking.otp_unlock',
   bookingOpsCancel: 'booking.ops_cancel',
@@ -100,6 +101,7 @@ export const AUDITED_ADMIN_ROUTES: Record<string, AuditAction> = {
   'POST /api/v1/admin/trust/:providerId/reinstate': AUDIT_ACTIONS.providerReinstate,
   'POST /api/v1/admin/trust/:providerId/recompute': AUDIT_ACTIONS.providerRecompute,
   'POST /api/v1/admin/providers/:providerId/approve-entry': AUDIT_ACTIONS.providerApproveEntry,
+  'POST /api/v1/admin/provider-photos/:photoId/decide': AUDIT_ACTIONS.providerPhotoDecide,
 
   'POST /api/v1/admin/bookings/:bookingId/otp-unlock': AUDIT_ACTIONS.bookingOtpUnlock,
   'POST /api/v1/admin/bookings/:bookingId/cancel': AUDIT_ACTIONS.bookingOpsCancel,

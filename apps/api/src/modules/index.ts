@@ -2,7 +2,7 @@ import type { Express } from 'express';
 import { router as authRouter } from './auth/routes';
 import { router as categoriesRouter } from './categories/routes';
 import { router as customersRouter } from './customers/routes';
-import { router as providersRouter } from './providers/routes';
+import { router as providersRouter, photoReportRouter, photoOpsRouter } from './providers/routes';
 import {
   router as verificationRouter,
   opsRouter as verificationOpsRouter,
@@ -53,6 +53,9 @@ export function registerModuleRoutes(app: Express): void {
   app.use(`${API_PREFIX}/customers`, customersRouter);
   // Slots live in the bookings module but hang off the providers path, which is
   // where a client looks for them. Most specific prefix first.
+  // Photo reports are keyed by photo id, not provider id, so they get their own
+  // prefix rather than nesting under a provider that the reporter need not know.
+  app.use(`${API_PREFIX}/provider-photos`, photoReportRouter);
   app.use(`${API_PREFIX}/providers/me/slots`, providerSlotRouter);
   app.use(`${API_PREFIX}/providers/me/wallet`, walletRouter);
   app.use(`${API_PREFIX}/providers/me/trust`, trustRouter);
@@ -75,6 +78,7 @@ export function registerModuleRoutes(app: Express): void {
   // Payout batches, dues settlement and the platform's position. Same reasoning
   // as verification's ops routes: the path is where ops look, the code stays
   // with its module.
+  app.use(`${API_PREFIX}/admin/provider-photos`, photoOpsRouter);
   app.use(`${API_PREFIX}/admin/payments`, paymentsOpsRouter);
   app.use(`${API_PREFIX}/admin/complaints`, complaintsOpsRouter);
   app.use(`${API_PREFIX}/admin/reviews`, reviewsOpsRouter);

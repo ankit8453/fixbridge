@@ -506,3 +506,23 @@ export interface CouponStats {
   /** What the platform has given away, out of its own commission. */
   discountedPaise: number;
 }
+
+/**
+ * A photo customers reported.
+ *
+ * `url` is a short-lived signed URL served inline — this is the only object in
+ * the product shown rather than downloaded, which is safe because the content
+ * type was pinned to a raster image at upload.
+ */
+export interface ReportedPhoto {
+  photoId: string;
+  providerId: string;
+  providerName: string | null;
+  status: 'approved' | 'removed';
+  url: string;
+  uploadedAt: string | null;
+  reviewedAt: string | null;
+  rejectionNote: string | null;
+  reportCount: number;
+  reports: { reason: string; createdAt: string }[];
+}

@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   MessageSquareWarning,
   ShieldCheck,
+  ImageOff,
   Star,
   TicketPercent,
   Users,
@@ -24,6 +25,7 @@ import BookingsPage from './pages/BookingsPage';
 import BookingDetailPage from './pages/BookingDetailPage';
 import ComplaintsPage from './pages/ComplaintsPage';
 import ComplaintDetailPage from './pages/ComplaintDetailPage';
+import PhotoReportsPage from './pages/PhotoReportsPage';
 import ReviewsPage from './pages/ReviewsPage';
 import MoneyPage from './pages/MoneyPage';
 import CouponsPage from './pages/CouponsPage';
@@ -51,6 +53,9 @@ const NAV: Omit<AdminNavItem, 'badge'>[] = [
   { key: 'bookings', label: 'Bookings', href: '/admin/bookings', icon: ClipboardList },
   { key: 'complaints', label: 'Complaints', href: '/admin/complaints', icon: MessageSquareWarning },
   { key: 'reviews', label: 'Reviews', href: '/admin/reviews', icon: Star },
+  // Photos sit beside Reviews: both are reactive moderation of things
+  // customers reported, not queues of work waiting on approval.
+  { key: 'photos', label: 'Photos', href: '/admin/photos', icon: ImageOff },
   { key: 'money', label: 'Money', href: '/admin/money', icon: Wallet },
   // Coupons sit next to Money on purpose: a campaign spends the platform's
   // commission, so it belongs with the other money screens rather than with
@@ -67,6 +72,7 @@ const TITLES: { prefix: string; label: string }[] = [
   { prefix: '/admin/bookings', label: 'Bookings' },
   { prefix: '/admin/complaints', label: 'Complaints' },
   { prefix: '/admin/reviews', label: 'Reviews' },
+  { prefix: '/admin/photos', label: 'Reported photos' },
   { prefix: '/admin/money', label: 'Money' },
   { prefix: '/admin/coupons', label: 'Coupons' },
   { prefix: '/admin/queues', label: 'Queues' },
@@ -112,6 +118,7 @@ export default function AdminAppEntry() {
         <Route path="complaints" element={<ComplaintsPage />} />
         <Route path="complaints/:complaintId" element={<ComplaintDetailPage />} />
         <Route path="reviews" element={<ReviewsPage />} />
+        <Route path="photos" element={<PhotoReportsPage />} />
         <Route path="money" element={<MoneyPage />} />
         <Route path="money/batches/:batchId" element={<PayoutBatchPage />} />
         <Route path="money/journals/:journalId" element={<JournalDetailPage />} />

@@ -1,6 +1,7 @@
 import { apiRequest, paginationParams, parsePage, type Page, type RequestOptions } from '@/lib/api';
 import type {
   CouponStats,
+  ReportedPhoto,
   AdminSummary,
   AuditRow,
   AuditScope,
@@ -499,4 +500,28 @@ export async function fetchAuditLogs(
     page: parsePage<AuditRow>(body, 'entries'),
     scope: body.scope === 'all' ? 'all' : 'own',
   };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Reported profile photos                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Profile photos publish the moment a technician confirms the upload — a
+ * person's own face is not something to queue behind a reviewer. This endpoint
+ * therefore returns only the photos customers actually complained about, which
+ * is the entire moderation workload.
+ */
+export async function fetchReportedPhotos(): Promise<{ photos: ReportedPhoto[] }> {
+  return adminRequest<{ photos: ReportedPhoto[] }>('/api/v1/admin/provider-photos/reported');
+}
+
+export async function decidePhotoReport(
+  photoId: string,
+  input: { decision: 'remove' | 'keep'; note?: string },
+): Promise<{ photo: unknown }> {
+  return adminRequest(`/api/v1/admin/provider-photos/${photoId}/decide`, {
+    method: 'POST',
+    body: input,
+  });
 }

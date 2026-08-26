@@ -357,7 +357,14 @@ export function findApprovedProfilePhoto(
   });
 }
 
-/** Marks the bytes as landed and puts the photo into the ops queue. */
+/**
+ * Marks the bytes as landed and publishes the photo.
+ *
+ * Published on confirm, not after a review: a technician's own face is their
+ * property, and a queue that holds it for days is a cost paid by the honest
+ * majority to catch a rare abuser. Abuse is handled the other way round —
+ * customers report, a human decides, `removeProfilePhoto` takes it down.
+ */
 export function markProfilePhotoUploaded(
   prisma: PrismaClient,
   photoId: string,
@@ -366,6 +373,97 @@ export function markProfilePhotoUploaded(
 ): Promise<ProviderProfilePhoto> {
   return prisma.providerProfilePhoto.update({
     where: { id: photoId },
-    data: { status: 'pending', sizeBytes, uploadedAt: at },
+    data: { status: 'approved', sizeBytes, uploadedAt: at },
+  });
+}
+
+/**
+ * Records a report and returns the photo's new count.
+ *
+ * The unique `(photoId, reporterId)` pair means a repeat report from the same
+ * person is a no-op rather than an error — the customer gets the same "thanks,
+ * we will look" either way, and the count stays honest.
+ */
+export async function reportProfilePhoto(
+  prisma: PrismaClient,
+  input: { photoId: string; reporterId: string; reason: string },
+): Promise<number> {
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.providerProfilePhotoReport.findUnique({
+      where: { photoId_reporterId: { photoId: input.photoId, reporterId: input.reporterId } },
+    });
+
+    if (existing) {
+      const photo = await tx.providerProfilePhoto.findUniqueOrThrow({
+        where: { id: input.photoId },
+        select: { reportCount: true },
+      });
+      return photo.reportCount;
+    }
+
+    await tx.providerProfilePhotoReport.create({ data: input });
+
+    const photo = await tx.providerProfilePhoto.update({
+      where: { id: input.photoId },
+      data: { reportCount: { increment: 1 } },
+      select: { reportCount: true },
+    });
+
+    return photo.reportCount;
+  });
+}
+
+export function findProfilePhotoById(
+  prisma: PrismaClient,
+  photoId: string,
+): Promise<ProviderProfilePhoto | null> {
+  return prisma.providerProfilePhoto.findUnique({ where: { id: photoId } });
+}
+
+/** The ops queue: photos customers reported that are still serving. */
+export async function listReportedProfilePhotos(
+  prisma: PrismaClient,
+  limit: number,
+): Promise<
+  (ProviderProfilePhoto & {
+    provider: { id: string; name: string | null };
+    reports: { reason: string; createdAt: Date }[];
+  })[]
+> {
+  return prisma.providerProfilePhoto.findMany({
+    where: { status: 'approved', reportCount: { gt: 0 } },
+    orderBy: [{ reportCount: 'desc' }, { uploadedAt: 'asc' }],
+    take: limit,
+    include: {
+      provider: { select: { id: true, name: true } },
+      reports: { orderBy: { createdAt: 'desc' }, select: { reason: true, createdAt: true } },
+    },
+  });
+}
+
+/** Takes a photo down. Only ever called by a human with a reason. */
+export function removeProfilePhoto(
+  prisma: PrismaClient | Prisma.TransactionClient,
+  input: { photoId: string; reviewedById: string; note: string; at: Date },
+): Promise<ProviderProfilePhoto> {
+  return prisma.providerProfilePhoto.update({
+    where: { id: input.photoId },
+    data: {
+      status: 'removed',
+      reviewedById: input.reviewedById,
+      rejectionNote: input.note,
+      reviewedAt: input.at,
+    },
+  });
+}
+
+/** Dismisses the reports on a photo, leaving it published. */
+export function clearProfilePhotoReports(
+  prisma: PrismaClient | Prisma.TransactionClient,
+  input: { photoId: string; reviewedById: string; at: Date },
+): Promise<ProviderProfilePhoto> {
+  return prisma.providerProfilePhoto.update({
+    where: { id: input.photoId },
+    data: { reportCount: 0, reviewedById: input.reviewedById, reviewedAt: input.at },
   });
 }

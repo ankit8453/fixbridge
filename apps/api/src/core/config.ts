@@ -170,6 +170,22 @@ const baseConfigSchema = z.object({
     .max(100 * 1_024 * 1_024)
     .default(10 * 1_024 * 1_024),
 
+  /**
+   * Profile photos get their own, tighter cap.
+   *
+   * A KYC document may legitimately be a multi-page scanned certificate; a
+   * photograph of a face has no such excuse. A modern phone photo is 2-4 MB, so
+   * 5 MB fits real uploads with headroom while keeping one technician from
+   * parking 10 MB per attempt — and the browser downscales before uploading, so
+   * most land far below this.
+   */
+  PROFILE_PHOTO_MAX_UPLOAD_BYTES: z.coerce
+    .number()
+    .int()
+    .min(1_024)
+    .max(20 * 1_024 * 1_024)
+    .default(5 * 1_024 * 1_024),
+
   /** Phone for the ops-only account created by `npm run seed`. */
   SEED_OPS_PHONE: z.string().min(1).default('+919999900002'),
 

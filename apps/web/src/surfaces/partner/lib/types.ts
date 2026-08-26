@@ -130,20 +130,24 @@ export interface CategoryNode {
  *
  * Not a document status — this is a separate store from KYC with the opposite
  * privacy posture. A KYC document is evidence only a reviewer sees; this is the
- * one file a customer is meant to see, and `approved` is what lets them.
+ * one file a customer is meant to see.
+ *
+ * A photo publishes the moment its upload is confirmed: a technician's own face
+ * is their property, not something to queue behind a reviewer. `removed` only
+ * happens after customers report a photo and a human agrees with them.
  */
-export type ProfilePhotoStatus = 'pending' | 'approved' | 'rejected';
+export type ProfilePhotoStatus = 'approved' | 'removed';
 
 export interface ProfilePhoto {
   status: ProfilePhotoStatus;
   /**
-   * Short-lived signed URL. Present in every status, because the technician
-   * needs to see the photo ops refused in order to know what to replace.
+   * Short-lived signed URL. Present in every status, because a technician whose
+   * photo was taken down needs to see which one it was to replace it.
    */
   url: string;
   uploadedAt: string | null;
   reviewedAt: string | null;
-  /** Ops' reason, verbatim. Only ever set when the status is `rejected`. */
+  /** Ops' reason, verbatim. Only ever set when the photo was taken down. */
   rejectionNote: string | null;
 }
 

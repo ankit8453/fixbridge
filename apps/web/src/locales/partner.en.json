@@ -178,7 +178,8 @@
       "badType": "Only JPG, PNG, WEBP or PDF files are accepted",
       "putFailed": "Upload failed — check your connection and try again",
       "acceptedTypes": "JPG, PNG, WEBP or PDF",
-      "chooseAnother": "Choose a different file"
+      "chooseAnother": "Choose a different file",
+      "tooLarge": "That file is too large. Please choose one under 10 MB."
     },
     "verification": {
       "title": "Verification center",
@@ -474,20 +475,19 @@
       "none": "No photo yet. Customers will see your initials until you add one.",
       "choose": "Add your photo",
       "replace": "Change your photo",
-      "replaceHint": "A new photo goes for review again before customers see it",
+      "replaceHint": "Your new photo replaces this one straight away",
       "uploading": "Uploading…",
       "acceptedTypes": "JPG, PNG or WEBP",
       "badType": "Only JPG, PNG or WEBP photos are accepted",
       "uploadLabel": "Choose a profile photo",
-      "statusPending": "Waiting for review",
-      "statusPendingHint": "Our team checks every photo. Customers cannot see it yet.",
-      "statusApproved": "Approved",
-      "statusApprovedHint": "Customers see this photo once they book you.",
-      "statusRejected": "Not approved",
-      "statusRejectedHint": "Please add a different photo.",
+      "statusApproved": "Live on your profile",
+      "statusApprovedHint": "Customers see this photo when they book you.",
       "rejectionReason": "Reason:",
       "kycHeading": "Photo for your ID check",
-      "kycHint": "This one is only for our verification team. Customers never see it."
+      "kycHint": "This one is only for our verification team. Customers never see it.",
+      "statusRemoved": "Taken down",
+      "statusRemovedHint": "Please add a different photo.",
+      "tooLarge": "That photo is too large. Please choose one under 5 MB."
     }
   }
 }

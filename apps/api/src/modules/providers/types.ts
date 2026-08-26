@@ -273,3 +273,18 @@ export const requestPhotoUploadUrlSchema = z
 export type RequestPhotoUploadUrlInput = z.infer<typeof requestPhotoUploadUrlSchema>;
 
 export const photoIdParamSchema = z.object({ photoId: z.string().uuid() });
+
+export const reportPhotoSchema = z
+  .object({
+    /** Evidence a human reads before pulling somebody's photo down. */
+    reason: z.string().trim().min(5).max(500),
+  })
+  .strict();
+
+export const decidePhotoReportSchema = z
+  .object({
+    decision: z.enum(['remove', 'keep']),
+    /** Required by the service when removing — a takedown with no reason is indefensible. */
+    note: z.string().trim().max(500).optional(),
+  })
+  .strict();

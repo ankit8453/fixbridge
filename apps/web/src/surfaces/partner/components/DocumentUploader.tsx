@@ -4,10 +4,14 @@ import { CheckCircle2, Loader2, Paperclip, UploadCloud } from 'lucide-react';
 import { useT } from '../../../i18n/useT';
 import { ErrorState } from '../../../components/ui';
 import { ApiError } from '../../../lib/api';
+import { compressImage } from '../../../lib/compress-image';
 import { confirmUpload, requestUploadUrl } from '../lib/api';
 import type { ProviderDocumentType, VerificationDocumentResponse } from '../lib/types';
 
 const ALLOWED_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+
+/** Mirrors STORAGE_MAX_UPLOAD_BYTES on the server. Checked after compression. */
+const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 
 /**
  * The three-step signed-URL flow (docs/API.md, Verification › Documents), as
@@ -46,16 +50,28 @@ export function DocumentUploader({
         throw new ApiError(400, 'UNSUPPORTED_FILE_TYPE', t('partner.upload.badType'), null);
       }
 
+      /**
+       * Images are downscaled first — a phone photo of an Aadhaar card is
+       * routinely 6 MB of pixels nobody needs to read the number. PDFs pass
+       * through untouched: a scanned certificate's size is its page count, and
+       * re-encoding one would be the wrong kind of clever.
+       */
+      const upload_file = await compressImage(file, { maxEdge: 2000, quality: 0.85 });
+
+      if (upload_file.size > MAX_DOCUMENT_BYTES) {
+        throw new ApiError(413, 'FILE_TOO_LARGE', t('partner.upload.tooLarge'), null);
+      }
+
       const { document, upload } = await requestUploadUrl({
         docType,
-        contentType: file.type,
-        sizeBytes: file.size,
+        contentType: upload_file.type,
+        sizeBytes: upload_file.size,
       });
 
       const putResponse = await fetch(upload.url, {
         method: 'PUT',
         headers: upload.requiredHeaders,
-        body: file,
+        body: upload_file,
       });
 
       if (!putResponse.ok) {
