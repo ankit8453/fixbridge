@@ -156,7 +156,7 @@ export const CATEGORY_THEME: Record<string, { tile: string; icon: string; glow: 
 };
 
 export const DEFAULT_THEME = {
-  tile: 'from-slate-50 to-slate-100 border-slate-200',
+  tile: 'from-slate-50 to-slate-100 border-shop-line',
   icon: 'bg-gradient-to-br from-slate-400 to-slate-600',
   glow: 'bg-slate-400/20',
 };

@@ -50,7 +50,7 @@ export const BADGE_TIER: Record<Badge, BadgeTierStyle> = {
     solid: 'bg-sky-400/20 text-white ring-sky-200/40',
     verified: true,
   },
-  // Amber is `brand-accent`'s hue and fails contrast as text on white at the
+  // Amber is `shop-accent`'s hue and fails contrast as text on white at the
   // token's value, so the chip uses the darker amber-800 on a 50 tint rather
   // than the token itself — decorative-only rule, honoured.
   GOLD: {

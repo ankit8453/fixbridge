@@ -88,11 +88,11 @@ function NotificationRow({
   const body = (
     <div
       className={`rounded-xl border p-3 ${
-        notification.read ? 'border-slate-200 bg-white' : 'border-brand bg-slate-50'
+        notification.read ? 'border-shop-line bg-white' : 'border-shop bg-slate-50'
       }`}
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-medium text-slate-900">{notification.title}</p>
+        <p className="text-sm font-medium text-shop-ink">{notification.title}</p>
         {!notification.read ? (
           <Badge tone="info">{t('app.notifications.unreadBadge')}</Badge>
         ) : null}

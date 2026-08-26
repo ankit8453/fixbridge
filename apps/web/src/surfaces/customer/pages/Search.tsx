@@ -51,11 +51,11 @@ export default function Search() {
       <LocationBar location={location} />
 
       {q ? (
-        <p className="text-sm text-slate-600">{t('app.find.resultsFor', { query: q })}</p>
+        <p className="text-sm text-shop-ink-soft">{t('app.find.resultsFor', { query: q })}</p>
       ) : null}
 
       {location.coords === null ? (
-        <p className="rounded-lg border border-dashed border-slate-300 px-3 py-4 text-center text-sm text-slate-600">
+        <p className="rounded-lg border border-dashed border-slate-300 px-3 py-4 text-center text-sm text-shop-ink-soft">
           {t('app.find.needLocation')}
         </p>
       ) : (

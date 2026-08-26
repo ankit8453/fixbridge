@@ -20,7 +20,7 @@ export default function Complaints() {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4 px-4 py-4">
-      <h1 className="text-lg font-semibold text-slate-900">{t('app.complaints.title')}</h1>
+      <h1 className="text-lg font-semibold text-shop-ink">{t('app.complaints.title')}</h1>
 
       <QueryState
         status={query.status}
@@ -34,9 +34,9 @@ export default function Complaints() {
         {(data) => (
           <div className="flex flex-col gap-3">
             {data.complaints.map((complaint) => (
-              <div key={complaint.id} className="rounded-xl border border-slate-200 bg-white p-4">
+              <div key={complaint.id} className="rounded-xl border border-shop-line bg-white p-4">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-medium text-slate-900">
+                  <p className="text-sm font-medium text-shop-ink">
                     {t(`app.complaintCategory.${complaint.category}`)}
                   </p>
                   <Badge tone={STATUS_TONE[complaint.status]}>
@@ -45,7 +45,7 @@ export default function Complaints() {
                 </div>
                 <p className="mt-1 text-sm text-slate-700">{complaint.description}</p>
                 {complaint.resolutionNote ? (
-                  <p className="mt-2 rounded-lg bg-slate-50 p-2 text-sm text-slate-600">
+                  <p className="mt-2 rounded-lg bg-slate-50 p-2 text-sm text-shop-ink-soft">
                     {t('app.complaints.resolutionNote')}: {complaint.resolutionNote}
                   </p>
                 ) : null}

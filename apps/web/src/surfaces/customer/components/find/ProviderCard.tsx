@@ -45,13 +45,13 @@ export function ProviderCard({ result }: { result: SearchResultCard }) {
   return (
     <Link
       to={buildLocalizedHref(locale, `/app/providers/${result.providerId}`)}
-      className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lg active:translate-y-0"
+      className="group relative flex flex-col overflow-hidden rounded-2xl border border-shop-line bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-shop/30 hover:shadow-lg active:translate-y-0"
     >
       {/* A faint brand wash behind the header, so the card has a top edge that
           reads as a header band without a hard divider rule. Decorative only. */}
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-brand-soft opacity-70 blur-2xl transition-opacity duration-200 group-hover:opacity-100"
+        className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-shop-soft opacity-70 blur-2xl transition-opacity duration-200 group-hover:opacity-100"
       />
 
       <div className="relative flex flex-col gap-3.5 p-4">
@@ -65,11 +65,11 @@ export function ProviderCard({ result }: { result: SearchResultCard }) {
 
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
-              <p className="min-w-0 truncate text-[16px] font-bold leading-tight tracking-tight text-slate-900">
+              <p className="min-w-0 truncate text-[16px] font-bold leading-tight tracking-tight text-shop-ink">
                 {name}
               </p>
               <ChevronRight
-                className="mt-0.5 h-4 w-4 shrink-0 text-slate-300 transition-colors group-hover:text-brand"
+                className="mt-0.5 h-4 w-4 shrink-0 text-slate-300 transition-colors group-hover:text-shop"
                 aria-hidden="true"
               />
             </div>
@@ -91,7 +91,7 @@ export function ProviderCard({ result }: { result: SearchResultCard }) {
                   than as an absent one. */}
               {result.rating ? (
                 <span
-                  className="inline-flex items-center gap-1 text-[13px] font-semibold text-slate-900"
+                  className="inline-flex items-center gap-1 text-[13px] font-semibold text-shop-ink"
                   aria-label={t('app.find.ratingAria', {
                     average: result.rating.average.toFixed(1),
                     count: result.rating.count,
@@ -99,10 +99,10 @@ export function ProviderCard({ result }: { result: SearchResultCard }) {
                 >
                   <StarIcon className="h-3.5 w-3.5 text-amber-500" />
                   {result.rating.average.toFixed(1)}
-                  <span className="font-normal text-slate-500">({result.rating.count})</span>
+                  <span className="font-normal text-shop-ink-soft">({result.rating.count})</span>
                 </span>
               ) : (
-                <span className="text-[13px] font-medium text-slate-500">
+                <span className="text-[13px] font-medium text-shop-ink-soft">
                   {t('app.find.newTechnician')}
                 </span>
               )}
@@ -122,7 +122,7 @@ export function ProviderCard({ result }: { result: SearchResultCard }) {
               </span>
             ))}
             {hiddenSkillCount > 0 ? (
-              <span className="text-[11px] font-medium text-slate-500">
+              <span className="text-[11px] font-medium text-shop-ink-soft">
                 {t('app.find.skillsMore', { count: hiddenSkillCount })}
               </span>
             ) : null}
@@ -130,9 +130,9 @@ export function ProviderCard({ result }: { result: SearchResultCard }) {
         ) : null}
 
         {/* ---------------- Proximity + track record ---------------- */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12.5px] font-medium text-slate-600">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12.5px] font-medium text-shop-ink-soft">
           <span className="inline-flex items-center gap-1.5">
-            <PinIcon className="h-4 w-4 shrink-0 text-brand" />
+            <PinIcon className="h-4 w-4 shrink-0 text-shop" />
             {t('app.find.distanceKm', { distance: result.distanceKm.toFixed(1) })}
           </span>
           <span className="inline-flex items-center gap-1.5">
@@ -148,13 +148,13 @@ export function ProviderCard({ result }: { result: SearchResultCard }) {
           it gets a fixed position they can scan straight down a column. */}
       <div className="relative flex items-end justify-between gap-3 border-t border-slate-100 bg-slate-50/80 px-4 py-2.5">
         <span className="min-w-0">
-          <span className="block text-[10.5px] font-semibold uppercase tracking-wide text-slate-500">
+          <span className="block text-[10.5px] font-semibold uppercase tracking-wide text-shop-ink-soft">
             {t('app.find.priceLabel')}
           </span>
           {/* `startingPrice.display` is the API's own rendering of the integer
               paise amount (see `SearchResultCard` in `data/types.ts`), used
               verbatim so this surface never does money arithmetic of its own. */}
-          <span className="mt-0.5 flex items-center gap-1 text-[14px] font-bold text-slate-900">
+          <span className="mt-0.5 flex items-center gap-1 text-[14px] font-bold text-shop-ink">
             <span className="truncate">
               {result.startingPrice
                 ? t('app.find.startingFrom', { price: result.startingPrice.display })
@@ -164,7 +164,7 @@ export function ProviderCard({ result }: { result: SearchResultCard }) {
         </span>
 
         <span className="min-w-0 text-right">
-          <span className="block text-[10.5px] font-semibold uppercase tracking-wide text-slate-500">
+          <span className="block text-[10.5px] font-semibold uppercase tracking-wide text-shop-ink-soft">
             {t('app.find.availabilityLabel')}
           </span>
           <span className="mt-0.5 flex items-center justify-end gap-1 text-[13px] font-semibold text-slate-700">

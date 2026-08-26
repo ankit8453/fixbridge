@@ -27,13 +27,13 @@ export function BookingListItem({ booking }: { booking: BookingDetail }) {
   return (
     <Link
       to={buildLocalizedHref(locale, `/app/bookings/${booking.id}`)}
-      className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 transition-colors active:bg-slate-50"
+      className="flex items-center justify-between gap-3 rounded-xl border border-shop-line bg-white p-4 transition-colors active:bg-slate-50"
     >
       <div className="min-w-0">
-        <p className="truncate text-sm font-medium text-slate-900">
+        <p className="truncate text-sm font-medium text-shop-ink">
           {booking.counterpart.name ?? t('app.find.unnamedProvider')}
         </p>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-shop-ink-soft">
           {istDateLabel(booking.startsAt)} · {istTime(booking.startsAt)}
         </p>
       </div>

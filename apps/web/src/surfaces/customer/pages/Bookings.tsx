@@ -23,7 +23,7 @@ export default function Bookings() {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4 px-4 py-4">
-      <h1 className="text-lg font-semibold text-slate-900">{t('app.bookings.title')}</h1>
+      <h1 className="text-lg font-semibold text-shop-ink">{t('app.bookings.title')}</h1>
 
       <div className="flex gap-2" role="tablist">
         {(['active', 'past'] as const).map((value) => (
@@ -35,7 +35,7 @@ export default function Bookings() {
             onClick={() => setTab(value)}
             className={`min-h-touch flex-1 rounded-lg border px-3 text-sm font-medium ${
               tab === value
-                ? 'border-brand bg-brand text-brand-foreground'
+                ? 'border-shop bg-shop text-shop-foreground'
                 : 'border-slate-300 text-slate-700'
             }`}
           >

@@ -21,7 +21,7 @@ export function ReviewsList({ providerId }: { providerId: string }) {
     >
       {(data) => (
         <div className="flex flex-col gap-3">
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-shop-ink-soft">
             {data.averageStars
               ? t('app.provider.ratingSummary', {
                   average: data.averageStars.toFixed(1),
@@ -30,9 +30,9 @@ export function ReviewsList({ providerId }: { providerId: string }) {
               : t('app.find.noRatingYet')}
           </p>
           {data.reviews.map((review) => (
-            <div key={review.id} className="rounded-lg border border-slate-200 p-3">
+            <div key={review.id} className="rounded-lg border border-shop-line p-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-slate-900">{review.authorName}</span>
+                <span className="text-sm font-medium text-shop-ink">{review.authorName}</span>
                 <span aria-label={t('app.provider.starsLabel', { stars: review.stars })}>
                   {'⭐'.repeat(review.stars)}
                 </span>
@@ -43,7 +43,7 @@ export function ReviewsList({ providerId }: { providerId: string }) {
                   {review.tags.map((tag) => (
                     <span
                       key={tag}
-                      className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600"
+                      className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-shop-ink-soft"
                     >
                       {t(`app.reviewTag.${tag}`)}
                     </span>

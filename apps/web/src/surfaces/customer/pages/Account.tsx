@@ -26,7 +26,7 @@ export default function Account() {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4 px-4 py-4">
-      <h1 className="text-lg font-semibold text-slate-900">{t('app.account.title')}</h1>
+      <h1 className="text-lg font-semibold text-shop-ink">{t('app.account.title')}</h1>
 
       <Card title={t('app.account.phoneHeading')}>
         <p className="text-sm text-slate-700">{user?.phone}</p>
@@ -80,14 +80,14 @@ export default function Account() {
 
       <Link
         to={buildLocalizedHref(locale, '/app/addresses')}
-        className="min-h-touch rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900"
+        className="min-h-touch rounded-xl border border-shop-line bg-white px-4 py-3 text-sm font-medium text-shop-ink"
       >
         {t('app.account.manageAddresses')}
       </Link>
 
       <Link
         to={buildLocalizedHref(locale, '/app/complaints')}
-        className="min-h-touch rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900"
+        className="min-h-touch rounded-xl border border-shop-line bg-white px-4 py-3 text-sm font-medium text-shop-ink"
       >
         {t('app.account.myComplaints')}
       </Link>

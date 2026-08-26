@@ -67,7 +67,6 @@
       "nextSlot": "Next slot: {{day}}, {{time}}",
       "noUpcomingSlot": "No upcoming slots",
       "heroTitle": "Verified mistris, at your door",
-      "heroSubtitle": "Electricians, plumbers, motor and AC technicians across Jabalpur — ID-checked, rated by real customers, and priced before the work starts.",
       "trustVerified": "ID verified",
       "trustRated": "Rated by customers",
       "trustFast": "Same-day slots",
@@ -91,8 +90,7 @@
       "skillsMore": "+{{count}} more",
       "needLocationTitle": "Where should we look?",
       "needLocationAction": "Set my location",
-      "clearSearch": "Clear search",
-      "heroEyebrow": "Jabalpur"
+      "clearSearch": "Clear search"
     },
     "dayOfWeek": {
       "0": "Sunday",

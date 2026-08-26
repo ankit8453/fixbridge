@@ -41,9 +41,9 @@ export function QuoteCard({
   const [reason, setReason] = useState('');
 
   return (
-    <div className="rounded-xl border border-slate-200 p-4">
+    <div className="rounded-xl border border-shop-line p-4">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-slate-900">
+        <h3 className="text-sm font-semibold text-shop-ink">
           {t('app.booking.quoteVersion', { version: quotation.version })}
         </h3>
         <Badge tone={STATUS_TONE[quotation.status]}>
@@ -51,7 +51,7 @@ export function QuoteCard({
         </Badge>
       </div>
 
-      {quotation.note ? <p className="mt-1 text-sm text-slate-600">{quotation.note}</p> : null}
+      {quotation.note ? <p className="mt-1 text-sm text-shop-ink-soft">{quotation.note}</p> : null}
 
       {quotation.items.length > 0 ? (
         <div className="mt-3 divide-y divide-slate-100 text-sm">
@@ -63,7 +63,7 @@ export function QuoteCard({
                   {item.qty} × {formatPaise(item.unitPaise)}
                 </p>
               </div>
-              <span className="shrink-0 tabular-nums text-slate-900">
+              <span className="shrink-0 tabular-nums text-shop-ink">
                 {formatPaise(item.lineTotalPaise)}
               </span>
             </div>
@@ -74,11 +74,11 @@ export function QuoteCard({
       <dl className="mt-3 divide-y divide-slate-100 text-sm">
         <div className="flex items-center justify-between py-1.5">
           <dt className="text-slate-700">{t('app.booking.labour')}</dt>
-          <dd className="tabular-nums text-slate-900">{formatPaise(quotation.labourPaise)}</dd>
+          <dd className="tabular-nums text-shop-ink">{formatPaise(quotation.labourPaise)}</dd>
         </div>
         <div className="flex items-center justify-between py-1.5">
           <dt className="text-slate-700">{t('app.booking.partsTotal')}</dt>
-          <dd className="tabular-nums text-slate-900">{formatPaise(quotation.partsTotalPaise)}</dd>
+          <dd className="tabular-nums text-shop-ink">{formatPaise(quotation.partsTotalPaise)}</dd>
         </div>
         <div className="flex items-center justify-between py-2 text-base font-semibold">
           <dt>{t('app.booking.quoteTotal')}</dt>

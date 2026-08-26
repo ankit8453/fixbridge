@@ -76,7 +76,7 @@ export function BookingModal({
         </p>
 
         {status === 'pending' ? (
-          <p className="text-sm text-slate-500">{t('common.loading')}</p>
+          <p className="text-sm text-shop-ink-soft">{t('common.loading')}</p>
         ) : addresses.length === 0 ? (
           <ErrorState
             error={new Error(t('app.provider.noAddressYet'))}
@@ -89,7 +89,7 @@ export function BookingModal({
                 id={id}
                 value={addressId ?? ''}
                 onChange={(e) => setAddressId(e.target.value)}
-                className="w-full min-h-touch rounded-lg border border-slate-300 px-3 py-2 text-base text-slate-900"
+                className="w-full min-h-touch rounded-lg border border-slate-300 px-3 py-2 text-base text-shop-ink"
               >
                 {addresses.map((address) => (
                   <option key={address.id} value={address.id}>

@@ -85,8 +85,8 @@ export function PaymentPanel({ bookingId, payable }: { bookingId: string; payabl
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 p-4">
-      <h3 className="text-sm font-semibold text-slate-900">{t('app.booking.payableHeading')}</h3>
+    <div className="rounded-xl border border-shop-line p-4">
+      <h3 className="text-sm font-semibold text-shop-ink">{t('app.booking.payableHeading')}</h3>
 
       <dl className="mt-2 divide-y divide-slate-100 text-sm">
         {payable.components.map((component, index) => (
@@ -95,7 +95,7 @@ export function PaymentPanel({ bookingId, payable }: { bookingId: string; payabl
               {t(payableLabelKey(component.labelKey))}
               {component.waived ? ` (${t('app.booking.waived')})` : ''}
             </dt>
-            <dd className="tabular-nums text-slate-900">{formatPaise(component.amountPaise)}</dd>
+            <dd className="tabular-nums text-shop-ink">{formatPaise(component.amountPaise)}</dd>
           </div>
         ))}
         <div className="flex items-center justify-between py-2 text-base font-semibold">
@@ -126,10 +126,10 @@ export function PaymentPanel({ bookingId, payable }: { bookingId: string; payabl
                 <p className="text-sm font-medium text-green-700">
                   {t('app.booking.cashRecorded', { amount: state.payment.amountDisplay })}
                 </p>
-                <p className="text-xs text-slate-500">{t('app.booking.cashDisputeHint')}</p>
+                <p className="text-xs text-shop-ink-soft">{t('app.booking.cashDisputeHint')}</p>
                 <Link
                   to={buildLocalizedHref(locale, `/app/bookings/${bookingId}/complaint`)}
-                  className="text-sm font-medium text-brand underline-offset-2 hover:underline"
+                  className="text-sm font-medium text-shop underline-offset-2 hover:underline"
                 >
                   {t('app.booking.raiseCashDispute')}
                 </Link>
@@ -139,7 +139,7 @@ export function PaymentPanel({ bookingId, payable }: { bookingId: string; payabl
 
           if (state.kind === 'awaiting_confirmation') {
             return (
-              <p className="mt-3 text-sm text-slate-600">{t('app.booking.confirmingPayment')}</p>
+              <p className="mt-3 text-sm text-shop-ink-soft">{t('app.booking.confirmingPayment')}</p>
             );
           }
 

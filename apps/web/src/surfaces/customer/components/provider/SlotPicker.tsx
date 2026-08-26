@@ -25,7 +25,7 @@ export function SlotPicker({ slots, selectedSlotId, onSelect }: SlotPickerProps)
   const t = useT();
 
   if (slots.length === 0) {
-    return <p className="text-sm text-slate-500">{t('app.provider.noSlots')}</p>;
+    return <p className="text-sm text-shop-ink-soft">{t('app.provider.noSlots')}</p>;
   }
 
   const byDay = new Map<string, PublicSlot[]>();
@@ -55,7 +55,7 @@ export function SlotPicker({ slots, selectedSlotId, onSelect }: SlotPickerProps)
                   aria-pressed={selected}
                   className={`min-h-touch min-w-touch rounded-lg border px-3 text-sm font-medium transition-colors ${
                     selected
-                      ? 'border-brand bg-brand text-brand-foreground'
+                      ? 'border-shop bg-shop text-shop-foreground'
                       : 'border-slate-300 bg-white text-slate-800 hover:bg-slate-50'
                   }`}
                 >

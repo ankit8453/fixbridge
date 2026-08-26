@@ -102,7 +102,7 @@ export function SearchBox() {
           aria-label={t('app.find.searchAriaLabel')}
           // `appearance-none` kills WebKit's own search-field decorations,
           // which otherwise draw a second clear button on top of ours.
-          className="w-full min-h-[52px] appearance-none rounded-2xl border border-white/40 bg-white py-3 pl-11 pr-11 text-base font-medium text-slate-900 shadow-lg shadow-slate-900/10 outline-none placeholder:font-normal placeholder:text-slate-400 focus:border-brand focus:ring-2 focus:ring-brand/25 [&::-webkit-search-cancel-button]:appearance-none"
+          className="w-full min-h-[52px] appearance-none rounded-2xl border border-white/40 bg-white py-3 pl-11 pr-11 text-base font-medium text-shop-ink shadow-lg shadow-slate-900/10 outline-none placeholder:font-normal placeholder:text-slate-400 focus:border-shop focus:ring-2 focus:ring-shop/25 [&::-webkit-search-cancel-button]:appearance-none"
         />
 
         {loading ? (
@@ -119,7 +119,7 @@ export function SearchBox() {
               setOpen(false);
             }}
             aria-label={t('app.find.clearSearch')}
-            className="absolute right-2 flex h-9 w-9 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+            className="absolute right-2 flex h-9 w-9 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-shop-ink-soft"
           >
             <X className="h-4 w-4" aria-hidden="true" strokeWidth={2.5} />
           </button>
@@ -127,32 +127,32 @@ export function SearchBox() {
       </div>
 
       {open ? (
-        <ul className="absolute inset-x-0 z-30 mt-2 max-h-72 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-900/10">
+        <ul className="absolute inset-x-0 z-30 mt-2 max-h-72 overflow-y-auto rounded-2xl border border-shop-line bg-white p-1.5 shadow-xl shadow-slate-900/10">
           {loading ? (
-            <li className="px-3 py-3 text-sm text-slate-500">{t('common.loading')}</li>
+            <li className="px-3 py-3 text-sm text-shop-ink-soft">{t('common.loading')}</li>
           ) : suggestions.length === 0 ? (
-            <li className="px-3 py-3 text-sm text-slate-500">{t('app.find.noSuggestions')}</li>
+            <li className="px-3 py-3 text-sm text-shop-ink-soft">{t('app.find.noSuggestions')}</li>
           ) : (
             suggestions.map((suggestion) => (
               <li key={suggestion.categoryId}>
                 <button
                   type="button"
                   onClick={() => goToCategory(suggestion.categoryId)}
-                  className="flex min-h-touch w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-brand-soft"
+                  className="flex min-h-touch w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-shop-soft"
                 >
                   {/* The same drawn glyph the category grid uses, so a
                       suggestion and the tile it leads to are recognisably the
                       same thing. Falls back to a generic tool icon for any
                       category without a drawn one. */}
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-shop-soft text-shop">
                     <CategoryIcon slug={suggestion.slug} className="h-[18px] w-[18px]" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[15px] font-semibold text-slate-900">
+                    <span className="block truncate text-[15px] font-semibold text-shop-ink">
                       {suggestion.name}
                     </span>
                     {suggestion.matchReason === 'synonym_fuzzy' ? (
-                      <span className="block text-xs text-slate-500">
+                      <span className="block text-xs text-shop-ink-soft">
                         {t('app.find.didYouMean')}
                       </span>
                     ) : null}

@@ -44,7 +44,7 @@ export function OtpDisplay({
   return (
     <div
       role="status"
-      className="rounded-xl border-2 border-brand bg-slate-50 px-4 py-3 text-center"
+      className="rounded-xl border-2 border-shop bg-slate-50 px-4 py-3 text-center"
       data-otp-kind={state.kind}
     >
       {/*
@@ -55,16 +55,16 @@ export function OtpDisplay({
       {state.kind === 'start' && (providerPhotoUrl || providerName) ? (
         <div className="mb-2.5 flex flex-col items-center gap-1.5">
           <Avatar name={providerName} src={providerPhotoUrl} size={56} />
-          <p className="text-sm font-semibold text-slate-900">
+          <p className="text-sm font-semibold text-shop-ink">
             {providerName ?? t('app.find.unnamedProvider')}
           </p>
-          <p className="text-xs text-slate-600">{t('app.booking.photoVerifyHint')}</p>
+          <p className="text-xs text-shop-ink-soft">{t('app.booking.photoVerifyHint')}</p>
         </div>
       ) : null}
 
       <p className="text-sm font-medium text-slate-700">{heading}</p>
-      <p className="my-1 text-4xl font-bold tracking-[0.3em] text-slate-900">{state.code}</p>
-      <p className="text-xs text-slate-600">{hint}</p>
+      <p className="my-1 text-4xl font-bold tracking-[0.3em] text-shop-ink">{state.code}</p>
+      <p className="text-xs text-shop-ink-soft">{hint}</p>
     </div>
   );
 }

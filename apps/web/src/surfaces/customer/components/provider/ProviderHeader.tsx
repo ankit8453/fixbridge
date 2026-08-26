@@ -22,13 +22,13 @@ export function ProviderHeader({ profile }: { profile: PublicProviderProfile }) 
   const t = useT();
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
+    <div className="rounded-xl border border-shop-line bg-white p-4">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h1 className="text-lg font-semibold text-slate-900">
+          <h1 className="text-lg font-semibold text-shop-ink">
             {profile.displayName ?? t('app.find.unnamedProvider')}
           </h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-shop-ink-soft">
             {profile.skills.map((s) => s.slug).join(' · ') || '—'}
           </p>
         </div>
@@ -51,7 +51,7 @@ export function ProviderHeader({ profile }: { profile: PublicProviderProfile }) 
       </div>
 
       {profile.priceCards.length > 0 ? (
-        <p className="mt-2 text-sm font-medium text-slate-900">
+        <p className="mt-2 text-sm font-medium text-shop-ink">
           {t('app.find.startingFrom', {
             price: profile.priceCards.find((c) => c.display)?.display ?? '—',
           })}

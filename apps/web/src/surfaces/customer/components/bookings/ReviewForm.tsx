@@ -82,7 +82,7 @@ export function ReviewForm({ bookingId }: { bookingId: string }) {
                     onClick={() => toggleTag(tag)}
                     className={`min-h-touch rounded-full border px-3 text-sm ${
                       tags.includes(tag)
-                        ? 'border-brand bg-brand text-brand-foreground'
+                        ? 'border-shop bg-shop text-shop-foreground'
                         : 'border-slate-300 text-slate-700'
                     }`}
                   >

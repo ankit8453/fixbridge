@@ -124,8 +124,8 @@ export function AddressForm({
           )}
         </Field>
 
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-          <p className="text-xs text-slate-600">{t('app.addresses.coordsExplanation')}</p>
+        <div className="rounded-lg border border-shop-line bg-slate-50 p-3">
+          <p className="text-xs text-shop-ink-soft">{t('app.addresses.coordsExplanation')}</p>
           <Button
             type="button"
             variant="secondary"

@@ -60,22 +60,22 @@ export function LocationBar({
 
   const shell =
     tone === 'brand'
-      ? 'border-brand/15 bg-brand-soft'
-      : 'border-slate-200 bg-white shadow-sm';
+      ? 'border-shop/15 bg-shop-soft'
+      : 'border-shop-line bg-white shadow-sm';
 
   return (
     <div className={`flex items-center gap-3 rounded-2xl border px-3.5 py-3 ${shell}`}>
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-brand-foreground shadow-sm">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-shop text-shop-foreground shadow-sm">
         <PinIcon className="h-[18px] w-[18px]" />
       </span>
 
       <div className="min-w-0 flex-1">
-        <p className="text-[10.5px] font-semibold uppercase tracking-wide text-slate-500">
+        <p className="text-[10.5px] font-semibold uppercase tracking-wide text-shop-ink-soft">
           {t('app.find.locationLabel')}
         </p>
-        <p className="truncate text-[15px] font-bold leading-tight text-slate-900">{chipText}</p>
+        <p className="truncate text-[15px] font-bold leading-tight text-shop-ink">{chipText}</p>
         {detailText ? (
-          <p className="truncate text-xs text-slate-500">{detailText}</p>
+          <p className="truncate text-xs text-shop-ink-soft">{detailText}</p>
         ) : null}
       </div>
 
@@ -86,17 +86,17 @@ export function LocationBar({
       {pickerOpen ? (
         <Modal title={t('app.find.changeLocation')} onClose={() => setPickerOpen(false)}>
           <div className="flex flex-col gap-3 p-4">
-            <p className="text-sm text-slate-600">{t('app.find.locationPickerHint')}</p>
+            <p className="text-sm text-shop-ink-soft">{t('app.find.locationPickerHint')}</p>
 
             <div className="flex flex-col gap-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-shop-ink-soft">
                 {t('app.find.savedAddresses')}
               </p>
 
               {location.addressesLoading ? (
-                <p className="text-sm text-slate-500">{t('common.loading')}</p>
+                <p className="text-sm text-shop-ink-soft">{t('common.loading')}</p>
               ) : location.addresses.length === 0 ? (
-                <p className="text-sm text-slate-500">{t('app.find.noSavedAddresses')}</p>
+                <p className="text-sm text-shop-ink-soft">{t('app.find.noSavedAddresses')}</p>
               ) : (
                 location.addresses.map((address) => {
                   const selected = location.selectedAddress?.id === address.id;
@@ -113,22 +113,22 @@ export function LocationBar({
                       aria-pressed={selected}
                       className={`flex min-h-touch items-start gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors ${
                         selected
-                          ? 'border-brand bg-brand-soft'
-                          : 'border-slate-200 bg-white hover:bg-slate-50'
+                          ? 'border-shop bg-shop-soft'
+                          : 'border-shop-line bg-white hover:bg-slate-50'
                       }`}
                     >
                       <span
                         className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                          selected ? 'bg-brand text-brand-foreground' : 'bg-slate-100 text-slate-500'
+                          selected ? 'bg-shop text-shop-foreground' : 'bg-slate-100 text-shop-ink-soft'
                         }`}
                       >
                         <PinIcon className="h-4 w-4" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-semibold text-slate-900">
+                        <span className="block text-sm font-semibold text-shop-ink">
                           {address.labelText ?? t(LABEL_KEYS[address.label])}
                         </span>
-                        <span className="block truncate text-sm text-slate-500">
+                        <span className="block truncate text-sm text-shop-ink-soft">
                           {address.addressText}
                         </span>
                       </span>
@@ -169,7 +169,7 @@ export function LocationBar({
 
             <Link
               to={buildLocalizedHref(locale, '/app/addresses')}
-              className="flex min-h-touch items-center justify-center gap-1.5 rounded-xl text-sm font-semibold text-brand hover:bg-brand-soft"
+              className="flex min-h-touch items-center justify-center gap-1.5 rounded-xl text-sm font-semibold text-shop hover:bg-shop-soft"
             >
               <Plus className="h-4 w-4" aria-hidden="true" strokeWidth={2.25} />
               {t('app.find.manageAddresses')}

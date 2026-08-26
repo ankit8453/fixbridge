@@ -72,7 +72,7 @@ export default function ProviderProfile() {
               ) : null}
 
               <section>
-                <h2 className="mb-2 text-base font-semibold text-slate-900">
+                <h2 className="mb-2 text-base font-semibold text-shop-ink">
                   {t('app.provider.availableSlots')}
                 </h2>
                 <QueryState
@@ -97,7 +97,7 @@ export default function ProviderProfile() {
               </section>
 
               <section>
-                <h2 className="mb-2 text-base font-semibold text-slate-900">
+                <h2 className="mb-2 text-base font-semibold text-shop-ink">
                   {t('app.provider.reviewsHeading')}
                 </h2>
                 <ReviewsList providerId={id} />

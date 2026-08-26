@@ -28,12 +28,12 @@ export default function Addresses() {
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4 px-4 py-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-slate-900">{t('app.addresses.title')}</h1>
+        <h1 className="text-lg font-semibold text-shop-ink">{t('app.addresses.title')}</h1>
         <Button variant="primary" disabled={atLimit} onClick={() => setEditing('new')}>
           {t('app.addresses.add')}
         </Button>
       </div>
-      {atLimit ? <p className="text-xs text-slate-500">{t('app.addresses.limitReached')}</p> : null}
+      {atLimit ? <p className="text-xs text-shop-ink-soft">{t('app.addresses.limitReached')}</p> : null}
 
       <QueryState
         status={query.status}
@@ -47,9 +47,9 @@ export default function Addresses() {
         {(data) => (
           <div className="flex flex-col gap-3">
             {data.addresses.map((address) => (
-              <div key={address.id} className="rounded-xl border border-slate-200 bg-white p-4">
+              <div key={address.id} className="rounded-xl border border-shop-line bg-white p-4">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="font-medium text-slate-900">
+                  <p className="font-medium text-shop-ink">
                     {address.labelText ?? t(LABEL_KEYS[address.label])}
                   </p>
                   {address.isDefault ? (
@@ -58,7 +58,7 @@ export default function Addresses() {
                 </div>
                 <p className="mt-1 text-sm text-slate-700">{address.addressText}</p>
                 {address.landmark ? (
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-shop-ink-soft">
                     {t('app.addresses.landmarkPrefix')}: {address.landmark}
                   </p>
                 ) : null}

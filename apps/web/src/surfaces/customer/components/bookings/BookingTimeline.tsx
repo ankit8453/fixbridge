@@ -23,16 +23,16 @@ export function BookingTimeline({ events }: { events: BookingEventView[] }) {
           <div className="flex flex-col items-center">
             <span
               className={`mt-1 h-2.5 w-2.5 rounded-full ${
-                index === visible.length - 1 ? 'bg-brand' : 'bg-slate-300'
+                index === visible.length - 1 ? 'bg-shop' : 'bg-slate-300'
               }`}
             />
             {index < visible.length - 1 ? <span className="w-px flex-1 bg-slate-200" /> : null}
           </div>
           <div className="pb-3">
-            <p className="text-sm font-medium text-slate-900">
+            <p className="text-sm font-medium text-shop-ink">
               {t(`app.bookingEvent.${event.eventType}`)}
             </p>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-shop-ink-soft">
               {new Date(event.createdAt).toLocaleString(undefined, {
                 day: 'numeric',
                 month: 'short',

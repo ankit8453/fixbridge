@@ -67,7 +67,6 @@
       "nextSlot": "अगला स्लॉट: {{day}}, {{time}}",
       "noUpcomingSlot": "अभी कोई खाली स्लॉट नहीं",
       "heroTitle": "भरोसेमंद मिस्त्री, आपके घर पर",
-      "heroSubtitle": "जबलपुर के इलेक्ट्रीशियन, प्लंबर, मोटर और AC कारीगर — ID जाँची हुई, ग्राहकों की रेटिंग वाले, और काम शुरू होने से पहले तय दाम।",
       "trustVerified": "ID जाँची हुई",
       "trustRated": "ग्राहकों की रेटिंग",
       "trustFast": "आज ही का समय",
@@ -91,8 +90,7 @@
       "skillsMore": "+{{count}} और",
       "needLocationTitle": "कहाँ ढूँढ़ें?",
       "needLocationAction": "लोकेशन चुनें",
-      "clearSearch": "खोज मिटाएं",
-      "heroEyebrow": "जबलपुर"
+      "clearSearch": "खोज मिटाएं"
     },
     "dayOfWeek": {
       "0": "रविवार",

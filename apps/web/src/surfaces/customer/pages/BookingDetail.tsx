@@ -57,7 +57,7 @@ export default function BookingDetail() {
           return (
             <>
               <div className="flex items-center justify-between">
-                <h1 className="text-lg font-semibold text-slate-900">
+                <h1 className="text-lg font-semibold text-shop-ink">
                   {istDateLabel(booking.startsAt)} · {istTime(booking.startsAt)}
                 </h1>
                 <Badge tone="info">{t(`app.bookingStatus.${booking.status}`)}</Badge>
@@ -90,7 +90,7 @@ export default function BookingDetail() {
                       src={booking.counterpart.photoUrl}
                       size={48}
                     />
-                    <p className="text-sm text-slate-600">{t('app.booking.photoCaption')}</p>
+                    <p className="text-sm text-shop-ink-soft">{t('app.booking.photoCaption')}</p>
                   </div>
                 ) : null}
 
@@ -102,7 +102,7 @@ export default function BookingDetail() {
                     {booking.counterpart.phoneRevealed && booking.counterpart.phone ? (
                       <a
                         href={`tel:${booking.counterpart.phone}`}
-                        className="font-medium text-brand"
+                        className="font-medium text-shop"
                       >
                         {booking.counterpart.phone}
                       </a>
@@ -126,7 +126,7 @@ export default function BookingDetail() {
 
               {booking.quotations.length > 0 && (
                 <section className="flex flex-col gap-3">
-                  <h2 className="text-base font-semibold text-slate-900">
+                  <h2 className="text-base font-semibold text-shop-ink">
                     {t('app.booking.quotesHeading')}
                   </h2>
                   {[...booking.quotations].reverse().map((quotation) => (
@@ -166,7 +166,7 @@ export default function BookingDetail() {
                 {canRaiseComplaint(booking.status) ? (
                   <Link
                     to={buildLocalizedHref(locale, `/app/bookings/${id}/complaint`)}
-                    className="min-h-touch text-center text-sm font-medium text-slate-600 underline-offset-2 hover:underline"
+                    className="min-h-touch text-center text-sm font-medium text-shop-ink-soft underline-offset-2 hover:underline"
                   >
                     {t('app.booking.raiseComplaint')}
                   </Link>
