@@ -1,14 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
+import { EyeOff, Star, Undo2 } from 'lucide-react';
 import { fetchReviewReports, hideReview } from '../lib/api';
 import { useAdminMutation } from '../lib/mutations';
 import { useFilters } from '../lib/filters';
 import type { ReviewReport } from '../lib/types';
 import { ConfirmDialog, reasonField } from '../components/ConfirmDialog';
-import { PageHeader } from '../components/PageHeader';
 import { Timestamp } from '../components/Timestamp';
-import { Badge, Button, Card, Pagination, QueryState } from '@/components/ui';
+import { AdminButton, Card, EmptyState, Pill, SectionHeader, SkeletonRows } from '../components/ui';
+import { ErrorState, Pagination } from '@/components/ui';
 
 /**
  * Reported reviews, with enough context to judge one. Ported from
@@ -41,45 +42,46 @@ export default function ReviewsPage() {
   );
 
   return (
-    <>
-      <PageHeader
+    <div className="space-y-4">
+      <SectionHeader
         title="Reported reviews"
-        subtitle="Only public customer→technician reviews can be reported. Provider→customer reviews are internal and appear nowhere."
+        description="Only public customer→technician reviews can be reported. Provider→customer reviews are internal and appear nowhere."
       />
 
-      <Card title="Reports">
-        <QueryState
-          status={query.status}
-          error={query.error}
-          data={query.data}
-          loadingLabel="Loading reported reviews…"
-          isEmpty={(page) => page.items.length === 0}
-          empty={{
-            title: 'Nothing reported.',
-            hint: 'Reports arrive from the customer app when somebody flags a review.',
-          }}
-          onRetry={() => void query.refetch()}
-        >
-          {(page) => (
-            <>
-              <ul className="space-y-3">
-                {page.items.map((report) => (
-                  <ReportCard
-                    key={report.id}
-                    report={report}
-                    onModerate={(hide) => setTarget({ reviewId: report.reviewId, hide })}
-                  />
-                ))}
-              </ul>
+      <Card padded={false}>
+        {query.status === 'pending' ? (
+          <SkeletonRows rows={4} />
+        ) : query.status === 'error' || query.data === undefined ? (
+          <div className="p-4">
+            <ErrorState error={query.error} onRetry={() => void query.refetch()} />
+          </div>
+        ) : query.data.items.length === 0 ? (
+          <EmptyState
+            icon={Star}
+            title="Nothing reported."
+            description="Reports arrive from the customer app when somebody flags a review. An empty queue here is good news."
+          />
+        ) : (
+          <div className="p-3">
+            <ul className="space-y-2.5">
+              {query.data.items.map((report) => (
+                <ReportCard
+                  key={report.id}
+                  report={report}
+                  onModerate={(hide) => setTarget({ reviewId: report.reviewId, hide })}
+                />
+              ))}
+            </ul>
+            <div className="mt-3">
               <Pagination
-                page={page.page}
-                pageSize={page.pageSize}
-                total={page.total}
+                page={query.data.page}
+                pageSize={query.data.pageSize}
+                total={query.data.total}
                 onChange={filters.setPage}
               />
-            </>
-          )}
-        </QueryState>
+            </div>
+          </div>
+        )}
       </Card>
 
       {target ? (
@@ -99,7 +101,36 @@ export default function ReviewsPage() {
           onConfirm={() => moderate.mutate(target)}
         />
       ) : null}
-    </>
+    </div>
+  );
+}
+
+/**
+ * The star rating, drawn rather than spelled.
+ *
+ * A moderation queue is scanned for one-star reviews, and "1 star" as text
+ * reads at the same weight as "5 stars". Five glyphs do not.
+ */
+function Stars({ stars }: { stars: number }) {
+  const filled = Math.max(0, Math.min(5, Math.round(stars)));
+
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span aria-hidden="true" className="inline-flex items-center gap-0.5">
+        {Array.from({ length: 5 }, (_, i) => (
+          <Star
+            key={i}
+            className={
+              i < filled ? 'h-3.5 w-3.5 fill-warning text-warning' : 'h-3.5 w-3.5 text-slate-300'
+            }
+            strokeWidth={1.75}
+          />
+        ))}
+      </span>
+      <span className="text-xs font-semibold tabular-nums text-slate-700">
+        {stars} {stars === 1 ? 'star' : 'stars'}
+      </span>
+    </span>
   );
 }
 
@@ -114,59 +145,94 @@ function ReportCard({
   const hidden = review?.status === 'hidden';
 
   return (
-    <li className="rounded-lg border border-border p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Badge tone="warning">reported</Badge>
-          {review ? <span className="text-sm font-medium">{review.stars} stars</span> : null}
-          {hidden ? <Badge tone="danger">hidden</Badge> : null}
-          <span className="text-xs text-muted">
+    <li
+      className={
+        hidden
+          ? 'rounded-xl border border-slate-200 bg-slate-50 p-3.5'
+          : 'rounded-xl border border-slate-200 bg-white p-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]'
+      }
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Pill tone="warning">reported</Pill>
+          {review ? <Stars stars={review.stars} /> : null}
+          {hidden ? <Pill tone="danger">hidden</Pill> : null}
+          <span className="text-xs">
             <Timestamp value={report.createdAt} />
           </span>
         </div>
         <div className="flex gap-2">
           {hidden ? (
-            <Button variant="secondary" onClick={() => onModerate(false)}>
+            <AdminButton size="sm" variant="secondary" onClick={() => onModerate(false)}>
+              <Undo2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
               Restore
-            </Button>
+            </AdminButton>
           ) : (
-            <Button variant="danger" onClick={() => onModerate(true)}>
+            <AdminButton size="sm" variant="danger" onClick={() => onModerate(true)}>
+              <EyeOff className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
               Hide
-            </Button>
+            </AdminButton>
           )}
         </div>
       </div>
 
-      <p className="mt-2 text-sm text-slate-800">{review?.text ?? '(no review text)'}</p>
+      {/* The review itself, quoted — it is the thing being judged, so it
+          should not read as one more metadata line among the others. */}
+      <blockquote
+        className={
+          hidden
+            ? 'mt-2.5 border-l-2 border-slate-300 pl-3 text-[13px] leading-relaxed text-slate-500 line-through'
+            : 'mt-2.5 border-l-2 border-slate-300 pl-3 text-[13px] leading-relaxed text-slate-800'
+        }
+      >
+        {review?.text ?? <span className="italic text-slate-400">(no review text)</span>}
+      </blockquote>
 
-      <dl className="mt-2 space-y-0.5 text-xs text-muted">
-        <div>
-          <span className="font-medium">Reported because:</span> {report.reason}
-          {report.reporter ? <span> — by {report.reporter.name ?? report.reporter.id}</span> : null}
+      <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1.5 border-t border-slate-100 pt-2.5 text-xs sm:grid-cols-2">
+        <div className="flex gap-1.5">
+          <dt className="shrink-0 font-semibold text-slate-500">Reported because:</dt>
+          <dd className="min-w-0 text-slate-700">
+            {report.reason}
+            {report.reporter ? (
+              <span className="text-slate-500">
+                {' '}
+                — by {report.reporter.name ?? report.reporter.id}
+              </span>
+            ) : null}
+          </dd>
         </div>
         {review?.author ? (
-          <div>
-            <span className="font-medium">Written by:</span>{' '}
-            {review.author.name ?? review.author.id}
+          <div className="flex gap-1.5">
+            <dt className="shrink-0 font-semibold text-slate-500">Written by:</dt>
+            <dd className="min-w-0 truncate text-slate-700">
+              {review.author.name ?? review.author.id}
+            </dd>
           </div>
         ) : null}
         {review?.bookingId ? (
-          <div>
-            <span className="font-medium">Booking:</span>{' '}
-            <Link className="text-brand hover:underline" to={`/admin/bookings/${review.bookingId}`}>
-              {review.bookingId}
-            </Link>
+          <div className="flex gap-1.5">
+            <dt className="shrink-0 font-semibold text-slate-500">Booking:</dt>
+            <dd className="min-w-0 truncate">
+              <Link
+                className="font-mono text-admin hover:underline"
+                to={`/admin/bookings/${review.bookingId}`}
+              >
+                {review.bookingId}
+              </Link>
+            </dd>
           </div>
         ) : null}
         {review?.subjectUserId ? (
-          <div>
-            <span className="font-medium">About:</span>{' '}
-            <Link
-              className="text-brand hover:underline"
-              to={`/admin/providers/${review.subjectUserId}`}
-            >
-              {review.subjectUserId}
-            </Link>
+          <div className="flex gap-1.5">
+            <dt className="shrink-0 font-semibold text-slate-500">About:</dt>
+            <dd className="min-w-0 truncate">
+              <Link
+                className="font-mono text-admin hover:underline"
+                to={`/admin/providers/${review.subjectUserId}`}
+              >
+                {review.subjectUserId}
+              </Link>
+            </dd>
           </div>
         ) : null}
       </dl>

@@ -69,11 +69,7 @@ export interface PriceAnchor {
 }
 
 export type LabourRejectionReason =
-  | 'below_floor'
-  | 'agreed_mismatch'
-  | 'reason_required'
-  | 'reason_too_short'
-  | 'negative_extra';
+  'below_floor' | 'agreed_mismatch' | 'reason_required' | 'reason_too_short' | 'negative_extra';
 
 export class LabourRuleError extends Error {
   constructor(

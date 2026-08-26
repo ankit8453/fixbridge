@@ -251,10 +251,7 @@ export function computeDiscount(terms: CouponTerms, context: RedemptionContext):
    * than being sent away over a paused coupon they could not have fixed either.
    */
   if (context.paymentMethod !== 'online') {
-    throw new CouponRejectedError(
-      'coupons apply to online payments only',
-      'cash_not_eligible',
-    );
+    throw new CouponRejectedError('coupons apply to online payments only', 'cash_not_eligible');
   }
 
   if (terms.status !== 'active') {
@@ -337,9 +334,7 @@ export function computeDiscount(terms: CouponTerms, context: RedemptionContext):
  */
 function discountAmount(terms: CouponTerms, orderPaise: number): number {
   const raw =
-    terms.discountType === 'percent'
-      ? Math.floor((orderPaise * terms.value) / 100)
-      : terms.value;
+    terms.discountType === 'percent' ? Math.floor((orderPaise * terms.value) / 100) : terms.value;
 
   return Math.max(0, Math.min(raw, terms.maxDiscountPaise, orderPaise));
 }

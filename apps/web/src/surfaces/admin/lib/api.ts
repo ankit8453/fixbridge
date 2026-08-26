@@ -6,6 +6,7 @@ import type {
   BookingRow,
   BookingTimelineResponse,
   Complaint,
+  CouponRow,
   CreateBatchResult,
   DeliveryRow,
   JournalDetail,
@@ -300,6 +301,120 @@ export async function fetchJournals(filters: JournalFilters): Promise<Page<Journ
 
 export const fetchJournal = (journalId: string): Promise<{ journal: JournalDetail }> =>
   adminRequest(`/api/v1/admin/ledger/journals/${journalId}`);
+
+/* -------------------------------------------------------------------------- */
+/* Coupons                                                                    */
+/* -------------------------------------------------------------------------- */
+
+export interface CouponFilters {
+  status?: string;
+  q?: string;
+  city_id?: string;
+  page: number;
+}
+
+/**
+ * The coupon list. Readable by ops; every mutation below is admin-only.
+ *
+ * That split is the router's, not this file's invention — see the comment on
+ * `opsRouter` in `apps/api/src/modules/coupons/routes.ts`: a coupon commits
+ * the platform to spending its own commission, so creating or changing one is
+ * the same class of decision as a commission rate, while *seeing* which
+ * campaigns are live is part of answering a customer's "why didn't my code
+ * work".
+ */
+/**
+ * Platform-wide coupon totals, across every coupon rather than a page of them.
+ *
+ * Separate from `fetchCoupons` on purpose: that endpoint aggregates only the
+ * ids it is about to return, which is right for a per-row "used" column and
+ * wrong for a headline figure.
+ */
+export async function fetchCouponStats(): Promise<CouponStats> {
+  return adminRequest<CouponStats>('/api/v1/admin/coupons/stats');
+}
+
+export async function fetchCoupons(filters: CouponFilters): Promise<Page<CouponRow>> {
+  const body = await adminRequest<unknown>('/api/v1/admin/coupons', {
+    query: {
+      status: filters.status,
+      q: filters.q,
+      city_id: filters.city_id,
+      ...paginationParams(filters.page, 20),
+    },
+  });
+
+  return parsePage<CouponRow>(body, 'coupons');
+}
+
+/**
+ * Creating a campaign. admin-only (`ADMIN_ONLY_ROUTES`).
+ *
+ * The input mirrors `createCouponSchema` exactly — the API's schema is
+ * `.strict()`, so an extra key here is a 400 rather than a quietly ignored
+ * field. `maxDiscountPaise` is required with no "unlimited" option, because an
+ * uncapped percentage on a large quotation is an unbounded loss.
+ */
+export interface CreateCouponInput {
+  code: string;
+  description: string;
+  discountType: 'percent' | 'flat';
+  /** Whole percent for `percent`, paise for `flat`. */
+  value: number;
+  maxDiscountPaise: number;
+  minOrderPaise: number;
+  validFrom: string;
+  validUntil: string;
+  totalUsageLimit?: number;
+  perCustomerLimit: number;
+  cityId?: number;
+  categoryId?: number;
+}
+
+export const createCoupon = (input: CreateCouponInput): Promise<{ coupon: CouponRow }> =>
+  adminRequest('/api/v1/admin/coupons', { method: 'POST', body: input });
+
+/**
+ * An edit. admin-only (`ADMIN_ONLY_ROUTES`).
+ *
+ * `code` and `discountType` are deliberately absent: the API refuses both.
+ * A code is printed on posters and a type change would reinterpret `value`
+ * ("20 percent" silently becoming "20 paise") on a live campaign — a campaign
+ * needing either is a new coupon, not an edit.
+ *
+ * The nullable fields distinguish "leave alone" (omitted) from "clear"
+ * (explicit null), which is why they are `number | null` rather than optional
+ * numbers.
+ */
+export interface UpdateCouponInput {
+  description?: string;
+  value?: number;
+  maxDiscountPaise?: number;
+  minOrderPaise?: number;
+  validFrom?: string;
+  validUntil?: string;
+  totalUsageLimit?: number | null;
+  perCustomerLimit?: number;
+  cityId?: number | null;
+  categoryId?: number | null;
+}
+
+export const updateCoupon = (
+  couponId: string,
+  input: UpdateCouponInput,
+): Promise<{ coupon: CouponRow }> =>
+  adminRequest(`/api/v1/admin/coupons/${couponId}`, { method: 'PATCH', body: input });
+
+/**
+ * Pause and resume are two routes rather than one `PATCH {status}` — they are
+ * separate audit actions, so "show me every campaign somebody switched off" is
+ * a filter on `action` and not a scan of payloads. Both admin-only.
+ */
+export const pauseCoupon = (couponId: string): Promise<{ coupon: CouponRow }> =>
+  adminRequest(`/api/v1/admin/coupons/${couponId}/pause`, { method: 'POST', body: {} });
+
+export const resumeCoupon = (couponId: string): Promise<{ coupon: CouponRow }> =>
+  adminRequest(`/api/v1/admin/coupons/${couponId}/resume`, { method: 'POST', body: {} });
 
 /* -------------------------------------------------------------------------- */
 /* Parked queues                                                              */

@@ -49,6 +49,17 @@ opsRouter.get(
   }),
 );
 
+/**
+ * Before `/:couponId`, which would otherwise match the literal string "stats"
+ * as an id and answer 404.
+ */
+opsRouter.get(
+  '/stats',
+  handle(async (_req, res) => {
+    res.status(200).json(await service.getCouponStats(deps(_req)));
+  }),
+);
+
 opsRouter.get(
   '/:couponId',
   handle(async (req, res) => {
@@ -139,12 +150,7 @@ bookingCouponRouter.post(
     const { bookingId } = bookingIdParamSchema.parse(req.params);
     const input = applyCouponSchema.parse(req.body);
 
-    const applied = await service.applyCoupon(
-      deps(req),
-      getAuthUser(req).id,
-      bookingId,
-      input,
-    );
+    const applied = await service.applyCoupon(deps(req), getAuthUser(req).id, bookingId, input);
 
     res.status(200).json({ coupon: applied, message: req.t('coupons.applied') });
   }),

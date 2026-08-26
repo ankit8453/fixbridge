@@ -1,15 +1,25 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { useState } from 'react';
+import { ArrowLeft, Banknote, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { closePayoutBatch, fetchPayoutBatch, markPayoutFailed, markPayoutPaid } from '../lib/api';
 import { useAdminMutation } from '../lib/mutations';
 import type { Payout } from '../lib/types';
 import { ConfirmDialog, noteField } from '../components/ConfirmDialog';
-import { PageHeader } from '../components/PageHeader';
 import { Timestamp } from '../components/Timestamp';
 import { StatusBadge } from '../components/StatusBadge';
+import {
+  AdminButton,
+  Card,
+  DetailRow,
+  EmptyState,
+  Grid,
+  SectionHeader,
+  SkeletonRows,
+  StatTile,
+} from '../components/ui';
 import { useAuth } from '@/lib/auth/useAuth';
-import { Button, Card, DetailRow, QueryState, Table, type TableColumn } from '@/components/ui';
+import { ErrorState, Spinner, Table, type TableColumn } from '@/components/ui';
 import { formatPaise } from '@/lib/money';
 
 type Dialog =
@@ -65,179 +75,262 @@ export default function PayoutBatchPage() {
     onDone: close,
   });
 
+  if (query.status === 'pending') {
+    return (
+      <div className="space-y-4">
+        <Card>
+          <Spinner label="Loading the batch and its payouts…" />
+        </Card>
+        <Card padded={false}>
+          <SkeletonRows rows={5} />
+        </Card>
+      </div>
+    );
+  }
+
+  if (query.status === 'error' || query.data === undefined) {
+    return <ErrorState error={query.error} onRetry={() => void query.refetch()} />;
+  }
+
+  const { batch } = query.data;
+  const lines = batch.payouts ?? [];
+
+  // Counted from the lines themselves rather than from a stored field: the
+  // question ops are answering on this screen is "is anything still
+  // outstanding", and the lines are the only record of that.
+  const paidCount = lines.filter((line) => line.status === 'paid').length;
+  const failedCount = lines.filter((line) => line.status === 'failed').length;
+  const outstandingCount = lines.length - paidCount - failedCount;
+  const paidPaise = lines
+    .filter((line) => line.status === 'paid')
+    .reduce((sum, line) => sum + line.amountPaise, 0);
+
+  const columns: TableColumn<Payout>[] = [
+    {
+      key: 'provider',
+      header: 'Technician',
+      render: (row) => (
+        <Link
+          className="font-mono text-xs font-semibold text-admin hover:underline"
+          to={`/admin/providers/${row.providerId}`}
+        >
+          {row.providerId.slice(0, 8)}…
+        </Link>
+      ),
+    },
+    {
+      key: 'amount',
+      header: 'Amount',
+      align: 'right',
+      render: (row) => (
+        <span className="text-[13px] font-semibold tabular-nums text-slate-900">
+          {formatPaise(row.amountPaise)}
+        </span>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (row) => <StatusBadge status={row.status} />,
+    },
+    {
+      key: 'utr',
+      header: 'UTR',
+      align: 'right',
+      render: (row) =>
+        row.utrRef ? (
+          <span className="font-mono text-xs text-slate-700">{row.utrRef}</span>
+        ) : (
+          <span className="text-slate-400">—</span>
+        ),
+    },
+    { key: 'paid', header: 'Paid', render: (row) => <Timestamp value={row.paidAt} /> },
+    {
+      key: 'actions',
+      header: '',
+      align: 'right',
+      render: (row) =>
+        // Hidden, not disabled, for ops: these two calls are
+        // admin-only server-side, and a button that always 403s for
+        // a whole role teaches nothing except that the console
+        // tried and failed on their behalf.
+        row.status !== 'paid' && canRecordPayouts ? (
+          <div className="flex justify-end gap-2">
+            <AdminButton
+              size="sm"
+              variant="primary"
+              onClick={() => setDialog({ kind: 'paid', payout: row })}
+            >
+              Mark paid
+            </AdminButton>
+            <AdminButton
+              size="sm"
+              variant="secondary"
+              onClick={() => setDialog({ kind: 'failed', payout: row })}
+            >
+              Mark failed
+            </AdminButton>
+          </div>
+        ) : null,
+    },
+  ];
+
   return (
-    <>
-      <PageHeader
-        title="Payout batch"
-        actions={
-          <Link className="text-sm text-brand hover:underline" to="/admin/money">
-            ← Back to money
-          </Link>
+    <div className="space-y-5">
+      <SectionHeader
+        title={`Batch ${batch.id.slice(0, 8)}…`}
+        description="Every line is transferred by hand in the bank portal, then recorded here with its reference."
+        action={
+          <div className="flex items-center gap-2">
+            <Link
+              className="inline-flex min-h-touch items-center gap-1.5 rounded-lg px-2.5 text-[13px] font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+              to="/admin/money"
+            >
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
+              Back to money
+            </Link>
+            {batch.status === 'completed' ? (
+              <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-600">
+                <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
+                Closed.
+              </span>
+            ) : (
+              <AdminButton variant="danger" onClick={() => setDialog({ kind: 'close' })}>
+                Close batch
+              </AdminButton>
+            )}
+          </div>
         }
       />
 
-      <QueryState
-        status={query.status}
-        error={query.error}
-        data={query.data}
-        loadingLabel="Loading the batch and its payouts…"
-        onRetry={() => void query.refetch()}
-      >
-        {({ batch }) => {
-          const columns: TableColumn<Payout>[] = [
+      <Grid cols={4}>
+        <StatTile
+          label="Batch total"
+          value={formatPaise(batch.totalPaise)}
+          hint={`${batch.payoutCount} payout${batch.payoutCount === 1 ? '' : 's'} drafted.`}
+          icon={Banknote}
+          tone="admin"
+        />
+        <StatTile
+          label="Recorded paid"
+          value={formatPaise(paidPaise)}
+          hint={`${paidCount} of ${lines.length} lines.`}
+          icon={CheckCircle2}
+          tone="success"
+        />
+        <StatTile
+          label="Still outstanding"
+          value={outstandingCount}
+          hint="Lines neither paid nor failed."
+          icon={Clock}
+          tone={outstandingCount > 0 ? 'warning' : 'neutral'}
+        />
+        <StatTile
+          label="Failed at the bank"
+          value={failedCount}
+          hint="Rolls into the next batch."
+          icon={XCircle}
+          tone={failedCount > 0 ? 'danger' : 'neutral'}
+        />
+      </Grid>
+
+      <Card title="Batch">
+        <dl>
+          <DetailRow label="Batch id">
+            <span className="font-mono text-xs">{batch.id}</span>
+          </DetailRow>
+          <DetailRow label="Status">
+            <StatusBadge status={batch.status} />
+          </DetailRow>
+          <DetailRow label="Payouts">
+            <span className="tabular-nums">{batch.payoutCount}</span>
+          </DetailRow>
+          <DetailRow label="Total">
+            <span className="font-semibold tabular-nums">{formatPaise(batch.totalPaise)}</span>
+          </DetailRow>
+          <DetailRow label="Window end">
+            <Timestamp value={batch.windowEnd} />
+          </DetailRow>
+          <DetailRow label="Created">
+            <Timestamp value={batch.createdAt} />
+          </DetailRow>
+          <DetailRow label="Completed">
+            <Timestamp value={batch.completedAt} />
+          </DetailRow>
+        </dl>
+      </Card>
+
+      <Card title={`Payouts (${lines.length})`} padded={false}>
+        {lines.length === 0 ? (
+          <EmptyState
+            icon={Banknote}
+            title="This batch has no payout lines."
+            description="Nobody had a balance above the payout minimum when it was drafted."
+          />
+        ) : (
+          <div className="p-3">
+            <Table columns={columns} rows={lines} rowKey={(row) => row.id} />
+          </div>
+        )}
+      </Card>
+
+      {dialog?.kind === 'paid' ? (
+        <ConfirmDialog
+          title={`Mark ${formatPaise(dialog.payout.amountPaise)} as paid`}
+          description="This posts the payout to the ledger. It is the only place payout money moves, and it cannot be undone from this console."
+          // Distinct from the row's "Mark paid" on purpose: two buttons
+          // with the same words, one of which actually moves money, is a
+          // misclick waiting for a bad afternoon.
+          confirmLabel="Record as paid"
+          tone="danger"
+          pending={paid.isPending}
+          error={paid.error}
+          fields={[
             {
-              key: 'provider',
-              header: 'Technician',
-              render: (row) => (
-                <Link
-                  className="text-brand hover:underline"
-                  to={`/admin/providers/${row.providerId}`}
-                >
-                  {row.providerId.slice(0, 8)}…
-                </Link>
-              ),
+              name: 'utrRef',
+              label: 'UTR / bank reference',
+              required: true,
+              placeholder: 'e.g. N123456789012345',
+              // A database CHECK refuses a paid payout without one. Asking
+              // here saves a round trip; the constraint is the real rule.
+              hint: 'Required. A payout marked paid with no bank reference is unauditable.',
             },
-            {
-              key: 'amount',
-              header: 'Amount',
-              align: 'right',
-              render: (row) => <span className="font-medium">{formatPaise(row.amountPaise)}</span>,
-            },
-            {
-              key: 'status',
-              header: 'Status',
-              render: (row) => <StatusBadge status={row.status} />,
-            },
-            { key: 'utr', header: 'UTR', align: 'right', render: (row) => row.utrRef ?? '—' },
-            { key: 'paid', header: 'Paid', render: (row) => <Timestamp value={row.paidAt} /> },
-            {
-              key: 'actions',
-              header: '',
-              render: (row) =>
-                // Hidden, not disabled, for ops: these two calls are
-                // admin-only server-side, and a button that always 403s for
-                // a whole role teaches nothing except that the console
-                // tried and failed on their behalf.
-                row.status !== 'paid' && canRecordPayouts ? (
-                  <div className="flex gap-2">
-                    <Button
-                      variant="primary"
-                      onClick={() => setDialog({ kind: 'paid', payout: row })}
-                    >
-                      Mark paid
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={() => setDialog({ kind: 'failed', payout: row })}
-                    >
-                      Mark failed
-                    </Button>
-                  </div>
-                ) : null,
-            },
-          ];
+          ]}
+          onClose={close}
+          onConfirm={(values) =>
+            paid.mutate({ payoutId: dialog.payout.id, utrRef: values.utrRef ?? '' })
+          }
+        />
+      ) : null}
 
-          return (
-            <div className="space-y-4">
-              <Card
-                title={`Batch ${batch.id}`}
-                actions={
-                  batch.status === 'completed' ? (
-                    <span className="text-xs text-muted">Closed.</span>
-                  ) : (
-                    <Button variant="danger" onClick={() => setDialog({ kind: 'close' })}>
-                      Close batch
-                    </Button>
-                  )
-                }
-              >
-                <dl>
-                  <DetailRow label="Status">
-                    <StatusBadge status={batch.status} />
-                  </DetailRow>
-                  <DetailRow label="Payouts">{batch.payoutCount}</DetailRow>
-                  <DetailRow label="Total">{formatPaise(batch.totalPaise)}</DetailRow>
-                  <DetailRow label="Window end">
-                    <Timestamp value={batch.windowEnd} />
-                  </DetailRow>
-                  <DetailRow label="Created">
-                    <Timestamp value={batch.createdAt} />
-                  </DetailRow>
-                  <DetailRow label="Completed">
-                    <Timestamp value={batch.completedAt} />
-                  </DetailRow>
-                </dl>
-              </Card>
+      {dialog?.kind === 'failed' ? (
+        <ConfirmDialog
+          title={`Mark ${formatPaise(dialog.payout.amountPaise)} as failed`}
+          description="Nothing is posted to the ledger. The balance simply rolls into the next batch."
+          confirmLabel="Record as failed"
+          tone="danger"
+          pending={failed.isPending}
+          error={failed.error}
+          fields={[noteField('Note', 'What the bank said.')]}
+          onClose={close}
+          onConfirm={(values) =>
+            failed.mutate({ payoutId: dialog.payout.id, note: values.note ?? '' })
+          }
+        />
+      ) : null}
 
-              <Card title={`Payouts (${batch.payouts?.length ?? 0})`}>
-                {!batch.payouts || batch.payouts.length === 0 ? (
-                  <p className="text-sm text-muted">This batch has no payout lines.</p>
-                ) : (
-                  <Table columns={columns} rows={batch.payouts} rowKey={(row) => row.id} />
-                )}
-              </Card>
-
-              {dialog?.kind === 'paid' ? (
-                <ConfirmDialog
-                  title={`Mark ${formatPaise(dialog.payout.amountPaise)} as paid`}
-                  description="This posts the payout to the ledger. It is the only place payout money moves, and it cannot be undone from this console."
-                  // Distinct from the row's "Mark paid" on purpose: two buttons
-                  // with the same words, one of which actually moves money, is a
-                  // misclick waiting for a bad afternoon.
-                  confirmLabel="Record as paid"
-                  tone="danger"
-                  pending={paid.isPending}
-                  error={paid.error}
-                  fields={[
-                    {
-                      name: 'utrRef',
-                      label: 'UTR / bank reference',
-                      required: true,
-                      placeholder: 'e.g. N123456789012345',
-                      // A database CHECK refuses a paid payout without one. Asking
-                      // here saves a round trip; the constraint is the real rule.
-                      hint: 'Required. A payout marked paid with no bank reference is unauditable.',
-                    },
-                  ]}
-                  onClose={close}
-                  onConfirm={(values) =>
-                    paid.mutate({ payoutId: dialog.payout.id, utrRef: values.utrRef ?? '' })
-                  }
-                />
-              ) : null}
-
-              {dialog?.kind === 'failed' ? (
-                <ConfirmDialog
-                  title={`Mark ${formatPaise(dialog.payout.amountPaise)} as failed`}
-                  description="Nothing is posted to the ledger. The balance simply rolls into the next batch."
-                  confirmLabel="Record as failed"
-                  tone="danger"
-                  pending={failed.isPending}
-                  error={failed.error}
-                  fields={[noteField('Note', 'What the bank said.')]}
-                  onClose={close}
-                  onConfirm={(values) =>
-                    failed.mutate({ payoutId: dialog.payout.id, note: values.note ?? '' })
-                  }
-                />
-              ) : null}
-
-              {dialog?.kind === 'close' ? (
-                <ConfirmDialog
-                  title="Close this batch"
-                  description="Only close a batch once every line in it has been marked paid or failed."
-                  confirmLabel="Close batch"
-                  tone="danger"
-                  pending={closeBatch.isPending}
-                  error={closeBatch.error}
-                  onClose={close}
-                  onConfirm={() => closeBatch.mutate(undefined)}
-                />
-              ) : null}
-            </div>
-          );
-        }}
-      </QueryState>
-    </>
+      {dialog?.kind === 'close' ? (
+        <ConfirmDialog
+          title="Close this batch"
+          description="Only close a batch once every line in it has been marked paid or failed."
+          confirmLabel="Close batch"
+          tone="danger"
+          pending={closeBatch.isPending}
+          error={closeBatch.error}
+          onClose={close}
+          onConfirm={() => closeBatch.mutate(undefined)}
+        />
+      ) : null}
+    </div>
   );
 }

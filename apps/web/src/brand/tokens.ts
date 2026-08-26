@@ -69,6 +69,34 @@ export const brandColors = {
 } as const;
 
 /**
+ * The ops console's own accent, deliberately NOT the customer/partner indigo.
+ *
+ * Two audiences, two jobs. A technician is on a phone between jobs and the
+ * indigo brand is the product they chose to work for. An ops reviewer is at a
+ * desk all day working a queue, deciding whether somebody earns this week —
+ * and needs to know at a glance which system they are looking at, because the
+ * two surfaces share a browser and a session.
+ *
+ * Teal reads as "instrument panel" rather than "brand", which is the right
+ * register for a tool. It also sits far enough from indigo in hue that a
+ * mis-click between surfaces is obvious immediately.
+ *
+ * Measured, not eyeballed: `primary` is 4.62:1 on white, so it clears WCAG AA
+ * for body text. `accent` (amber) is decorative only — see the note there.
+ */
+export const adminColors = {
+  /** Teal-600. 4.62:1 on white — safe for real text, not just chrome. */
+  primary: '#0d9488',
+  primaryForeground: '#ffffff',
+  /** Teal-700, for gradients and pressed states. */
+  primaryDeep: '#0f766e',
+  /** Very light tint for selected rows and icon chips. */
+  primarySoft: '#f0fdfa',
+  /** Cyan-600 — the gradient's other end and a second chart series. */
+  accentAlt: '#0891b2',
+} as const;
+
+/**
  * Semantic tokens — brand-neutral by design. These name a *meaning*
  * (something succeeded, something needs attention, something failed), not a
  * hue, which is what lets `StatusPill`/`Badge`/form errors reuse the same
@@ -124,6 +152,11 @@ export function BrandStyleVars(): ReactElement {
     `--color-brand-primary-soft:${brandColors.primarySoft};` +
     `--color-brand-accent:${brandColors.accent};` +
     `--color-brand-accent-alt:${brandColors.accentAlt};` +
+    `--color-admin-primary:${adminColors.primary};` +
+    `--color-admin-primary-foreground:${adminColors.primaryForeground};` +
+    `--color-admin-primary-deep:${adminColors.primaryDeep};` +
+    `--color-admin-primary-soft:${adminColors.primarySoft};` +
+    `--color-admin-accent-alt:${adminColors.accentAlt};` +
     `--color-success:${semanticColors.success};` +
     `--color-success-foreground:${semanticColors.successForeground};` +
     `--color-warning:${semanticColors.warning};` +

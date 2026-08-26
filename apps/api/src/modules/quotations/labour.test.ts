@@ -92,9 +92,9 @@ describe('the exact scenario that prompted this', () => {
   it('rejects a client that claims a different agreed figure than the booking holds', () => {
     // Either the app is out of date or it is lying. Both deserve an error
     // rather than being silently overwritten.
-    expect(() => assertAgreedMatches({ priceType: 'fixed', amountPaise: RS(300) }, RS(500))).toThrow(
-      LabourRuleError,
-    );
+    expect(() =>
+      assertAgreedMatches({ priceType: 'fixed', amountPaise: RS(300) }, RS(500)),
+    ).toThrow(LabourRuleError);
 
     expect(() =>
       assertAgreedMatches({ priceType: 'fixed', amountPaise: RS(300) }, RS(300)),
@@ -158,7 +158,9 @@ describe('starting_from is a floor, not a price', () => {
   });
 
   it('does not constrain a fixed or inspection-based card', () => {
-    expect(() => assertNotBelowFloor({ priceType: 'fixed', amountPaise: RS(300) }, 1)).not.toThrow();
+    expect(() =>
+      assertNotBelowFloor({ priceType: 'fixed', amountPaise: RS(300) }, 1),
+    ).not.toThrow();
     expect(() =>
       assertNotBelowFloor({ priceType: 'inspection_based', amountPaise: null }, 1),
     ).not.toThrow();

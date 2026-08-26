@@ -1,15 +1,17 @@
-import { Badge, StatusPill, type Tone } from '@/components/ui';
 import type { TrustBadge } from '../lib/types';
+import { Pill, type Tone } from './ui';
 
 /**
  * Status and badge colouring specific to the admin domain's enums — ported
- * from `legacy-next-src/components/admin/ui/Badge.tsx` onto the new kit's
- * `Tone` vocabulary (`neutral | success | warning | danger | info`, not the
- * legacy `neutral | good | bad | warn | info`). The shared `Badge`/
- * `StatusPill` deliberately have no such mapping (see their own comments): a
- * tone keyed on an untranslated English enum value belongs next to whichever
- * surface owns that enum, and this surface is the one that renders raw
- * `booking_status` / verification-case-status strings.
+ * from `legacy-next-src/components/admin/ui/Badge.tsx`, now rendered with
+ * this surface's own `Pill` rather than the shared kit's `StatusPill`. The
+ * shared kit is indigo-flavoured and deliberately has no such mapping (see
+ * its own comments): a tone keyed on an untranslated English enum value
+ * belongs next to whichever surface owns that enum, and this surface is the
+ * one that renders raw `booking_status` / verification-case-status strings.
+ *
+ * `Pill`'s `Tone` is a superset of the shared kit's — it adds `admin` — so
+ * every tone this file returns is still valid; nothing needed remapping.
  */
 
 /**
@@ -32,12 +34,12 @@ function toneFor(status: string): Tone {
 }
 
 export function StatusBadge({ status }: { status: string }) {
-  return <StatusPill tone={toneFor(status)}>{status}</StatusPill>;
+  return <Pill tone={toneFor(status)}>{status}</Pill>;
 }
 
 export function BadgeLevel({ badge }: { badge: TrustBadge | string | null | undefined }) {
-  if (!badge || badge === 'NONE') return <Badge tone="neutral">NONE</Badge>;
-  if (badge === 'GOLD') return <Badge tone="warning">GOLD</Badge>;
-  if (badge === 'SILVER') return <Badge tone="info">SILVER</Badge>;
-  return <Badge tone="success">{badge}</Badge>;
+  if (!badge || badge === 'NONE') return <Pill tone="neutral">NONE</Pill>;
+  if (badge === 'GOLD') return <Pill tone="warning">GOLD</Pill>;
+  if (badge === 'SILVER') return <Pill tone="info">SILVER</Pill>;
+  return <Pill tone="success">{badge}</Pill>;
 }

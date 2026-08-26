@@ -446,3 +446,60 @@ export interface AuditRow {
  * whole log.
  */
 export type AuditScope = 'own' | 'all';
+
+/* -------------------------------------------------------------------------- */
+/* Coupons                                                                    */
+/* -------------------------------------------------------------------------- */
+
+export type CouponDiscountType = 'percent' | 'flat';
+
+/** `expired` is derived from the window on read by the API, never stored. */
+export type CouponStatus = 'active' | 'paused' | 'expired';
+
+/**
+ * One row of `GET /admin/coupons` — mirrors `CouponView` in
+ * `apps/api/src/modules/coupons/types.ts`.
+ *
+ * Money arrives twice over: `*Paise` as the integer the system actually works
+ * in, and `*Display` as the string the API already formatted. This surface
+ * renders from the paise through `formatPaise` (one formatter, matching the
+ * API's own) rather than the display strings, so a screen and a ledger can
+ * never disagree about a number — but the display fields are typed here
+ * because they are part of the contract and a future consumer may want them.
+ */
+export interface CouponRow {
+  id: string;
+  code: string;
+  description: string;
+  discountType: CouponDiscountType;
+  /** Whole percent for `percent`, paise for `flat`. */
+  value: number;
+  maxDiscountPaise: number;
+  maxDiscountDisplay: string;
+  minOrderPaise: number;
+  minOrderDisplay: string;
+  validFrom: string;
+  validUntil: string;
+  /** Null means no global ceiling on redemptions. */
+  totalUsageLimit: number | null;
+  perCustomerLimit: number;
+  status: CouponStatus;
+  /** Null means every city / every category. */
+  cityId: number | null;
+  categoryId: number | null;
+  redemptionCount: number;
+  /** What this campaign has cost the platform's commission so far. */
+  discountedPaise: number;
+  discountedDisplay: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Platform-wide coupon totals — see `fetchCouponStats`. */
+export interface CouponStats {
+  totalCoupons: number;
+  activeCoupons: number;
+  redemptionCount: number;
+  /** What the platform has given away, out of its own commission. */
+  discountedPaise: number;
+}

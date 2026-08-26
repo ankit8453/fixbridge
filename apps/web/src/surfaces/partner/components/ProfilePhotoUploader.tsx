@@ -97,7 +97,12 @@ export function ProfilePhotoUploader({ displayName }: { displayName?: string | n
       });
 
       if (!putResponse.ok) {
-        throw new ApiError(putResponse.status, 'UPLOAD_FAILED', t('partner.upload.putFailed'), null);
+        throw new ApiError(
+          putResponse.status,
+          'UPLOAD_FAILED',
+          t('partner.upload.putFailed'),
+          null,
+        );
       }
 
       return confirmPhotoUpload(photoId);
@@ -129,7 +134,9 @@ export function ProfilePhotoUploader({ displayName }: { displayName?: string | n
         <div className="min-w-0 flex-1">
           {style && StatusIcon ? (
             <>
-              <p className={`inline-flex items-center gap-1.5 text-sm font-medium ${style.className}`}>
+              <p
+                className={`inline-flex items-center gap-1.5 text-sm font-medium ${style.className}`}
+              >
                 <StatusIcon className="h-4 w-4 shrink-0" aria-hidden="true" strokeWidth={2.25} />
                 {t(style.labelKey)}
               </p>
@@ -217,7 +224,8 @@ export function ProfilePhotoUploader({ displayName }: { displayName?: string | n
             {/* Said before the picker opens, not after: replacing an approved
                 photo sends it back for review, and a technician who discovers
                 that afterwards has been surprised by their own app. */}
-            {fileName ?? (photo ? t('partner.photo.replaceHint') : t('partner.photo.acceptedTypes'))}
+            {fileName ??
+              (photo ? t('partner.photo.replaceHint') : t('partner.photo.acceptedTypes'))}
           </span>
         </span>
       </button>
@@ -230,7 +238,9 @@ export function ProfilePhotoUploader({ displayName }: { displayName?: string | n
         </div>
       ) : null}
 
-      {mutation.isError ? <ErrorState error={mutation.error} onRetry={() => mutation.reset()} /> : null}
+      {mutation.isError ? (
+        <ErrorState error={mutation.error} onRetry={() => mutation.reset()} />
+      ) : null}
     </div>
   );
 }

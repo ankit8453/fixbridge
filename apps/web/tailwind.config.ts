@@ -25,6 +25,15 @@ const config: Config = {
         },
         'brand-accent': 'var(--color-brand-accent)',
         'brand-accent-alt': 'var(--color-brand-accent-alt)',
+        // The ops console's own accent — teal, deliberately not the indigo the
+        // customer and partner surfaces use. See adminColors in brand/tokens.ts.
+        admin: {
+          DEFAULT: 'var(--color-admin-primary)',
+          foreground: 'var(--color-admin-primary-foreground)',
+          deep: 'var(--color-admin-primary-deep)',
+          soft: 'var(--color-admin-primary-soft)',
+          alt: 'var(--color-admin-accent-alt)',
+        },
         success: {
           DEFAULT: 'var(--color-success)',
           foreground: 'var(--color-success-foreground)',

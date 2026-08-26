@@ -267,9 +267,7 @@ export async function startPayment(
    * is recorded on the payment row as `amountPaise` for exactly that reason.
    */
   const discount =
-    purpose === 'final_bill'
-      ? await coupons.findBookingDiscount(context.prisma, bookingId)
-      : null;
+    purpose === 'final_bill' ? await coupons.findBookingDiscount(context.prisma, bookingId) : null;
 
   const chargePaise = booking.payablePaise - (discount?.discountPaise ?? 0);
 
@@ -740,7 +738,9 @@ export async function recordCashCollected(
           commissionPaise: split.commissionPaise,
           // Present only when a coupon was dropped, so the customer's message
           // can say why the amount is higher than the screen last showed.
-          couponDropped: dropped ? { code: dropped.code, discountPaise: dropped.discountPaise } : null,
+          couponDropped: dropped
+            ? { code: dropped.code, discountPaise: dropped.discountPaise }
+            : null,
           note: note ?? null,
         },
       });

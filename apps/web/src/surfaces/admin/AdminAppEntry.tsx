@@ -8,6 +8,7 @@ import {
   MessageSquareWarning,
   ShieldCheck,
   Star,
+  TicketPercent,
   Users,
   Wallet,
 } from 'lucide-react';
@@ -25,6 +26,7 @@ import ComplaintsPage from './pages/ComplaintsPage';
 import ComplaintDetailPage from './pages/ComplaintDetailPage';
 import ReviewsPage from './pages/ReviewsPage';
 import MoneyPage from './pages/MoneyPage';
+import CouponsPage from './pages/CouponsPage';
 import PayoutBatchPage from './pages/PayoutBatchPage';
 import JournalDetailPage from './pages/JournalDetailPage';
 import QueuesPage from './pages/QueuesPage';
@@ -50,6 +52,10 @@ const NAV: Omit<AdminNavItem, 'badge'>[] = [
   { key: 'complaints', label: 'Complaints', href: '/admin/complaints', icon: MessageSquareWarning },
   { key: 'reviews', label: 'Reviews', href: '/admin/reviews', icon: Star },
   { key: 'money', label: 'Money', href: '/admin/money', icon: Wallet },
+  // Coupons sit next to Money on purpose: a campaign spends the platform's
+  // commission, so it belongs with the other money screens rather than with
+  // the queues.
+  { key: 'coupons', label: 'Coupons', href: '/admin/coupons', icon: TicketPercent },
   { key: 'queues', label: 'Queues', href: '/admin/queues', icon: Inbox },
   { key: 'audit', label: 'Audit log', href: '/admin/audit', icon: FileClock },
 ];
@@ -62,6 +68,7 @@ const TITLES: { prefix: string; label: string }[] = [
   { prefix: '/admin/complaints', label: 'Complaints' },
   { prefix: '/admin/reviews', label: 'Reviews' },
   { prefix: '/admin/money', label: 'Money' },
+  { prefix: '/admin/coupons', label: 'Coupons' },
   { prefix: '/admin/queues', label: 'Queues' },
   { prefix: '/admin/audit', label: 'Audit log' },
   { prefix: '/admin', label: 'Overview' },
@@ -108,6 +115,7 @@ export default function AdminAppEntry() {
         <Route path="money" element={<MoneyPage />} />
         <Route path="money/batches/:batchId" element={<PayoutBatchPage />} />
         <Route path="money/journals/:journalId" element={<JournalDetailPage />} />
+        <Route path="coupons" element={<CouponsPage />} />
         <Route path="queues" element={<QueuesPage />} />
         <Route path="audit" element={<AuditPage />} />
       </Routes>

@@ -113,9 +113,7 @@ export type UpdateCouponInput = z.infer<typeof updateCouponSchema>;
  * derived on read, not an opinion ops can hold about a coupon that is still in
  * its window.
  */
-export const setCouponStatusSchema = z
-  .object({ status: z.enum(['active', 'paused']) })
-  .strict();
+export const setCouponStatusSchema = z.object({ status: z.enum(['active', 'paused']) }).strict();
 
 export type SetCouponStatusInput = z.infer<typeof setCouponStatusSchema>;
 

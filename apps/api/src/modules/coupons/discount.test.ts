@@ -154,9 +154,9 @@ describe('computeDiscount — eligibility', () => {
     reason: string,
     overrides: { terms?: Partial<CouponTerms>; context?: Partial<RedemptionContext> } = {},
   ) => {
-    expect(() =>
-      computeDiscount(terms(overrides.terms), context(overrides.context)),
-    ).toThrowError(expect.objectContaining({ reason }));
+    expect(() => computeDiscount(terms(overrides.terms), context(overrides.context))).toThrowError(
+      expect.objectContaining({ reason }),
+    );
   };
 
   /**
@@ -286,9 +286,9 @@ describe('assertValidTerms', () => {
   });
 
   it('rejects a non-positive flat amount', () => {
-    expect(() =>
-      assertValidTerms({ ...base, discountType: 'flat', value: 0 }),
-    ).toThrowError(expect.objectContaining({ reason: 'bad_flat' }));
+    expect(() => assertValidTerms({ ...base, discountType: 'flat', value: 0 })).toThrowError(
+      expect.objectContaining({ reason: 'bad_flat' }),
+    );
   });
 
   /** The cap is required, so zero and null-shaped values are terms errors. */
@@ -296,9 +296,9 @@ describe('assertValidTerms', () => {
     expect(() => assertValidTerms({ ...base, maxDiscountPaise: 0 })).toThrowError(
       expect.objectContaining({ reason: 'bad_cap' }),
     );
-    expect(() =>
-      assertValidTerms({ ...base, maxDiscountPaise: MAX_CAP_PAISE + 1 }),
-    ).toThrowError(expect.objectContaining({ reason: 'bad_cap' }));
+    expect(() => assertValidTerms({ ...base, maxDiscountPaise: MAX_CAP_PAISE + 1 })).toThrowError(
+      expect.objectContaining({ reason: 'bad_cap' }),
+    );
   });
 
   it('rejects a negative minimum order', () => {
@@ -308,14 +308,14 @@ describe('assertValidTerms', () => {
   });
 
   it('rejects a window that ends before it starts', () => {
-    expect(() =>
-      assertValidTerms({ ...base, validFrom: UNTIL, validUntil: FROM }),
-    ).toThrowError(expect.objectContaining({ reason: 'bad_window' }));
+    expect(() => assertValidTerms({ ...base, validFrom: UNTIL, validUntil: FROM })).toThrowError(
+      expect.objectContaining({ reason: 'bad_window' }),
+    );
 
     // Zero-length is also refused: a coupon valid for no time is a bug.
-    expect(() =>
-      assertValidTerms({ ...base, validFrom: FROM, validUntil: FROM }),
-    ).toThrowError(CouponTermsError);
+    expect(() => assertValidTerms({ ...base, validFrom: FROM, validUntil: FROM })).toThrowError(
+      CouponTermsError,
+    );
   });
 
   it('is re-checked by computeDiscount, so bad terms cannot pay out', () => {

@@ -1,17 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { CalendarClock, Search } from 'lucide-react';
 import { fetchBookings } from '../lib/api';
 import { useFilters } from '../lib/filters';
 import { dateInputToIso } from '../lib/time';
 import type { BookingRow } from '../lib/types';
-import { PageHeader } from '../components/PageHeader';
 import { Timestamp } from '../components/Timestamp';
 import { StatusBadge } from '../components/StatusBadge';
+import { Card, EmptyState, SectionHeader, SkeletonRows } from '../components/ui';
 import {
-  Card,
+  ErrorState,
   Field,
   Pagination,
-  QueryState,
   Select,
   Table,
   TextInput,
@@ -59,7 +59,10 @@ export default function BookingsPage() {
       key: 'id',
       header: 'Booking',
       render: (row) => (
-        <Link className="font-medium text-brand hover:underline" to={`/admin/bookings/${row.id}`}>
+        <Link
+          className="font-mono text-xs font-semibold text-admin hover:underline"
+          to={`/admin/bookings/${row.id}`}
+        >
           {row.id.slice(0, 8)}…
         </Link>
       ),
@@ -70,8 +73,8 @@ export default function BookingsPage() {
       header: 'Customer',
       render: (row) => (
         <>
-          {row.customer?.name ?? '—'}
-          <div className="text-xs text-muted">{row.customer?.phone}</div>
+          <span className="font-medium text-slate-900">{row.customer?.name ?? '—'}</span>
+          <div className="text-xs tabular-nums text-slate-500">{row.customer?.phone}</div>
         </>
       ),
     },
@@ -81,35 +84,46 @@ export default function BookingsPage() {
       render: (row) =>
         row.provider ? (
           <Link
-            className="text-brand hover:underline"
+            className="font-medium text-admin hover:underline"
             to={`/admin/providers/${row.provider.userId}`}
           >
             {row.provider.displayName ?? row.provider.userId}
           </Link>
         ) : (
-          '—'
+          <span className="text-slate-400">unassigned</span>
         ),
     },
-    { key: 'category', header: 'Category', render: (row) => row.category?.nameKey ?? '—' },
+    {
+      key: 'category',
+      header: 'Category',
+      render: (row) => <span className="text-slate-600">{row.category?.nameKey ?? '—'}</span>,
+    },
     { key: 'starts', header: 'Starts', render: (row) => <Timestamp value={row.startsAt} /> },
     {
       key: 'payable',
       header: 'Payable',
       align: 'right',
-      render: (row) => (row.payablePaise === null ? '—' : formatPaise(row.payablePaise)),
+      render: (row) =>
+        row.payablePaise === null ? (
+          <span className="text-slate-400">—</span>
+        ) : (
+          <span className="font-semibold tabular-nums text-slate-900">
+            {formatPaise(row.payablePaise)}
+          </span>
+        ),
     },
     { key: 'created', header: 'Created', render: (row) => <Timestamp value={row.createdAt} /> },
   ];
 
   return (
-    <>
-      <PageHeader
+    <div className="space-y-4">
+      <SectionHeader
         title="Bookings"
-        subtitle="One search box. Paste a booking id, or type the phone number the caller read out — either side of the job."
+        description="One search box. Paste a booking id, or type the phone number the caller read out — either side of the job."
       />
 
-      <Card className="mb-4" title="Search">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <Card padded={false}>
+        <div className="grid grid-cols-1 gap-3 border-b border-slate-100 bg-slate-50/60 p-3 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="Booking id or phone">
             {(id) => (
               <TextInput
@@ -165,34 +179,38 @@ export default function BookingsPage() {
             )}
           </Field>
         </div>
-      </Card>
 
-      <Card title="Results">
-        <QueryState
-          status={query.status}
-          error={query.error}
-          data={query.data}
-          loadingLabel="Searching bookings…"
-          isEmpty={(page) => page.items.length === 0}
-          empty={{
-            title: 'No booking matches that.',
-            hint: 'A full booking id matches exactly; anything else is treated as a phone fragment.',
-          }}
-          onRetry={() => void query.refetch()}
-        >
-          {(page) => (
-            <>
-              <Table columns={columns} rows={page.items} rowKey={(row) => row.id} />
+        {query.status === 'pending' ? (
+          <SkeletonRows rows={8} />
+        ) : query.status === 'error' || query.data === undefined ? (
+          <div className="p-4">
+            <ErrorState error={query.error} onRetry={() => void query.refetch()} />
+          </div>
+        ) : query.data.items.length === 0 ? (
+          <EmptyState
+            icon={Search}
+            title="No booking matches that."
+            description="A full booking id matches exactly; anything else is treated as a phone fragment."
+          />
+        ) : (
+          <div className="p-3">
+            <div className="mb-2.5 flex items-center gap-1.5 px-1 text-xs text-slate-500">
+              <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.75} />
+              <span className="tabular-nums">{query.data.total}</span>
+              <span>matching {query.data.total === 1 ? 'booking' : 'bookings'}</span>
+            </div>
+            <Table columns={columns} rows={query.data.items} rowKey={(row) => row.id} />
+            <div className="mt-3">
               <Pagination
-                page={page.page}
-                pageSize={page.pageSize}
-                total={page.total}
+                page={query.data.page}
+                pageSize={query.data.pageSize}
+                total={query.data.total}
                 onChange={filters.setPage}
               />
-            </>
-          )}
-        </QueryState>
+            </div>
+          </div>
+        )}
       </Card>
-    </>
+    </div>
   );
 }

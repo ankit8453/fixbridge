@@ -2,6 +2,22 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { useState } from 'react';
 import {
+  ArrowLeft,
+  Ban,
+  CalendarClock,
+  Check,
+  CircleCheck,
+  CircleX,
+  Eye,
+  EyeOff,
+  Gauge,
+  ShieldCheck,
+  Star,
+  Undo2,
+  Wallet as WalletIcon,
+  X,
+} from 'lucide-react';
+import {
   approveProviderEntry,
   blockUser,
   fetchProvider,
@@ -12,19 +28,19 @@ import {
 import { useAdminMutation } from '../lib/mutations';
 import type { ProviderDetail } from '../lib/types';
 import { ConfirmDialog, reasonField } from '../components/ConfirmDialog';
-import { PageHeader } from '../components/PageHeader';
 import { Timestamp } from '../components/Timestamp';
 import { BadgeLevel, StatusBadge } from '../components/StatusBadge';
-import { ToneStatTile } from '../components/ToneStatTile';
 import {
-  Badge,
-  Button,
+  AdminButton,
   Card,
   DetailRow,
-  QueryState,
-  Table,
-  type TableColumn,
-} from '@/components/ui';
+  EmptyState,
+  Grid,
+  Pill,
+  StatTile,
+  type Tone,
+} from '../components/ui';
+import { QueryState } from '@/components/ui';
 import { formatPaise } from '@/lib/money';
 
 type Action = 'suspend' | 'reinstate' | 'block' | 'unblock' | 'approve';
@@ -86,15 +102,14 @@ export default function ProviderDetailPage() {
   );
 
   return (
-    <>
-      <PageHeader
-        title="Technician"
-        actions={
-          <Link className="text-sm text-brand hover:underline" to="/admin/providers">
-            ← Back to the list
-          </Link>
-        }
-      />
+    <div className="space-y-4">
+      <Link
+        to="/admin/providers"
+        className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-admin hover:underline"
+      >
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
+        Back to the list
+      </Link>
 
       <QueryState
         status={query.status}
@@ -198,7 +213,62 @@ export default function ProviderDetailPage() {
           </div>
         )}
       </QueryState>
-    </>
+    </div>
+  );
+}
+
+/**
+ * Completeness against the listing threshold, as a ring.
+ *
+ * "Why am I not in search" is often just this number, and a ring says
+ * "nearly there" or "barely started" faster than two digits do. The score is
+ * printed inside it, so the ring carries no information the text does not.
+ */
+function CompletenessRing({ score, listed }: { score: number; listed: boolean }) {
+  const clamped = Math.max(0, Math.min(100, score));
+  const radius = 30;
+  const circumference = 2 * Math.PI * radius;
+  const length = (clamped / 100) * circumference;
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="relative h-[76px] w-[76px] shrink-0">
+        <svg viewBox="0 0 76 76" className="h-full w-full -rotate-90" aria-hidden="true">
+          <circle
+            cx="38"
+            cy="38"
+            r={radius}
+            fill="none"
+            className="stroke-slate-100"
+            strokeWidth="8"
+          />
+          <circle
+            cx="38"
+            cy="38"
+            r={radius}
+            fill="none"
+            className={listed ? 'stroke-admin' : 'stroke-warning'}
+            strokeWidth="8"
+            strokeLinecap="round"
+            strokeDasharray={`${length} ${circumference - length}`}
+          />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-[17px] font-semibold leading-none tabular-nums text-slate-900">
+            {score}
+          </span>
+        </div>
+      </div>
+      <div className="min-w-0">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          Profile completeness
+        </p>
+        <p className="mt-0.5 text-[13px] text-slate-900">{score} / 100</p>
+        <p className="mt-0.5 text-xs text-slate-500">
+          {listed ? 'At or above the listing threshold' : 'Below the listing threshold'}
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -215,77 +285,113 @@ function Identity({
     provider.city?.requireEntryApproval === true && provider.entryApprovedAt === null;
 
   return (
-    <Card
-      title={provider.displayName ?? provider.userId}
-      actions={
-        <>
+    <Card padded={false}>
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="truncate text-[15px] font-semibold tracking-tight text-slate-900">
+              {provider.displayName ?? provider.userId}
+            </h2>
+            <BadgeLevel badge={provider.verification?.badge} />
+            {blocked ? <Pill tone="danger">blocked</Pill> : null}
+            {suspended ? <Pill tone="danger">suspended</Pill> : null}
+            {needsApproval ? <Pill tone="warning">awaiting entry approval</Pill> : null}
+          </div>
+          <p className="mt-0.5 text-xs tabular-nums text-slate-500">
+            {provider.user.phone} · {provider.city?.name ?? `city ${provider.cityId}`} · joined{' '}
+            <Timestamp value={provider.createdAt} />
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
           {needsApproval ? (
-            <Button variant="primary" onClick={() => onAction('approve')}>
+            <AdminButton variant="primary" onClick={() => onAction('approve')}>
+              <Check className="h-4 w-4" aria-hidden="true" strokeWidth={2.25} />
               Approve entry
-            </Button>
+            </AdminButton>
           ) : null}
           {suspended ? (
-            <Button variant="secondary" onClick={() => onAction('reinstate')}>
+            <AdminButton variant="secondary" onClick={() => onAction('reinstate')}>
+              <Undo2 className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
               Reinstate
-            </Button>
+            </AdminButton>
           ) : (
-            <Button variant="danger" onClick={() => onAction('suspend')}>
+            <AdminButton variant="danger" onClick={() => onAction('suspend')}>
+              <Ban className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
               Suspend
-            </Button>
+            </AdminButton>
           )}
           {blocked ? (
-            <Button variant="secondary" onClick={() => onAction('unblock')}>
+            <AdminButton variant="secondary" onClick={() => onAction('unblock')}>
+              <Undo2 className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
               Unblock account
-            </Button>
+            </AdminButton>
           ) : (
-            <Button variant="danger" onClick={() => onAction('block')}>
+            <AdminButton variant="danger" onClick={() => onAction('block')}>
+              <X className="h-4 w-4" aria-hidden="true" strokeWidth={2.25} />
               Block account
-            </Button>
+            </AdminButton>
           )}
-        </>
-      }
-    >
-      <dl>
-        <DetailRow label="Phone">{provider.user.phone}</DetailRow>
-        <DetailRow label="Account status">
-          <StatusBadge status={provider.user.status} />
-        </DetailRow>
-        <DetailRow label="Badge">
-          <BadgeLevel badge={provider.verification?.badge} /> since{' '}
-          <Timestamp value={provider.verification?.badgeSince} />
-        </DetailRow>
-        <DetailRow label="Levels passed">
-          {provider.verification?.levelsPassed?.join(', ') || 'none yet'}
-        </DetailRow>
-        <DetailRow label="City">
-          {provider.city?.name ?? provider.cityId}
-          {provider.city?.requireEntryApproval ? ' — entry approval required' : ''}
-        </DetailRow>
-        <DetailRow label="Profile completeness">
-          {provider.completenessScore} / 100
-          {provider.isListed ? null : ' — below the listing threshold'}
-        </DetailRow>
-        <DetailRow label="Suspension">
-          {suspended ? (
-            <>
-              until <Timestamp value={provider.suspendedUntil} /> —{' '}
-              {provider.suspensionReason ?? 'no reason recorded'}
-            </>
-          ) : (
-            'not suspended'
-          )}
-        </DetailRow>
-        <DetailRow label="Joined">
-          <Timestamp value={provider.createdAt} />
-        </DetailRow>
-        <DetailRow label="Skills">
-          {(provider.skills ?? []).length === 0
-            ? 'none'
-            : (provider.skills ?? [])
-                .map((skill) => skill.category?.nameKey ?? skill.categoryId)
-                .join(', ')}
-        </DetailRow>
-      </dl>
+        </div>
+      </div>
+
+      <div className="grid gap-4 px-4 py-3 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <dl>
+            <DetailRow label="Phone">
+              <span className="tabular-nums">{provider.user.phone}</span>
+            </DetailRow>
+            <DetailRow label="Account status">
+              <StatusBadge status={provider.user.status} />
+            </DetailRow>
+            <DetailRow label="Badge">
+              <span className="inline-flex flex-wrap items-center gap-1.5">
+                <BadgeLevel badge={provider.verification?.badge} />
+                <span className="text-slate-500">
+                  since <Timestamp value={provider.verification?.badgeSince} />
+                </span>
+              </span>
+            </DetailRow>
+            <DetailRow label="Levels passed">
+              {provider.verification?.levelsPassed?.join(', ') || 'none yet'}
+            </DetailRow>
+            <DetailRow label="City">
+              {provider.city?.name ?? provider.cityId}
+              {provider.city?.requireEntryApproval ? ' — entry approval required' : ''}
+            </DetailRow>
+            <DetailRow label="Suspension">
+              {suspended ? (
+                <span className="text-slate-900">
+                  until <Timestamp value={provider.suspendedUntil} /> —{' '}
+                  {provider.suspensionReason ?? 'no reason recorded'}
+                </span>
+              ) : (
+                <span className="text-slate-500">not suspended</span>
+              )}
+            </DetailRow>
+            <DetailRow label="Joined">
+              <Timestamp value={provider.createdAt} />
+            </DetailRow>
+            <DetailRow label="Skills">
+              {(provider.skills ?? []).length === 0 ? (
+                <span className="text-slate-500">none</span>
+              ) : (
+                <span className="flex flex-wrap gap-1">
+                  {(provider.skills ?? []).map((skill) => (
+                    <Pill key={skill.categoryId} tone="neutral">
+                      {skill.category?.nameKey ?? skill.categoryId}
+                    </Pill>
+                  ))}
+                </span>
+              )}
+            </DetailRow>
+          </dl>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+          <CompletenessRing score={provider.completenessScore} listed={provider.isListed} />
+        </div>
+      </div>
     </Card>
   );
 }
@@ -315,25 +421,53 @@ function Visibility({ provider }: { provider: ProviderDetail }) {
   ];
 
   const visible = gates.every(([, pass]) => pass);
+  const failing = gates.filter(([, pass]) => !pass).length;
 
   return (
     <Card
       title="Search visibility"
-      actions={
+      description={
+        visible
+          ? 'Every gate passes — this technician appears in customer search.'
+          : `${failing} gate${failing === 1 ? '' : 's'} failing. Each one hides them on its own.`
+      }
+      action={
         visible ? (
-          <Badge tone="success">appears in search</Badge>
+          <Pill tone="success">
+            <Eye className="mr-1 h-3 w-3" aria-hidden="true" strokeWidth={2.25} />
+            in search
+          </Pill>
         ) : (
-          <Badge tone="danger">hidden</Badge>
+          <Pill tone="danger">
+            <EyeOff className="mr-1 h-3 w-3" aria-hidden="true" strokeWidth={2.25} />
+            hidden
+          </Pill>
         )
       }
+      padded={false}
     >
-      <ul className="space-y-1.5">
+      <ul className="divide-y divide-slate-100">
         {gates.map(([label, pass, why]) => (
-          <li key={label} className="flex items-start gap-2 text-sm">
-            <span className={pass ? 'text-green-700' : 'text-red-700'}>{pass ? '✓' : '✕'}</span>
+          <li key={label} className="flex items-start gap-2.5 px-4 py-2.5">
+            {pass ? (
+              <CircleCheck
+                className="mt-px h-4 w-4 shrink-0 text-success"
+                aria-hidden="true"
+                strokeWidth={2}
+              />
+            ) : (
+              <CircleX
+                className="mt-px h-4 w-4 shrink-0 text-danger"
+                aria-hidden="true"
+                strokeWidth={2}
+              />
+            )}
             <span className="min-w-0">
-              <span className="font-medium text-slate-800">{label}</span>
-              <span className="ml-2 text-xs text-muted">{why}</span>
+              <span className="block text-[13px] font-semibold text-slate-900">
+                {label}
+                <span className="sr-only">{pass ? ' — passing' : ' — failing'}</span>
+              </span>
+              <span className="block text-xs leading-relaxed text-slate-500">{why}</span>
             </span>
           </li>
         ))}
@@ -345,49 +479,94 @@ function Visibility({ provider }: { provider: ProviderDetail }) {
 function TrustInputs({ provider }: { provider: ProviderDetail }) {
   const stats = provider.stats;
 
+  const score = stats?.trustScore ?? null;
+  // 0–100 in the API. Colour by band, so a reviewer reads the number and the
+  // judgement about it in one glance.
+  const scoreTone: Tone =
+    score === null ? 'neutral' : score >= 70 ? 'success' : score >= 40 ? 'warning' : 'danger';
+
   return (
-    <Card title="Trust score and what feeds it">
+    <Card
+      title="Trust score and what feeds it"
+      action={
+        <Pill tone={scoreTone}>
+          <Gauge className="mr-1 h-3 w-3" aria-hidden="true" strokeWidth={2.25} />
+          {score === null ? 'not scored' : score}
+        </Pill>
+      }
+    >
       {!stats ? (
-        <p className="text-sm text-muted">
-          No stats row yet — this technician has not been scored, which is different from scoring
-          zero.
-        </p>
+        <EmptyState
+          icon={Star}
+          title="No stats row yet."
+          description="This technician has not been scored, which is different from scoring zero."
+        />
       ) : (
         <dl>
           <DetailRow label="Trust score">
-            {stats.trustScore ?? 'not scored yet'}
-            {stats.trustScoreUpdated ? (
-              <span className="ml-2 text-xs text-muted">
-                updated <Timestamp value={stats.trustScoreUpdated} />
+            <span className="inline-flex flex-wrap items-baseline gap-2">
+              <span className="text-[15px] font-semibold tabular-nums text-slate-900">
+                {stats.trustScore ?? 'not scored yet'}
               </span>
-            ) : null}
+              {stats.trustScoreUpdated ? (
+                <span className="text-xs text-slate-500">
+                  updated <Timestamp value={stats.trustScoreUpdated} />
+                </span>
+              ) : null}
+            </span>
           </DetailRow>
           <DetailRow label="Ratings">
-            {stats.avgStars === null || stats.avgStars === undefined
-              ? 'never rated'
-              : `${stats.avgStars} stars over ${stats.reviewCount ?? 0} reviews`}
+            {stats.avgStars === null || stats.avgStars === undefined ? (
+              <span className="text-slate-500">never rated</span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5">
+                <Star
+                  className="h-3.5 w-3.5 shrink-0 text-warning"
+                  aria-hidden="true"
+                  strokeWidth={2}
+                />
+                <span className="tabular-nums">
+                  {stats.avgStars} stars over {stats.reviewCount ?? 0} reviews
+                </span>
+              </span>
+            )}
           </DetailRow>
           <DetailRow label="Acceptance">
-            {stats.acceptanceRate === null || stats.acceptanceRate === undefined
-              ? 'not enough decided requests to mean anything'
-              : `${Math.round(stats.acceptanceRate * 100)}% over ${stats.windowDays ?? 30} days`}
-            <span className="ml-2 text-xs text-muted">
+            <span className="tabular-nums">
+              {stats.acceptanceRate === null || stats.acceptanceRate === undefined
+                ? 'not enough decided requests to mean anything'
+                : `${Math.round(stats.acceptanceRate * 100)}% over ${stats.windowDays ?? 30} days`}
+            </span>
+            <span className="mt-0.5 block text-xs tabular-nums text-slate-500">
               {stats.acceptedCount ?? 0} accepted · {stats.rejectedCount ?? 0} rejected ·{' '}
               {stats.expiredCount ?? 0} expired
             </span>
           </DetailRow>
           <DetailRow label="Reliability">
-            {stats.cancelledByProviderCount ?? 0} cancellations by this technician
+            <span className="tabular-nums">
+              {stats.cancelledByProviderCount ?? 0} cancellations by this technician
+            </span>
           </DetailRow>
           <DetailRow label="Complaints upheld">
-            {stats.complaintsMinorCount ?? 0} minor · {stats.complaintsMajorCount ?? 0} major ·{' '}
-            {stats.complaintsSevereCount ?? 0} severe
-            <span className="ml-2 text-xs text-muted">Dismissed complaints count for nothing.</span>
+            <span className="inline-flex flex-wrap items-center gap-1.5">
+              <Pill tone={(stats.complaintsMinorCount ?? 0) > 0 ? 'warning' : 'neutral'}>
+                {stats.complaintsMinorCount ?? 0} minor
+              </Pill>
+              <Pill tone={(stats.complaintsMajorCount ?? 0) > 0 ? 'danger' : 'neutral'}>
+                {stats.complaintsMajorCount ?? 0} major
+              </Pill>
+              <Pill tone={(stats.complaintsSevereCount ?? 0) > 0 ? 'danger' : 'neutral'}>
+                {stats.complaintsSevereCount ?? 0} severe
+              </Pill>
+            </span>
+            <span className="mt-0.5 block text-xs text-slate-500">
+              Dismissed complaints count for nothing.
+            </span>
           </DetailRow>
           <DetailRow label="Settled jobs">
-            {stats.settledJobsCount}
+            <span className="tabular-nums">{stats.settledJobsCount}</span>
             {stats.lastSettledAt ? (
-              <span className="ml-2 text-xs text-muted">
+              <span className="ml-2 text-xs text-slate-500">
                 last <Timestamp value={stats.lastSettledAt} />
               </span>
             ) : null}
@@ -399,59 +578,134 @@ function TrustInputs({ provider }: { provider: ProviderDetail }) {
 }
 
 function Wallet({ provider }: { provider: ProviderDetail }) {
+  const { payablePaise, duesPaise, netPaise } = provider.balance;
+
   return (
-    <Card title="Wallet">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        <ToneStatTile label="We owe them" value={formatPaise(provider.balance.payablePaise)} />
-        <ToneStatTile
+    <Card title="Wallet and dues">
+      <Grid cols={3}>
+        <StatTile
+          label="We owe them"
+          value={formatPaise(payablePaise)}
+          hint="Payable, before the next batch"
+          icon={WalletIcon}
+          tone={payablePaise > 0 ? 'admin' : 'neutral'}
+        />
+        <StatTile
           label="They owe us"
-          value={formatPaise(provider.balance.duesPaise)}
-          tone={provider.balance.duesPaise > 0 ? 'warn' : 'neutral'}
+          value={formatPaise(duesPaise)}
           hint="Commission on cash jobs"
+          icon={ShieldCheck}
+          tone={duesPaise > 0 ? 'warning' : 'neutral'}
         />
-        <ToneStatTile
+        <StatTile
           label="Net"
-          value={formatPaise(provider.balance.netPaise)}
-          href="/admin/money"
+          value={formatPaise(netPaise)}
+          hint="Payable less dues"
+          icon={Gauge}
+          tone={netPaise < 0 ? 'danger' : 'neutral'}
         />
-      </div>
-      <p className="mt-3 text-xs text-muted">
+      </Grid>
+
+      <p className="mt-3 text-xs leading-relaxed text-slate-500">
         Payable and dues are shown separately rather than netted — that is what a technician can
-        check against their own week. Both are sums of ledger entries; no balance is stored.
+        check against their own week. Both are sums of ledger entries; no balance is stored.{' '}
+        <Link to="/admin/money" className="font-semibold text-admin hover:underline">
+          Open the money screen
+        </Link>
+        .
       </p>
     </Card>
   );
 }
 
 function RecentBookings({ provider }: { provider: ProviderDetail }) {
-  const columns: TableColumn<RecentBooking>[] = [
-    {
-      key: 'id',
-      header: 'Booking',
-      render: (row) => (
-        <Link className="text-brand hover:underline" to={`/admin/bookings/${row.id}`}>
-          {row.id.slice(0, 8)}…
-        </Link>
-      ),
-    },
-    { key: 'status', header: 'Status', render: (row) => <StatusBadge status={row.status} /> },
-    { key: 'category', header: 'Category', render: (row) => row.category?.nameKey ?? '—' },
-    { key: 'starts', header: 'Starts', render: (row) => <Timestamp value={row.startsAt} /> },
-    {
-      key: 'payable',
-      header: 'Payable',
-      align: 'right',
-      render: (row) => (row.payablePaise === null ? '—' : formatPaise(row.payablePaise)),
-    },
-    { key: 'created', header: 'Created', render: (row) => <Timestamp value={row.createdAt} /> },
-  ];
+  const rows: RecentBooking[] = provider.recentBookings;
 
   return (
-    <Card title="Recent bookings">
-      {provider.recentBookings.length === 0 ? (
-        <p className="text-sm text-muted">This technician has never had a booking.</p>
+    <Card
+      title="Recent bookings"
+      action={<Pill tone="neutral">{rows.length}</Pill>}
+      padded={rows.length === 0}
+    >
+      {rows.length === 0 ? (
+        <EmptyState
+          icon={CalendarClock}
+          title="Never had a booking."
+          description="This technician has not been booked once — worth knowing before reading anything into their trust score."
+        />
       ) : (
-        <Table columns={columns} rows={provider.recentBookings} rowKey={(row) => row.id} />
+        <>
+          <div className="hidden overflow-x-auto sm:block">
+            <table className="w-full border-collapse text-[13px]">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50 text-left">
+                  {['Booking', 'Status', 'Category', 'Starts', 'Payable', 'Created'].map(
+                    (header) => (
+                      <th
+                        key={header}
+                        scope="col"
+                        className={`whitespace-nowrap px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 ${
+                          header === 'Payable' ? 'text-right' : ''
+                        }`}
+                      >
+                        {header}
+                      </th>
+                    ),
+                  )}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {rows.map((row) => (
+                  <tr key={row.id} className="transition-colors hover:bg-slate-50">
+                    <td className="px-3 py-2.5">
+                      <Link
+                        to={`/admin/bookings/${row.id}`}
+                        className="font-semibold tabular-nums text-admin hover:underline"
+                      >
+                        {row.id.slice(0, 8)}…
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <StatusBadge status={row.status} />
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-600">{row.category?.nameKey ?? '—'}</td>
+                    <td className="px-3 py-2.5 text-slate-600">
+                      <Timestamp value={row.startsAt} />
+                    </td>
+                    <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-slate-900">
+                      {row.payablePaise === null ? '—' : formatPaise(row.payablePaise)}
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-600">
+                      <Timestamp value={row.createdAt} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <ul className="divide-y divide-slate-100 sm:hidden">
+            {rows.map((row) => (
+              <li key={row.id}>
+                <Link to={`/admin/bookings/${row.id}`} className="block px-4 py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="font-semibold tabular-nums text-slate-900">
+                      {row.id.slice(0, 8)}…
+                    </span>
+                    <StatusBadge status={row.status} />
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 text-xs text-slate-500">
+                    <span>{row.category?.nameKey ?? '—'}</span>
+                    <span className="tabular-nums">
+                      {row.payablePaise === null ? '—' : formatPaise(row.payablePaise)}
+                    </span>
+                    <Timestamp value={row.startsAt} />
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </Card>
   );

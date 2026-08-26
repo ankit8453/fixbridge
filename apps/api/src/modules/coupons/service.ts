@@ -206,9 +206,7 @@ export async function listCoupons(
   );
 
   return {
-    coupons: rows.map((row) =>
-      toCouponView(row, counts.get(row.id) ?? EMPTY_COUNTS, at),
-    ),
+    coupons: rows.map((row) => toCouponView(row, counts.get(row.id) ?? EMPTY_COUNTS, at)),
     page: query.page,
     pageSize: query.page_size,
     total,
@@ -246,6 +244,43 @@ async function redemptionTotals(
       },
     ]),
   );
+}
+
+/**
+ * Platform-wide coupon totals, across every coupon rather than a page of them.
+ *
+ * Deliberately separate from `listCoupons`: that one aggregates redemptions
+ * for the ids it is about to return, which is right for a per-row "used" column
+ * and wrong for a headline figure. Summing a page and calling it a total would
+ * be a number that silently changes when somebody pages or filters.
+ *
+ * `discountedPaise` is what the platform has actually given away — it comes out
+ * of commission, never the technician's earnings, so this is a marketing spend
+ * figure and worth watching.
+ */
+export async function getCouponStats(deps: CouponDeps): Promise<{
+  totalCoupons: number;
+  activeCoupons: number;
+  redemptionCount: number;
+  discountedPaise: number;
+}> {
+  const { prisma } = deps.context;
+
+  const [totalCoupons, activeCoupons, redemptions] = await Promise.all([
+    prisma.coupon.count(),
+    prisma.coupon.count({ where: { status: 'active' } }),
+    prisma.couponRedemption.aggregate({
+      _count: { _all: true },
+      _sum: { discountPaise: true },
+    }),
+  ]);
+
+  return {
+    totalCoupons,
+    activeCoupons,
+    redemptionCount: redemptions._count._all,
+    discountedPaise: redemptions._sum.discountPaise ?? 0,
+  };
 }
 
 export async function getCoupon(deps: CouponDeps, couponId: string): Promise<CouponView> {
@@ -483,8 +518,7 @@ export async function setCouponStatus(
     prisma,
     actor,
     (result: { before: Coupon; after: Coupon }) => ({
-      action:
-        status === 'paused' ? AUDIT_ACTIONS.couponPause : AUDIT_ACTIONS.couponResume,
+      action: status === 'paused' ? AUDIT_ACTIONS.couponPause : AUDIT_ACTIONS.couponResume,
       targetType: 'coupon',
       targetId: result.after.id,
       payload: {
@@ -544,19 +578,16 @@ async function assertScopeExists(
     // they agree — otherwise the coupon matches nothing and nobody finds out
     // until a customer complains it does not work.
     if (cityId !== null && category.cityId !== cityId) {
-      throw AppError.badRequest(
-        `Category ${categoryId} is not in city ${cityId}`,
-        { messageKey: 'errors.coupons.badScope' },
-      );
+      throw AppError.badRequest(`Category ${categoryId} is not in city ${cityId}`, {
+        messageKey: 'errors.coupons.badScope',
+      });
     }
   }
 }
 
 function isUniqueViolation(error: unknown): boolean {
   return (
-    typeof error === 'object' &&
-    error !== null &&
-    (error as { code?: string }).code === 'P2002'
+    typeof error === 'object' && error !== null && (error as { code?: string }).code === 'P2002'
   );
 }
 
