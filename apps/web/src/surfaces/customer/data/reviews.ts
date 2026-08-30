@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
+import { useActionToast } from '@/lib/use-action-toast';
 import type { CreateReviewInput, ReviewView } from './types';
 
 export function useBookingReviews(bookingId: string) {
@@ -15,6 +16,7 @@ export function useBookingReviews(bookingId: string) {
 
 export function useCreateReview(bookingId: string) {
   const queryClient = useQueryClient();
+  const toast = useActionToast();
 
   return useMutation({
     mutationFn: (input: CreateReviewInput) =>
@@ -22,7 +24,9 @@ export function useCreateReview(bookingId: string) {
         method: 'POST',
         body: input,
       }),
-    onSuccess: () => {
+    onError: (error) => toast.failed(error),
+    onSuccess: (result) => {
+      toast.succeeded(result);
       void queryClient.invalidateQueries({ queryKey: ['bookings', bookingId, 'reviews'] });
     },
   });

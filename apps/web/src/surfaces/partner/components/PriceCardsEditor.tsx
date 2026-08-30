@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, IndianRupee, Plus, Trash2 } from 'lucide-react';
 import { useT } from '../../../i18n/useT';
+import { useActionToast } from '../../../lib/use-action-toast';
 import { Button, ErrorState, Field, Select, TextInput } from '../../../components/ui';
 import { formatPaise, parseRupeesToPaise } from '../../../lib/money';
 import { createPriceCard, deletePriceCard, updatePriceCard } from '../lib/api';
@@ -18,6 +19,7 @@ export function PriceCardsEditor({
 }) {
   const t = useT();
   const queryClient = useQueryClient();
+  const toast = useActionToast();
   const invalidate = () => queryClient.invalidateQueries({ queryKey: partnerKeys.profile });
 
   const [categoryId, setCategoryId] = useState<number | null>(skills[0]?.categoryId ?? null);
@@ -32,7 +34,9 @@ export function PriceCardsEditor({
         priceType: 'fixed',
         amountPaise: parseRupeesToPaise(amount) as number,
       }),
-    onSuccess: () => {
+    onError: (error) => toast.failed(error),
+    onSuccess: (result) => {
+      toast.succeeded(result);
       invalidate();
       setTitle('');
       setAmount('');
@@ -42,12 +46,20 @@ export function PriceCardsEditor({
   const toggleActive = useMutation({
     mutationFn: (card: ProviderPriceCardResponse) =>
       updatePriceCard(card.id, { isActive: !card.isActive }),
-    onSuccess: invalidate,
+    onError: (error) => toast.failed(error),
+    onSuccess: (result) => {
+      toast.succeeded(result);
+      invalidate();
+    },
   });
 
   const remove = useMutation({
     mutationFn: (id: string) => deletePriceCard(id),
-    onSuccess: invalidate,
+    onError: (error) => toast.failed(error),
+    onSuccess: (result) => {
+      toast.succeeded(result);
+      invalidate();
+    },
   });
 
   const canCreate =

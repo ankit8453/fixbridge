@@ -1,4 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
+import { ToastProvider } from '../../../components/ui/Toast';
 import { render, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -26,7 +27,9 @@ function renderEditor(availability: ProviderAvailabilityResponse[]) {
   return render(
     <MemoryRouter>
       <QueryClientProvider client={testQueryClient()}>
-        <AvailabilityEditor availability={availability} />
+        <ToastProvider>
+          <AvailabilityEditor availability={availability} />
+        </ToastProvider>
       </QueryClientProvider>
     </MemoryRouter>,
   );

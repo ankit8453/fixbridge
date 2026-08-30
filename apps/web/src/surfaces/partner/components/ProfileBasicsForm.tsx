@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Check } from 'lucide-react';
 import { useT } from '../../../i18n/useT';
+import { useActionToast } from '../../../lib/use-action-toast';
 import { Button, ErrorState, Field, TextArea, TextInput } from '../../../components/ui';
 import { updateMyProfile } from '../lib/api';
 import { partnerKeys } from '../lib/query-keys';
@@ -11,6 +12,7 @@ import type { ProviderProfileResponse } from '../lib/types';
 export function ProfileBasicsForm({ profile }: { profile: ProviderProfileResponse }) {
   const t = useT();
   const queryClient = useQueryClient();
+  const toast = useActionToast();
 
   const [displayName, setDisplayName] = useState(profile.displayName ?? '');
   const [bio, setBio] = useState(profile.bio ?? '');
@@ -25,7 +27,11 @@ export function ProfileBasicsForm({ profile }: { profile: ProviderProfileRespons
         bio: bio.trim() === '' ? null : bio.trim(),
         yearsExperience: yearsExperience.trim() === '' ? null : Number(yearsExperience),
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: partnerKeys.profile }),
+    onError: (error) => toast.failed(error),
+    onSuccess: (result) => {
+      toast.succeeded(result);
+      void queryClient.invalidateQueries({ queryKey: partnerKeys.profile });
+    },
   });
 
   return (

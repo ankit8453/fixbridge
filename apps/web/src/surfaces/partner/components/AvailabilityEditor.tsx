@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Sparkles, Trash2 } from 'lucide-react';
 import { useT } from '../../../i18n/useT';
+import { useActionToast } from '../../../lib/use-action-toast';
 import { Button, ErrorState, Field, Select, TextInput } from '../../../components/ui';
 import { createAvailability, deleteAvailability } from '../lib/api';
 import { partnerKeys } from '../lib/query-keys';
@@ -55,6 +56,7 @@ export function AvailabilityEditor({
 }) {
   const t = useT();
   const queryClient = useQueryClient();
+  const toast = useActionToast();
   const invalidate = () => queryClient.invalidateQueries({ queryKey: partnerKeys.profile });
 
   const [dayOfWeek, setDayOfWeek] = useState(1);
@@ -67,7 +69,11 @@ export function AvailabilityEditor({
   const addWindow = useMutation({
     mutationFn: (window: { dayOfWeek: number; startTime: string; endTime: string }) =>
       createAvailability(window),
-    onSuccess: invalidate,
+    onError: (error) => toast.failed(error),
+    onSuccess: (result) => {
+      toast.succeeded(result);
+      invalidate();
+    },
   });
 
   const addPreset = useMutation({
@@ -88,12 +94,20 @@ export function AvailabilityEditor({
         ),
       );
     },
-    onSuccess: invalidate,
+    onError: (error) => toast.failed(error),
+    onSuccess: (result) => {
+      toast.succeeded(result);
+      invalidate();
+    },
   });
 
   const remove = useMutation({
     mutationFn: (id: string) => deleteAvailability(id),
-    onSuccess: invalidate,
+    onError: (error) => toast.failed(error),
+    onSuccess: (result) => {
+      toast.succeeded(result);
+      invalidate();
+    },
   });
 
   function reasonMessage(

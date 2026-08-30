@@ -1,4 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
+import { ToastProvider } from '../../../components/ui/Toast';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -54,11 +55,13 @@ const BATCH = {
 function renderBatchPage() {
   return render(
     <QueryClientProvider client={testQueryClient()}>
-      <MemoryRouter initialEntries={['/admin/money/batches/batch-1']}>
-        <Routes>
-          <Route path="/admin/money/batches/:batchId" element={<PayoutBatchPage />} />
-        </Routes>
-      </MemoryRouter>
+      <ToastProvider>
+        <MemoryRouter initialEntries={['/admin/money/batches/batch-1']}>
+          <Routes>
+            <Route path="/admin/money/batches/:batchId" element={<PayoutBatchPage />} />
+          </Routes>
+        </MemoryRouter>
+      </ToastProvider>
     </QueryClientProvider>,
   );
 }

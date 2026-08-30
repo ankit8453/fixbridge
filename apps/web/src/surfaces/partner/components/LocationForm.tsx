@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Crosshair, MapPin, AlertCircle } from 'lucide-react';
 import { useT } from '../../../i18n/useT';
+import { useActionToast } from '../../../lib/use-action-toast';
 import { Button, ErrorState, Field } from '../../../components/ui';
 import { updateMyProfile } from '../lib/api';
 import { partnerKeys } from '../lib/query-keys';
@@ -21,6 +22,7 @@ import type { ProviderProfileResponse } from '../lib/types';
 export function LocationForm({ profile }: { profile: ProviderProfileResponse }) {
   const t = useT();
   const queryClient = useQueryClient();
+  const toast = useActionToast();
 
   const [lat, setLat] = useState(profile.baseLocation ? String(profile.baseLocation.lat) : '');
   const [lng, setLng] = useState(profile.baseLocation ? String(profile.baseLocation.lng) : '');
@@ -37,7 +39,11 @@ export function LocationForm({ profile }: { profile: ProviderProfileResponse }) 
             : undefined,
         serviceRadiusKm: Number(radius),
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: partnerKeys.profile }),
+    onError: (error) => toast.failed(error),
+    onSuccess: (result) => {
+      toast.succeeded(result);
+      void queryClient.invalidateQueries({ queryKey: partnerKeys.profile });
+    },
   });
 
   function useMyLocation() {

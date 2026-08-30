@@ -1,4 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
+import { ToastProvider } from '../../../components/ui/Toast';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -29,7 +30,9 @@ function renderQuoteBuilder(bookingId: string, agreedLabour: AgreedLabour = FIXE
   return render(
     <MemoryRouter>
       <QueryClientProvider client={testQueryClient()}>
-        <QuoteBuilder bookingId={bookingId} agreedLabour={agreedLabour} />
+        <ToastProvider>
+          <QuoteBuilder bookingId={bookingId} agreedLabour={agreedLabour} />
+        </ToastProvider>
       </QueryClientProvider>
     </MemoryRouter>,
   );

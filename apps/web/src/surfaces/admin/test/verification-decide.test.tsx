@@ -1,4 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
+import { ToastProvider } from '../../../components/ui/Toast';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -52,11 +53,13 @@ const CASE_DETAIL = {
 function renderCasePage() {
   return render(
     <QueryClientProvider client={testQueryClient()}>
-      <MemoryRouter initialEntries={['/admin/verification/case-1']}>
-        <Routes>
-          <Route path="/admin/verification/:caseId" element={<VerificationCasePage />} />
-        </Routes>
-      </MemoryRouter>
+      <ToastProvider>
+        <MemoryRouter initialEntries={['/admin/verification/case-1']}>
+          <Routes>
+            <Route path="/admin/verification/:caseId" element={<VerificationCasePage />} />
+          </Routes>
+        </MemoryRouter>
+      </ToastProvider>
     </QueryClientProvider>,
   );
 }

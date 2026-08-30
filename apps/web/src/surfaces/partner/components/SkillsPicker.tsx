@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Info } from 'lucide-react';
 import { useT } from '../../../i18n/useT';
+import { useActionToast } from '../../../lib/use-action-toast';
 import { QueryState } from '../../../components/ui';
 import { addSkill, fetchCategories, removeSkill } from '../lib/api';
 import { partnerKeys } from '../lib/query-keys';
@@ -24,6 +25,7 @@ function leavesByCluster(
 export function SkillsPicker({ skills }: { skills: ProviderSkillResponse[] }) {
   const t = useT();
   const queryClient = useQueryClient();
+  const toast = useActionToast();
 
   const categoriesQuery = useQuery({
     queryKey: partnerKeys.categories,
@@ -34,12 +36,20 @@ export function SkillsPicker({ skills }: { skills: ProviderSkillResponse[] }) {
 
   const add = useMutation({
     mutationFn: (categoryId: number) => addSkill(categoryId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: partnerKeys.profile }),
+    onError: (error) => toast.failed(error),
+    onSuccess: (result) => {
+      toast.succeeded(result);
+      void queryClient.invalidateQueries({ queryKey: partnerKeys.profile });
+    },
   });
 
   const remove = useMutation({
     mutationFn: (categoryId: number) => removeSkill(categoryId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: partnerKeys.profile }),
+    onError: (error) => toast.failed(error),
+    onSuccess: (result) => {
+      toast.succeeded(result);
+      void queryClient.invalidateQueries({ queryKey: partnerKeys.profile });
+    },
   });
 
   const pending = add.isPending || remove.isPending;

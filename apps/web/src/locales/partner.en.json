@@ -335,7 +335,12 @@
       "cashConfirming": "Recording…",
       "alreadyPaid": "This job has already been paid for.",
       "paymentPending": "Online payment is being confirmed. Cash collection is unavailable until it finishes.",
-      "acceptedOnBehalf": "{{app}} accepted this job for you after speaking with you. It is yours — carry on as usual."
+      "acceptedOnBehalf": "{{app}} accepted this job for you after speaking with you. It is yours — carry on as usual.",
+      "acceptedToast": "Job accepted. The customer has been told.",
+      "rejectedToast": "Job declined.",
+      "enRouteToast": "The customer knows you are on the way.",
+      "cancelledToast": "Job cancelled.",
+      "quoteWithdrawnToast": "Quotation withdrawn."
     },
     "otp": {
       "enteredLabel": "Code entered",
@@ -393,7 +398,8 @@
       "extraRemove": "Remove extra labour",
       "addExtraLabour": "+ Add extra labour",
       "labourLine": "Labour",
-      "extraLine": "Extra labour"
+      "extraLine": "Extra labour",
+      "sentToast": "Quotation sent. The customer will approve or ask for changes."
     },
     "earnings": {
       "title": "Earnings",

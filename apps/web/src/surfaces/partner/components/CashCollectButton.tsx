@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useT } from '../../../i18n/useT';
+import { useActionToast } from '../../../lib/use-action-toast';
 import { Button, ErrorState, Modal } from '../../../components/ui';
 import { formatPaise } from '../../../lib/money';
 import { recordCashCollected } from '../lib/api';
@@ -22,11 +23,14 @@ export function CashCollectButton({
 }) {
   const t = useT();
   const queryClient = useQueryClient();
+  const toast = useActionToast();
   const [confirming, setConfirming] = useState(false);
 
   const mutation = useMutation({
     mutationFn: () => recordCashCollected(bookingId),
-    onSuccess: () => {
+    onError: (error) => toast.failed(error),
+    onSuccess: (result) => {
+      toast.succeeded(result);
       queryClient.invalidateQueries({ queryKey: partnerKeys.booking(bookingId) });
       queryClient.invalidateQueries({ queryKey: partnerKeys.wallet });
       setConfirming(false);

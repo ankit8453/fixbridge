@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ToastProvider } from '../components/ui/Toast';
 import { render, waitFor, type RenderResult } from '@testing-library/react';
 import { expect, vi } from 'vitest';
 import { type ReactNode } from 'react';
@@ -115,12 +116,22 @@ export function testQueryClient(): QueryClient {
 }
 
 /**
- * Renders with just a `QueryClientProvider` — the common case for a
- * component test that exercises a presentational/query-driven component
+ * Renders with a `QueryClientProvider` and a `ToastProvider` — the common case
+ * for a component test that exercises a presentational/query-driven component
  * directly rather than a whole guarded route.
+ *
+ * The toast provider is here rather than in each test because `main.tsx`
+ * mounts it above the router in the real app: any component may call
+ * `useToast()`, so a harness without it would fail on a component that is
+ * perfectly correct in production, and every new test would have to remember
+ * a wrapper the app already guarantees.
  */
 export function renderWithQuery(ui: ReactNode): RenderResult {
-  return render(<QueryClientProvider client={testQueryClient()}>{ui}</QueryClientProvider>);
+  return render(
+    <QueryClientProvider client={testQueryClient()}>
+      <ToastProvider>{ui}</ToastProvider>
+    </QueryClientProvider>,
+  );
 }
 
 /** A ready-made auth session response body, for handlers that issue a session. */

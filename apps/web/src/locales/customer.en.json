@@ -259,7 +259,9 @@
       "confirmCancel": "Yes, cancel",
       "raiseComplaint": "Raise a complaint",
       "photoVerifyHint": "Check the photo and name before sharing your code",
-      "photoCaption": "Your technician for this job"
+      "photoCaption": "Your technician for this job",
+      "quoteApprovedToast": "Quotation approved. The technician can carry on.",
+      "quoteRejectedToast": "Quotation declined. The technician can send a revised one."
     },
     "quoteStatus": {
       "sent": "Awaiting decision",

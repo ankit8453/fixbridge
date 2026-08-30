@@ -1,4 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
+import { ToastProvider } from '../../../components/ui/Toast';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
@@ -84,11 +85,13 @@ function renderGated(path = '/admin') {
 
   return render(
     <QueryClientProvider client={testQueryClient()}>
-      <MemoryRouter initialEntries={[path]}>
-        <Routes>
-          <Route path="/admin/*" element={<Gated />} />
-        </Routes>
-      </MemoryRouter>
+      <ToastProvider>
+        <MemoryRouter initialEntries={[path]}>
+          <Routes>
+            <Route path="/admin/*" element={<Gated />} />
+          </Routes>
+        </MemoryRouter>
+      </ToastProvider>
     </QueryClientProvider>,
   );
 }
@@ -163,9 +166,11 @@ function renderMoneyPage() {
 
   return render(
     <QueryClientProvider client={testQueryClient()}>
-      <MemoryRouter initialEntries={['/admin/money']}>
-        <MoneyPage />
-      </MemoryRouter>
+      <ToastProvider>
+        <MemoryRouter initialEntries={['/admin/money']}>
+          <MoneyPage />
+        </MemoryRouter>
+      </ToastProvider>
     </QueryClientProvider>,
   );
 }

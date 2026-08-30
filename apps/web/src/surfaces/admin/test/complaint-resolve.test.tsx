@@ -1,4 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
+import { ToastProvider } from '../../../components/ui/Toast';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -59,11 +60,13 @@ const TIMELINE = {
 function renderComplaintPage() {
   return render(
     <QueryClientProvider client={testQueryClient()}>
-      <MemoryRouter initialEntries={['/admin/complaints/complaint-1']}>
-        <Routes>
-          <Route path="/admin/complaints/:complaintId" element={<ComplaintDetailPage />} />
-        </Routes>
-      </MemoryRouter>
+      <ToastProvider>
+        <MemoryRouter initialEntries={['/admin/complaints/complaint-1']}>
+          <Routes>
+            <Route path="/admin/complaints/:complaintId" element={<ComplaintDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      </ToastProvider>
     </QueryClientProvider>,
   );
 }

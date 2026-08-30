@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
+import { useActionToast } from '@/lib/use-action-toast';
 import type { BookingDetail, CreateBookingInput, CustomerCancelReason } from './types';
 
 const LIST_KEY = ['bookings', 'customer'] as const;
@@ -49,6 +50,7 @@ export function useCreateBooking() {
 
 function useBookingAction<TBody>(bookingId: string, path: string) {
   const queryClient = useQueryClient();
+  const toast = useActionToast();
 
   return useMutation({
     mutationFn: (body: TBody) =>
@@ -56,7 +58,14 @@ function useBookingAction<TBody>(bookingId: string, path: string) {
         `/api/v1/bookings/${bookingId}${path}`,
         { method: 'POST', body: body ?? {} },
       ),
-    onSuccess: () => {
+    /**
+     * Cancelling or declining changes almost nothing on screen beyond a status
+     * pill, so without a toast the customer cannot tell the tap registered —
+     * and taps it again.
+     */
+    onError: (error) => toast.failed(error),
+    onSuccess: (result) => {
+      toast.succeeded(result);
       void queryClient.invalidateQueries({ queryKey: detailKey(bookingId) });
       void queryClient.invalidateQueries({ queryKey: LIST_KEY });
     },

@@ -7,6 +7,7 @@ import { useLocale, useT } from '../../../i18n/useT';
 import { Button, ErrorState, QueryState } from '../../../components/ui';
 import { DetailRow, Panel, StatusPill, type Tone } from '../components/ui';
 import { ApiError } from '../../../lib/api';
+import { useActionToast } from '../../../lib/use-action-toast';
 import { formatPaise } from '../../../lib/money';
 import { CashCollectButton } from '../components/CashCollectButton';
 import { OtpKeypad } from '../components/OtpKeypad';
@@ -117,6 +118,7 @@ export default function JobDetail() {
    */
   const intlLocale = locale === 'hi' ? 'hi-IN' : 'en-IN';
   const queryClient = useQueryClient();
+  const toast = useActionToast();
 
   const [showReject, setShowReject] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
@@ -134,26 +136,51 @@ export default function JobDetail() {
     queryClient.invalidateQueries({ queryKey: partnerKeys.bookings('provider') });
   };
 
+  /**
+   * Every action on this screen confirms itself.
+   *
+   * This is the one page a technician uses standing in someone's doorway, on
+   * whatever signal the building has. A tap that changes only a status pill —
+   * accept, on-my-way — is indistinguishable from a request that never left
+   * the phone, and the honest response to that doubt is to tap again.
+   *
+   * The OTP submissions are deliberately excluded: the keypad already shows
+   * its own error with the attempts remaining, and success moves the whole
+   * screen to the next stage. A toast there would be noise on top of an
+   * answer the technician already has.
+   */
   const accept = useMutation({
     mutationFn: () => acceptBooking(id),
-    onSuccess: invalidateBooking,
+    onError: (error) => toast.failed(error),
+    onSuccess: (result) => {
+      toast.succeeded(result, { success: t('partner.job.acceptedToast') });
+      invalidateBooking();
+    },
   });
   const reject = useMutation({
     mutationFn: ({ reason, note }: { reason: string; note?: string }) =>
       rejectBooking(id, reason, note),
-    onSuccess: () => {
+    onError: (error) => toast.failed(error),
+    onSuccess: (result) => {
+      toast.succeeded(result, { success: t('partner.job.rejectedToast') });
       invalidateBooking();
       setShowReject(false);
     },
   });
   const enRoute = useMutation({
     mutationFn: () => markEnRoute(id),
-    onSuccess: invalidateBooking,
+    onError: (error) => toast.failed(error),
+    onSuccess: (result) => {
+      toast.succeeded(result, { success: t('partner.job.enRouteToast') });
+      invalidateBooking();
+    },
   });
   const cancel = useMutation({
     mutationFn: ({ reason, note }: { reason: string; note?: string }) =>
       cancelBooking(id, reason, note),
-    onSuccess: () => {
+    onError: (error) => toast.failed(error),
+    onSuccess: (result) => {
+      toast.succeeded(result, { success: t('partner.job.cancelledToast') });
       invalidateBooking();
       setShowCancel(false);
     },
@@ -169,7 +196,11 @@ export default function JobDetail() {
   });
   const withdraw = useMutation({
     mutationFn: (quotationId: string) => withdrawQuotation(quotationId),
-    onSuccess: invalidateBooking,
+    onError: (error) => toast.failed(error),
+    onSuccess: (result) => {
+      toast.succeeded(result, { success: t('partner.job.quoteWithdrawnToast') });
+      invalidateBooking();
+    },
   });
 
   const paymentsQuery = useQuery({

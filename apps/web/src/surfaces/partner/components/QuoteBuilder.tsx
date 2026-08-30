@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Lock } from 'lucide-react';
 import { useT } from '../../../i18n/useT';
+import { useActionToast } from '../../../lib/use-action-toast';
 import { Button, ErrorState, Field, TextArea, TextInput } from '../../../components/ui';
 import { formatPaise, parseRupeesToPaise } from '../../../lib/money';
 import { sendQuotation, type QuotationItemInput } from '../lib/api';
@@ -59,6 +60,7 @@ export function QuoteBuilder({
 }) {
   const t = useT();
   const queryClient = useQueryClient();
+  const toast = useActionToast();
 
   /** Locked exactly when the customer booked a fixed price. */
   const labourIsLocked = agreedLabour.priceType === 'fixed' && agreedLabour.amountPaise !== null;
@@ -82,7 +84,9 @@ export function QuoteBuilder({
       items: QuotationItemInput[];
       note?: string;
     }) => sendQuotation(bookingId, input),
-    onSuccess: () => {
+    onError: (error) => toast.failed(error),
+    onSuccess: (result) => {
+      toast.succeeded(result, { success: t('partner.quote.sentToast') });
       queryClient.invalidateQueries({ queryKey: partnerKeys.booking(bookingId) });
       setParts([]);
       setExtra(null);

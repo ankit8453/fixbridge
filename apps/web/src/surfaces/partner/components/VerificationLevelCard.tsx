@@ -11,6 +11,7 @@ import {
 import type { LucideProps } from 'lucide-react';
 import type { ComponentType } from 'react';
 import { useT } from '../../../i18n/useT';
+import { useActionToast } from '../../../lib/use-action-toast';
 import { Button, ErrorState, Field, Select, TextArea, TextInput } from '../../../components/ui';
 import { DocumentUploader } from './DocumentUploader';
 import { StatusPill, type Tone } from './ui';
@@ -275,13 +276,18 @@ export function VerificationLevelCard({
 }) {
   const t = useT();
   const queryClient = useQueryClient();
+  const toast = useActionToast();
   const [showHistory, setShowHistory] = useState(false);
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: partnerKeys.verificationCases });
 
   const submit = useMutation({
     mutationFn: (payload: unknown) => submitLevel(level, payload),
-    onSuccess: invalidate,
+    onError: (error) => toast.failed(error),
+    onSuccess: (result) => {
+      toast.succeeded(result);
+      invalidate();
+    },
   });
 
   const reply = useMutation({
@@ -289,7 +295,11 @@ export function VerificationLevelCard({
       caseData
         ? provideInfo(caseData.id, notes, documentIds.length > 0 ? documentIds : undefined)
         : Promise.reject(new Error('no case')),
-    onSuccess: invalidate,
+    onError: (error) => toast.failed(error),
+    onSuccess: (result) => {
+      toast.succeeded(result);
+      invalidate();
+    },
   });
 
   const status = caseData?.status;

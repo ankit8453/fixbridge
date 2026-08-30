@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { ToastProvider } from '../../../../../components/ui/Toast';
 import { MemoryRouter } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { mockApi, testQueryClient, waitForCall } from '@/test/harness';
@@ -17,7 +18,9 @@ import type { QuotationView } from '@/surfaces/customer/data/types';
 function renderQuoteCard(ui: ReactNode) {
   return render(
     <QueryClientProvider client={testQueryClient()}>
-      <MemoryRouter>{ui}</MemoryRouter>
+      <ToastProvider>
+        <MemoryRouter>{ui}</MemoryRouter>
+      </ToastProvider>
     </QueryClientProvider>,
   );
 }

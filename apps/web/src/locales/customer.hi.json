@@ -259,7 +259,9 @@
       "confirmCancel": "हां, रद्द करें",
       "raiseComplaint": "शिकायत दर्ज करें",
       "photoVerifyHint": "कोड बताने से पहले फ़ोटो और नाम मिला लें",
-      "photoCaption": "इस काम के लिए आपके तकनीशियन"
+      "photoCaption": "इस काम के लिए आपके तकनीशियन",
+      "quoteApprovedToast": "कोटेशन मंज़ूर। तकनीशियन काम आगे बढ़ा सकते हैं।",
+      "quoteRejectedToast": "कोटेशन अस्वीकार। तकनीशियन नया भेज सकते हैं।"
     },
     "quoteStatus": {
       "sent": "फैसले का इंतज़ार",

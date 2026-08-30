@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
+import { useActionToast } from '@/lib/use-action-toast';
 import type {
   AddressResponse,
   CreateAddressInput,
@@ -21,6 +22,7 @@ export function useCustomerProfile() {
 
 export function useUpdateCustomerProfile() {
   const queryClient = useQueryClient();
+  const toast = useActionToast();
 
   return useMutation({
     mutationFn: (input: { displayName?: string; email?: string | null }) =>
@@ -30,7 +32,9 @@ export function useUpdateCustomerProfile() {
       }),
     // Correctness over optimism: invalidate and refetch rather than write the
     // response straight into the cache (house style).
-    onSuccess: () => {
+    onError: (error) => toast.failed(error),
+    onSuccess: (result) => {
+      toast.succeeded(result);
       void queryClient.invalidateQueries({ queryKey: ['customer', 'profile'] });
     },
   });
@@ -47,6 +51,7 @@ export function useAddresses() {
 
 export function useCreateAddress() {
   const queryClient = useQueryClient();
+  const toast = useActionToast();
 
   return useMutation({
     mutationFn: (input: CreateAddressInput) =>
@@ -54,7 +59,9 @@ export function useCreateAddress() {
         method: 'POST',
         body: input,
       }),
-    onSuccess: () => {
+    onError: (error) => toast.failed(error),
+    onSuccess: (result) => {
+      toast.succeeded(result);
       void queryClient.invalidateQueries({ queryKey: ADDRESSES_KEY });
     },
   });
@@ -62,6 +69,7 @@ export function useCreateAddress() {
 
 export function useUpdateAddress() {
   const queryClient = useQueryClient();
+  const toast = useActionToast();
 
   return useMutation({
     mutationFn: ({ addressId, input }: { addressId: string; input: UpdateAddressInput }) =>
@@ -69,7 +77,9 @@ export function useUpdateAddress() {
         `/api/v1/customers/me/addresses/${addressId}`,
         { method: 'PATCH', body: input },
       ),
-    onSuccess: () => {
+    onError: (error) => toast.failed(error),
+    onSuccess: (result) => {
+      toast.succeeded(result);
       void queryClient.invalidateQueries({ queryKey: ADDRESSES_KEY });
     },
   });
@@ -77,13 +87,16 @@ export function useUpdateAddress() {
 
 export function useDeleteAddress() {
   const queryClient = useQueryClient();
+  const toast = useActionToast();
 
   return useMutation({
     mutationFn: (addressId: string) =>
       apiRequest<{ message: string }>(`/api/v1/customers/me/addresses/${addressId}`, {
         method: 'DELETE',
       }),
-    onSuccess: () => {
+    onError: (error) => toast.failed(error),
+    onSuccess: (result) => {
+      toast.succeeded(result);
       void queryClient.invalidateQueries({ queryKey: ADDRESSES_KEY });
     },
   });
@@ -91,6 +104,7 @@ export function useDeleteAddress() {
 
 export function useSetDefaultAddress() {
   const queryClient = useQueryClient();
+  const toast = useActionToast();
 
   return useMutation({
     mutationFn: (addressId: string) =>
@@ -98,7 +112,9 @@ export function useSetDefaultAddress() {
         `/api/v1/customers/me/addresses/${addressId}/default`,
         { method: 'POST' },
       ),
-    onSuccess: () => {
+    onError: (error) => toast.failed(error),
+    onSuccess: (result) => {
+      toast.succeeded(result);
       void queryClient.invalidateQueries({ queryKey: ADDRESSES_KEY });
     },
   });
