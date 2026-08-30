@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useT } from '../../../i18n/useT';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'back'] as const;
@@ -18,6 +18,13 @@ const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'back']
  * Keys are deliberately larger than the kit's normal 44px floor (`h-16 w-20`
  * here vs `min-h-touch`) — PHASE12_PROMPT.md calls for "big numeric keypad,
  * thumb-sized" specifically for this control, one-handed, often mid-job.
+ *
+ * **Both input methods work.** The on-screen keys are for the phone this is
+ * designed around; a physical keyboard is for the desk, where clicking twelve
+ * buttons with a mouse to type four digits is absurd. Ops and assisted
+ * onboarding both run on laptops, so the keypad is focusable and listens for
+ * number keys, Backspace, Escape and paste — a code arriving over WhatsApp is
+ * pasted far more often than retyped.
  */
 export function OtpKeypad({
   length = 4,
@@ -34,6 +41,35 @@ export function OtpKeypad({
 }) {
   const t = useT();
   const [digits, setDigits] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * Appends digits and fires as soon as the code is complete.
+   *
+   * Takes a string rather than one character so a paste of the whole code goes
+   * through exactly the same path as four keystrokes.
+   */
+  const append = useCallback(
+    (input: string) => {
+      const cleaned = input.replace(/\D/g, '');
+      if (cleaned.length === 0) return;
+
+      setDigits((prev) => {
+        const next = (prev + cleaned).slice(0, length);
+
+        if (next.length === length) {
+          // After the state settles, so a re-render never lands mid-submit.
+          queueMicrotask(() => {
+            onSubmit(next);
+            setDigits('');
+          });
+        }
+
+        return next;
+      });
+    },
+    [length, onSubmit],
+  );
 
   function press(key: (typeof KEYS)[number]) {
     if (pending) return;
@@ -48,27 +84,73 @@ export function OtpKeypad({
       return;
     }
 
-    const next = digits.length < length ? digits + key : digits;
-    setDigits(next);
-
-    if (next.length === length) {
-      onSubmit(next);
-      setDigits('');
-    }
+    append(key);
   }
 
+  /**
+   * Focus lands here on mount, so a technician at a desk can simply type.
+   *
+   * Only when nothing else is focused — stealing focus from a field somebody
+   * is already filling in would be worse than the problem it solves.
+   */
+  useEffect(() => {
+    const active = document.activeElement;
+    const nothingFocused = active === null || active === document.body;
+
+    if (nothingFocused) containerRef.current?.focus({ preventScroll: true });
+  }, []);
+
   return (
-    <div className="flex flex-col items-center gap-4">
+    <div
+      ref={containerRef}
+      tabIndex={0}
+      role="group"
+      aria-label={t('partner.otp.keypadLabel')}
+      onKeyDown={(event) => {
+        if (pending) return;
+
+        // Never swallow the keys that move around or activate a button.
+        if (event.key === 'Tab' || event.key === 'Enter' || event.key === ' ') return;
+
+        if (/^[0-9]$/.test(event.key)) {
+          event.preventDefault();
+          append(event.key);
+          return;
+        }
+
+        if (event.key === 'Backspace') {
+          event.preventDefault();
+          setDigits((prev) => prev.slice(0, -1));
+          return;
+        }
+
+        if (event.key === 'Escape' || event.key === 'Delete') {
+          event.preventDefault();
+          setDigits('');
+        }
+      }}
+      onPaste={(event) => {
+        if (pending) return;
+        event.preventDefault();
+        append(event.clipboardData.getData('text'));
+      }}
+      className="flex flex-col items-center gap-4 rounded-2xl outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-brand"
+    >
       <div className="flex gap-3" aria-label={t('partner.otp.enteredLabel')}>
         {Array.from({ length }).map((_, index) => (
           <div
             key={index}
-            className="flex h-16 w-12 items-center justify-center rounded-lg border-2 border-slate-300 text-3xl font-bold tabular-nums text-slate-900"
+            className={`flex h-16 w-12 items-center justify-center rounded-lg border-2 text-3xl font-bold tabular-nums text-slate-900 transition-colors ${
+              index === digits.length ? 'border-brand' : 'border-slate-300'
+            }`}
           >
             {digits[index] ?? ''}
           </div>
         ))}
       </div>
+
+      {/* Says the keyboard works, because nothing else on screen suggests it. */}
+      <p className="text-xs text-muted">{t('partner.otp.typeHint')}</p>
 
       {error ? (
         <p role="alert" className="text-center text-base font-semibold text-danger">
@@ -88,6 +170,12 @@ export function OtpKeypad({
             type="button"
             disabled={pending}
             onClick={() => press(key)}
+            /**
+             * Not focusable: the group above owns the keyboard. Without this,
+             * Tab walks twelve buttons and Space "presses" whichever one the
+             * technician happened to land on.
+             */
+            tabIndex={-1}
             aria-label={
               key === 'back'
                 ? t('partner.otp.backspace')

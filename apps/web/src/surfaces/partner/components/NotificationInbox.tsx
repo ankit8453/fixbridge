@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Bell, BellRing, CheckCheck, Info } from 'lucide-react';
+import { AlertTriangle, Bell, BellRing, CheckCheck } from 'lucide-react';
 import type { LucideProps } from 'lucide-react';
 import type { ComponentType } from 'react';
 import { useLocale, useT } from '../../../i18n/useT';
@@ -14,21 +14,18 @@ type Criticality = NotificationView['criticality'];
 
 const CRITICALITY_TONE: Record<Criticality, Tone> = {
   critical: 'danger',
-  normal: 'brand',
-  low: 'neutral',
+  standard: 'brand',
 };
 
 const CRITICALITY_ICON: Record<Criticality, ComponentType<LucideProps>> = {
   critical: AlertTriangle,
-  normal: BellRing,
-  low: Info,
+  standard: BellRing,
 };
 
 /** Icon chip colours, one literal per tone so Tailwind's content scan sees them. */
 const CRITICALITY_CHIP: Record<Criticality, string> = {
   critical: 'bg-danger/10 text-danger',
-  normal: 'bg-brand/10 text-brand',
-  low: 'bg-slate-100 text-slate-500',
+  standard: 'bg-brand/10 text-brand',
 };
 
 /**
@@ -123,7 +120,17 @@ export function NotificationInbox() {
     >
       <ul className="divide-y divide-slate-100">
         {data.notifications.map((notification) => {
-          const Icon = CRITICALITY_ICON[notification.criticality];
+          /**
+           * Fall back rather than crash on an unrecognised criticality.
+           *
+           * These three lookups keyed on a vocabulary the API does not use, so
+           * every real row resolved to `undefined` — and an undefined component
+           * takes down the whole page with "Element type is invalid". A
+           * notification the technician cannot classify is still a notification
+           * worth showing, so an unknown value now reads as ordinary instead of
+           * blanking the inbox.
+           */
+          const Icon = CRITICALITY_ICON[notification.criticality] ?? BellRing;
           const unread = !notification.read;
 
           return (
@@ -135,7 +142,7 @@ export function NotificationInbox() {
             >
               <span
                 className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-                  CRITICALITY_CHIP[notification.criticality]
+                  CRITICALITY_CHIP[notification.criticality] ?? CRITICALITY_CHIP.standard
                 }`}
               >
                 <Icon className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={2} />
@@ -156,7 +163,7 @@ export function NotificationInbox() {
                     ) : null}
                     {notification.title}
                   </p>
-                  <StatusPill tone={CRITICALITY_TONE[notification.criticality]}>
+                  <StatusPill tone={CRITICALITY_TONE[notification.criticality] ?? 'brand'}>
                     {t(`partner.notifications.criticality.${notification.criticality}`)}
                   </StatusPill>
                 </div>

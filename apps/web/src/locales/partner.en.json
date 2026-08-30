@@ -343,7 +343,9 @@
       "checking": "Checking…",
       "backspace": "Backspace",
       "clear": "Clear",
-      "clearShort": "C"
+      "clearShort": "C",
+      "keypadLabel": "Enter the code",
+      "typeHint": "Type the code or use the keys below"
     },
     "quote": {
       "labourLabel": "Labour charge (₹)",
@@ -465,8 +467,7 @@
       "markRead": "Mark as read",
       "criticality": {
         "critical": "Important",
-        "normal": "Update",
-        "low": "Info"
+        "standard": "Update"
       },
       "listTitle": "All notifications",
       "emptyHint": "Job requests, payment updates and messages from ops will show up here.",

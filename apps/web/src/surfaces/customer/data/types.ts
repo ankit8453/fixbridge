@@ -460,7 +460,8 @@ export interface NotificationView {
   title: string;
   body: string;
   deepLink: string | null;
-  criticality: 'critical' | 'normal' | 'low';
+  /** Mirrors the API's `NotificationCriticality`, which has exactly two values. */
+  criticality: 'critical' | 'standard';
   read: boolean;
   createdAt: string;
 }

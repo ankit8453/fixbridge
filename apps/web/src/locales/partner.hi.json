@@ -343,7 +343,9 @@
       "checking": "जांचा जा रहा है…",
       "backspace": "पीछे हटाएं",
       "clear": "साफ़ करें",
-      "clearShort": "C"
+      "clearShort": "C",
+      "keypadLabel": "कोड डालें",
+      "typeHint": "कोड टाइप करें या नीचे के बटन दबाएँ"
     },
     "quote": {
       "labourLabel": "मज़दूरी (₹)",
@@ -465,8 +467,7 @@
       "markRead": "पढ़ी हुई मानें",
       "criticality": {
         "critical": "ज़रूरी",
-        "normal": "अपडेट",
-        "low": "जानकारी"
+        "standard": "सूचना"
       },
       "listTitle": "सारी सूचनाएं",
       "emptyHint": "जॉब की रिक्वेस्ट, पैसों के अपडेट और ऑप्स टीम के संदेश यहां दिखेंगे।",

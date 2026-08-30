@@ -444,7 +444,13 @@ export interface NotificationView {
   title: string;
   body: string;
   deepLink: string | null;
-  criticality: 'critical' | 'normal' | 'low';
+  /**
+   * Mirrors the API's `NotificationCriticality` enum, which has exactly two
+   * values. This said `'critical' | 'normal' | 'low'` — a vocabulary the server
+   * never sends — so every lookup keyed on it missed for real rows and the
+   * inbox crashed on an undefined icon component.
+   */
+  criticality: 'critical' | 'standard';
   read: boolean;
   createdAt: string;
 }
