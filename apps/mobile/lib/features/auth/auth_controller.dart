@@ -76,9 +76,24 @@ class AuthController extends StateNotifier<AuthState> {
     final user = await repo.restoreSession();
 
     if (!mounted) return;
-    state = user == null
-        ? const AuthState(stage: AuthStage.signedOut)
-        : AuthState(stage: AuthStage.signedIn, user: user);
+    if (user == null) {
+      state = const AuthState(stage: AuthStage.signedOut);
+      return;
+    }
+
+    state = AuthState(stage: AuthStage.signedIn, user: user);
+
+    // The customer's chosen name lives on their profile rather than the user
+    // row, so a session restored from `/auth/me` alone comes back nameless
+    // even after they have set one. Fetched separately and folded in.
+    try {
+      final profile = await _ref.read(accountRepositoryProvider).profile();
+      if (mounted && profile.displayName != null) {
+        state = state.copyWith(user: user.withName(profile.displayName));
+      }
+    } catch (_) {
+      // A greeting is not worth blocking the app for.
+    }
   }
 
   /// Sends a code. Throws [ApiError] — the caller shows the message, and
@@ -142,11 +157,26 @@ class AuthController extends StateNotifier<AuthState> {
     if (state.isSignedIn) await _syncLanguage(code);
   }
 
-  /// Names the account after a first sign-in.
+  /// Names the account.
+  ///
+  /// The name is written to `customer_profiles.display_name`, which is **not**
+  /// the same column as the `users.name` that `/auth/me` returns. Re-reading
+  /// `/auth/me` after saving therefore hands back the old value and the screen
+  /// looks like the save silently failed — so the saved profile's own answer is
+  /// used instead.
   Future<void> setName(String name) async {
-    await _ref.read(accountRepositoryProvider).updateProfile(displayName: name);
-    final user = await _ref.read(authRepositoryProvider).me();
-    if (mounted) state = AuthState(stage: AuthStage.signedIn, user: user);
+    final profile = await _ref
+        .read(accountRepositoryProvider)
+        .updateProfile(displayName: name);
+
+    if (!mounted) return;
+    final current = state.user;
+    if (current == null) return;
+
+    state = state.copyWith(
+      user: current.withName(profile.displayName),
+      needsName: false,
+    );
   }
 
   void nameHandled() {

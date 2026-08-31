@@ -67,6 +67,11 @@ abstract final class AppTheme {
         ),
         showDragHandle: true,
         dragHandleColor: AppColors.rule,
+        // Every sheet here is a form or a decision, and the default caps a
+        // sheet at half the screen — which silently cuts the confirm button
+        // off the bottom once the keyboard opens. Set once rather than
+        // remembered at each of the eight call sites.
+        constraints: BoxConstraints(maxWidth: double.infinity),
       ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: AppColors.ink,

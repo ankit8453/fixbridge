@@ -22,37 +22,36 @@ class AppShell extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.ground,
-      body: Stack(
-        children: [
-          navigationShell,
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.xxl,
-                  0,
-                  AppSpacing.xxl,
-                  AppSpacing.md,
-                ),
-                child: _FloatingNav(
-                  index: navigationShell.currentIndex,
-                  unread: unread,
-                  onTap: (i) => navigationShell.goBranch(
-                    i,
-                    // Tapping the tab you are already on returns to its root,
-                    // which is the behaviour people expect from every other
-                    // app on the phone.
-                    initialLocation: i == navigationShell.currentIndex,
-                  ),
-                ),
-              ),
+      // `extendBody` lets content scroll under the floating pill while
+      // keeping this a real bottomNavigationBar rather than a Stack layer.
+      //
+      // It was a Positioned child of a Stack, which put it above *everything*
+      // in the route — including bottom sheets, whose Save button it covered.
+      // A bottomNavigationBar is positioned by the Scaffold, so sheets and the
+      // keyboard both sit above it correctly.
+      extendBody: true,
+      body: navigationShell,
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.xxl,
+            0,
+            AppSpacing.xxl,
+            AppSpacing.md,
+          ),
+          child: _FloatingNav(
+            index: navigationShell.currentIndex,
+            unread: unread,
+            onTap: (i) => navigationShell.goBranch(
+              i,
+              // Tapping the tab you are already on returns to its root,
+              // which is the behaviour people expect from every other
+              // app on the phone.
+              initialLocation: i == navigationShell.currentIndex,
             ),
           ),
-        ],
+        ),
       ),
     );
   }

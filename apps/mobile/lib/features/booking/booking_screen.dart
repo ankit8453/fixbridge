@@ -250,6 +250,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   Future<void> _cancel(Booking b) async {
     final reason = await showModalBottomSheet<String>(
       context: context,
+      isScrollControlled: true,
       builder: (_) => _ReasonSheet(
         title: 'Why are you cancelling?',
         options: CancelReasons.customer,
@@ -268,6 +269,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   Future<void> _complain(Booking b) async {
     final category = await showModalBottomSheet<String>(
       context: context,
+      isScrollControlled: true,
       builder: (_) => _ReasonSheet(
         title: 'What went wrong?',
         options: ComplaintCategories.all,
@@ -319,6 +321,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   }) async {
     final result = await showModalBottomSheet<bool>(
       context: context,
+      isScrollControlled: true,
       builder: (context) => Padding(
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.xl,

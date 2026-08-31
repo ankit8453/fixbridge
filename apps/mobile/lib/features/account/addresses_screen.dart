@@ -128,6 +128,7 @@ class AddressesScreen extends ConsumerWidget {
   ) async {
     final confirmed = await showModalBottomSheet<bool>(
       context: context,
+      isScrollControlled: true,
       builder: (context) => Padding(
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.xl,

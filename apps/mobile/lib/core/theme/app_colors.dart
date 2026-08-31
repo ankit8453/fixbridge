@@ -73,6 +73,11 @@ abstract final class AppColors {
   /// A divider inside a card, lighter than [rule] so rows group visually.
   static const ruleFaint = Color(0xFFF2F4F7);
 
+  /// The single most consequential button on a screen. Blue here, because
+  /// in this app that button is "Approve price".
+  static const accentButton = blue;
+  static const accentButtonShadow = blueShadow;
+
   /// The one gradient in the app: the live-booking card.
   static const liveGradient = LinearGradient(
     begin: Alignment(-0.9, -1),

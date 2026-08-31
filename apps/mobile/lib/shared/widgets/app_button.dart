@@ -59,10 +59,13 @@ class AppButton extends StatelessWidget {
           AppColors.raisedShadow,
         ),
       AppButtonKind.accent => (
-          AppColors.blue,
+          // The one consequential tap on a screen — approving a price here,
+          // accepting a job in the partner app. Named by role so this widget
+          // is byte-identical in both.
+          AppColors.accentButton,
           Colors.white,
           false,
-          AppColors.blueShadow,
+          AppColors.accentButtonShadow,
         ),
       AppButtonKind.ghost => (
           AppColors.surface,

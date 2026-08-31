@@ -166,6 +166,7 @@ class AccountScreen extends ConsumerWidget {
   Future<void> _confirmSignOut(BuildContext context, WidgetRef ref) async {
     final confirmed = await showModalBottomSheet<bool>(
       context: context,
+      isScrollControlled: true,
       builder: (context) => Padding(
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.xl,
