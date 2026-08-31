@@ -25,7 +25,8 @@ class CatalogRepository {
       auth: false,
     );
     return (json['categories'] as List)
-        .map((c) => ServiceCategory.fromJson((c as Map).cast<String, dynamic>()))
+        .map(
+            (c) => ServiceCategory.fromJson((c as Map).cast<String, dynamic>()))
         .toList();
   }
 
@@ -178,7 +179,8 @@ class SearchResults {
 
   factory SearchResults.fromJson(Map<String, dynamic> json) => SearchResults(
         results: (json['results'] as List)
-            .map((r) => ProviderCard.fromJson((r as Map).cast<String, dynamic>()))
+            .map((r) =>
+                ProviderCard.fromJson((r as Map).cast<String, dynamic>()))
             .toList(),
         page: (json['page'] as num?)?.toInt() ?? 1,
         pageSize: (json['pageSize'] as num?)?.toInt() ?? 10,

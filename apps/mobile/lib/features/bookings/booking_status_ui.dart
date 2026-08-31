@@ -39,8 +39,7 @@ extension BookingStatusUi on BookingStatus {
         BookingStatus.expired =>
           'Nobody replied in time, so nothing was charged.',
         BookingStatus.enRoute => 'Have your start code ready.',
-        BookingStatus.arrived =>
-          'Read out your start code so they can begin.',
+        BookingStatus.arrived => 'Read out your start code so they can begin.',
         BookingStatus.inProgress =>
           'When the work is done you will see the price to approve.',
         BookingStatus.workDone => 'All done.',
@@ -122,6 +121,16 @@ String formatWhen(DateTime dt) {
 }
 
 const _months = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
 ];

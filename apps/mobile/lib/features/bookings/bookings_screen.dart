@@ -136,8 +136,8 @@ class _BookingRow extends StatelessWidget {
                 ),
               ),
               // The settled amount, once there is one. Before that the
-                // booking has no price to show and inventing one would be a
-                // lie about a number the customer cares about.
+              // booking has no price to show and inventing one would be a
+              // lie about a number the customer cares about.
               if (booking.payablePaise != null)
                 Text(
                   Paise.show(

@@ -123,9 +123,8 @@ class _FloatingNav extends StatelessWidget {
                         Icon(
                           item.icon,
                           size: 19,
-                          color: active
-                              ? Colors.white
-                              : const Color(0xFF8A8F9C),
+                          color:
+                              active ? Colors.white : const Color(0xFF8A8F9C),
                         ),
                         if (i == 2 && unread > 0)
                           Positioned(

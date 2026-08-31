@@ -10,7 +10,7 @@ import '../features/auth/otp_screen.dart';
 import '../features/auth/phone_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/shell/app_shell.dart';
-import 'placeholder_screens.dart';
+import 'screens.dart';
 import 'splash_screen.dart';
 
 final _rootKey = GlobalKey<NavigatorState>();
@@ -95,8 +95,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/provider/:id',
         parentNavigatorKey: _rootKey,
-        builder: (_, state) =>
-            ProviderScreen(providerId: state.pathParameters['id']!),
+        // `category` carries the service the customer searched for, so the
+        // profile books that service rather than whichever price card sorts
+        // first. Without it a two-service technician is booked at the wrong
+        // price.
+        builder: (_, state) => ProviderScreen(
+          providerId: state.pathParameters['id']!,
+          categoryId: int.tryParse(state.uri.queryParameters['category'] ?? ''),
+        ),
       ),
       GoRoute(
         path: '/booking/:id',

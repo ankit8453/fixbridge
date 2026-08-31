@@ -36,8 +36,7 @@ class AppCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final border = borderColor ??
-        (selected ? AppColors.blue : AppColors.rule);
+    final border = borderColor ?? (selected ? AppColors.blue : AppColors.rule);
 
     final body = Container(
       padding: padding,
@@ -131,8 +130,8 @@ class AppChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fg = color ?? (selected ? AppColors.blue : AppColors.grey);
-    final bg = background ??
-        (selected ? AppColors.blueSoft : AppColors.surface);
+    final bg =
+        background ?? (selected ? AppColors.blueSoft : AppColors.surface);
 
     return Material(
       color: bg,

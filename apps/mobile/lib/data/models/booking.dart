@@ -61,7 +61,8 @@ enum BookingStatus {
 
   /// Where the money is settled and a payment can be started.
   bool get isBillable =>
-      this == BookingStatus.workDone || this == BookingStatus.closedQuoteDeclined;
+      this == BookingStatus.workDone ||
+      this == BookingStatus.closedQuoteDeclined;
 
   /// **Nothing cancels after ARRIVED.** Once the technician is at the door,
   /// "I changed my mind" is a dispute, not a cancellation — so the button has
@@ -295,14 +296,16 @@ class Booking {
           : Quotation.fromJson(
               (json['approvedQuotation'] as Map).cast<String, dynamic>()),
       payablePaise: asPaiseOrNull(json['payablePaise']),
-      payable: Payable.fromJson((json['payable'] as Map?)?.cast<String, dynamic>()),
+      payable:
+          Payable.fromJson((json['payable'] as Map?)?.cast<String, dynamic>()),
       address: BookingAddress.fromJson(json['address']),
-      counterpart:
-          Counterpart.fromJson((json['counterpart'] as Map?)?.cast<String, dynamic>()),
+      counterpart: Counterpart.fromJson(
+          (json['counterpart'] as Map?)?.cast<String, dynamic>()),
       startOtp: json['startOtp'] as String?,
       endOtp: json['endOtp'] as String?,
       events: (json['events'] as List?)
-              ?.map((e) => BookingEvent.fromJson((e as Map).cast<String, dynamic>()))
+              ?.map((e) =>
+                  BookingEvent.fromJson((e as Map).cast<String, dynamic>()))
               .toList() ??
           const [],
       createdAt:

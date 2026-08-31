@@ -63,7 +63,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     });
 
     try {
-      await ref.read(authControllerProvider.notifier).verifyOtp(_controller.text);
+      await ref
+          .read(authControllerProvider.notifier)
+          .verifyOtp(_controller.text);
       if (!mounted) return;
       context.go(widget.redirectTo ?? '/');
     } on ApiError catch (e) {
@@ -129,7 +131,6 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                 style: AppType.body.copyWith(color: AppColors.grey),
               ),
               const SizedBox(height: AppSpacing.xxl),
-
               OtpInput(
                 controller: _controller,
                 focusNode: _focus,
@@ -139,7 +140,6 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                   if (value.length == 6) _verify();
                 },
               ),
-
               if (_error != null) ...[
                 const SizedBox(height: AppSpacing.md),
                 Text(
@@ -148,13 +148,13 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                   textAlign: TextAlign.center,
                 ),
               ],
-
               const SizedBox(height: AppSpacing.xl),
               Center(
                 child: _resendIn > 0
                     ? Text(
                         'Resend in ${_resendIn}s',
-                        style: AppType.meta.copyWith(color: AppColors.greyLight),
+                        style:
+                            AppType.meta.copyWith(color: AppColors.greyLight),
                       )
                     : TextButton(
                         onPressed: _resend,
@@ -167,7 +167,6 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                         ),
                       ),
               ),
-
               const Spacer(),
               AppButton(
                 label: 'Verify',

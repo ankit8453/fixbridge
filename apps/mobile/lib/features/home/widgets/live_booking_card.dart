@@ -27,8 +27,7 @@ class LiveBookingCard extends StatelessWidget {
   /// state; "Waiting for a reply" is what is actually happening to you.
   String get _headline => switch (booking.status) {
         BookingStatus.requested => 'Waiting for a reply',
-        BookingStatus.accepted =>
-          '${booking.counterpart.displayName} accepted',
+        BookingStatus.accepted => '${booking.counterpart.displayName} accepted',
         BookingStatus.enRoute =>
           '${booking.counterpart.displayName} is on the way',
         BookingStatus.arrived =>
@@ -38,8 +37,7 @@ class LiveBookingCard extends StatelessWidget {
       };
 
   String get _sub => switch (booking.status) {
-        BookingStatus.requested =>
-          'We will tell you as soon as they answer',
+        BookingStatus.requested => 'We will tell you as soon as they answer',
         BookingStatus.accepted => 'Arriving ${_time(booking.startsAt)}',
         BookingStatus.enRoute => 'Have your start code ready',
         BookingStatus.arrived => 'Read out your start code to begin',

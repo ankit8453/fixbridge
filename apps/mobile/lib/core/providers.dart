@@ -28,8 +28,7 @@ final sessionLostProvider = StateProvider<int>((ref) => 0);
 /// exists before there is an account to attach it to: the picker is the first
 /// screen, and it must work with no session.
 class LocaleController extends StateNotifier<Locale> {
-  LocaleController(this._store)
-      : super(Locale(_store.localeCode ?? _fallback));
+  LocaleController(this._store) : super(Locale(_store.localeCode ?? _fallback));
 
   final SessionStore _store;
 
@@ -50,8 +49,7 @@ class LocaleController extends StateNotifier<Locale> {
   }
 }
 
-final localeProvider =
-    StateNotifierProvider<LocaleController, Locale>((ref) {
+final localeProvider = StateNotifierProvider<LocaleController, Locale>((ref) {
   return LocaleController(ref.watch(sessionStoreProvider));
 });
 

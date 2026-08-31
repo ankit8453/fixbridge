@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -76,6 +77,8 @@ abstract final class AppTheme {
         ),
         insetPadding: const EdgeInsets.all(AppSpacing.lg),
       ),
+      // Each platform gets the transition its users already expect: Android
+      // the zoom, iOS the horizontal slide-back. Same codebase, native feel.
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: ZoomPageTransitionsBuilder(),

@@ -75,8 +75,8 @@ class NotificationPage {
   factory NotificationPage.fromJson(Map<String, dynamic> json) =>
       NotificationPage(
         notifications: (json['notifications'] as List?)
-                ?.map((n) =>
-                    AppNotification.fromJson((n as Map).cast<String, dynamic>()))
+                ?.map((n) => AppNotification.fromJson(
+                    (n as Map).cast<String, dynamic>()))
                 .toList() ??
             const [],
         page: (json['page'] as num?)?.toInt() ?? 1,

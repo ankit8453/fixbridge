@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -54,9 +56,7 @@ class NotificationsScreen extends ConsumerWidget {
                   if ((inbox.valueOrNull?.unread ?? 0) > 0)
                     TextButton(
                       onPressed: () async {
-                        await ref
-                            .read(accountRepositoryProvider)
-                            .markAllRead();
+                        await ref.read(accountRepositoryProvider).markAllRead();
                         ref.invalidate(_inboxProvider);
                         ref.invalidate(unreadCountProvider);
                       },
@@ -89,8 +89,7 @@ class NotificationsScreen extends ConsumerWidget {
                           ? const EmptyState(
                               icon: Icons.notifications_none_rounded,
                               title: 'No updates yet',
-                              message:
-                                  'When a technician accepts, sets off or '
+                              message: 'When a technician accepts, sets off or '
                                   'sends you a price, you will hear about it '
                                   'here and on WhatsApp.',
                             )
@@ -143,7 +142,7 @@ class NotificationsScreen extends ConsumerWidget {
     // rather than parsed. The leading slash is ours to add.
     final link = item.deepLink;
     if (link != null && link.isNotEmpty && context.mounted) {
-      context.push(link.startsWith('/') ? link : '/$link');
+      unawaited(context.push(link.startsWith('/') ? link : '/$link'));
     }
   }
 }

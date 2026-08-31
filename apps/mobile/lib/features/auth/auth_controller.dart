@@ -84,8 +84,7 @@ class AuthController extends StateNotifier<AuthState> {
   /// Sends a code. Throws [ApiError] — the caller shows the message, and
   /// branches on `rateLimitScope` when it is a 429.
   Future<OtpChallenge> requestOtp(String phone) async {
-    final challenge =
-        await _ref.read(authRepositoryProvider).requestOtp(phone);
+    final challenge = await _ref.read(authRepositoryProvider).requestOtp(phone);
     _pendingPhone = phone;
     _maskedPhone = challenge.maskedPhone;
     return challenge;
@@ -145,9 +144,7 @@ class AuthController extends StateNotifier<AuthState> {
 
   /// Names the account after a first sign-in.
   Future<void> setName(String name) async {
-    await _ref
-        .read(accountRepositoryProvider)
-        .updateProfile(displayName: name);
+    await _ref.read(accountRepositoryProvider).updateProfile(displayName: name);
     final user = await _ref.read(authRepositoryProvider).me();
     if (mounted) state = AuthState(stage: AuthStage.signedIn, user: user);
   }

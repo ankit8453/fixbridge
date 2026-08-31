@@ -82,7 +82,8 @@ class AppField extends StatelessWidget {
             prefixIcon: prefix,
             // Without this a text prefix like "+91" is squeezed into the
             // default 48px icon box and clips.
-            prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+            prefixIconConstraints:
+                const BoxConstraints(minWidth: 0, minHeight: 0),
             suffixIcon: suffix,
             filled: true,
             fillColor: enabled ? AppColors.surface : AppColors.mist,

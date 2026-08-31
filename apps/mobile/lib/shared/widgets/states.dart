@@ -28,8 +28,7 @@ class Shimmer extends StatefulWidget {
   State<Shimmer> createState() => _ShimmerState();
 }
 
-class _ShimmerState extends State<Shimmer>
-    with SingleTickerProviderStateMixin {
+class _ShimmerState extends State<Shimmer> with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1350),
@@ -156,8 +155,7 @@ class ErrorState extends StatelessWidget {
     return EmptyState(
       icon: isNetwork ? Icons.wifi_off_rounded : Icons.error_outline_rounded,
       title: isNetwork ? 'No connection' : 'Something went wrong',
-      message: api?.message ??
-          'Please try again in a moment.',
+      message: api?.message ?? 'Please try again in a moment.',
       actionLabel: onRetry == null ? null : 'Try again',
       onAction: onRetry,
     );

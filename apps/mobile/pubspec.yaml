@@ -36,7 +36,10 @@ dependencies:
   # directly, so a looser constraint here fails to resolve rather than
   # falling back.
   intl: ^0.20.3
-  connectivity_plus: ^6.1.0
+
+  # Opens the phone dialler. A "call" button that copies a number to the
+  # clipboard is not a call button.
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:

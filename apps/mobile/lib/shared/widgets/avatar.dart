@@ -120,7 +120,9 @@ class Avatar extends StatelessWidget {
               width: tickSize,
               height: tickSize,
               decoration: BoxDecoration(
-                color: badge == TrustBadge.gold ? AppColors.amberText : AppColors.green,
+                color: badge == TrustBadge.gold
+                    ? AppColors.amberText
+                    : AppColors.green,
                 shape: BoxShape.circle,
                 border: Border.all(color: AppColors.ground, width: 2.2),
               ),
@@ -152,7 +154,8 @@ class BadgeChip extends StatelessWidget {
     }
 
     return switch (badge) {
-      TrustBadge.gold => _pill('GOLD', AppColors.amberText, AppColors.amberSoft),
+      TrustBadge.gold =>
+        _pill('GOLD', AppColors.amberText, AppColors.amberSoft),
       TrustBadge.silver => _pill('SILVER', AppColors.inkMuted, AppColors.mist),
       _ => _pill('VERIFIED', AppColors.green, AppColors.greenSoft),
     };

@@ -101,8 +101,7 @@ class Quotation {
   bool get isApproved => status == 'approved';
 
   /// Whether to draw the extra-labour row and its reason card at all.
-  bool get hasExtraLabour =>
-      extraLabourPaise != null && extraLabourPaise! > 0;
+  bool get hasExtraLabour => extraLabourPaise != null && extraLabourPaise! > 0;
 
   List<QuotationItem> get parts => items.where((i) => i.isPart).toList();
 
@@ -125,7 +124,8 @@ class Quotation {
                     QuotationItem.fromJson((i as Map).cast<String, dynamic>()))
                 .toList() ??
             const [],
-        decidedAt: DateTime.tryParse(json['decidedAt'] as String? ?? '')?.toLocal(),
+        decidedAt:
+            DateTime.tryParse(json['decidedAt'] as String? ?? '')?.toLocal(),
         createdAt:
             DateTime.tryParse(json['createdAt'] as String? ?? '')?.toLocal() ??
                 DateTime.now(),
@@ -150,15 +150,17 @@ class QuotationHistory {
       QuotationHistory(
         bookingId: json['bookingId'] as String? ?? '',
         quotations: (json['quotations'] as List?)
-                ?.map(
-                    (q) => Quotation.fromJson((q as Map).cast<String, dynamic>()))
+                ?.map((q) =>
+                    Quotation.fromJson((q as Map).cast<String, dynamic>()))
                 .toList() ??
             const [],
         pending: json['pending'] == null
             ? null
-            : Quotation.fromJson((json['pending'] as Map).cast<String, dynamic>()),
+            : Quotation.fromJson(
+                (json['pending'] as Map).cast<String, dynamic>()),
         approved: json['approved'] == null
             ? null
-            : Quotation.fromJson((json['approved'] as Map).cast<String, dynamic>()),
+            : Quotation.fromJson(
+                (json['approved'] as Map).cast<String, dynamic>()),
       );
 }

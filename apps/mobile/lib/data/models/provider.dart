@@ -120,8 +120,9 @@ class ProviderCard {
 
   String get name => displayName ?? 'Technician';
 
-  String get priceLabel =>
-      startingPricePaise == null ? '—' : Paise.show(startingPriceDisplay, startingPricePaise);
+  String get priceLabel => startingPricePaise == null
+      ? '—'
+      : Paise.show(startingPriceDisplay, startingPricePaise);
 
   factory ProviderCard.fromJson(Map<String, dynamic> json) {
     final price = json['startingPrice'] as Map?;
@@ -129,7 +130,8 @@ class ProviderCard {
       providerId: json['providerId'] as String,
       displayName: json['displayName'] as String?,
       badge: TrustBadge.parse(json['badge'] as String?),
-      rating: Rating.fromJson((json['rating'] as Map?)?.cast<String, dynamic>()),
+      rating:
+          Rating.fromJson((json['rating'] as Map?)?.cast<String, dynamic>()),
       jobsCompleted: (json['jobsCompleted'] as num?)?.toInt() ?? 0,
       yearsExperience: (json['yearsExperience'] as num?)?.toInt(),
       distanceKm: (json['distanceKm'] as num?)?.toDouble() ?? 0,
@@ -230,7 +232,8 @@ class ProviderProfile {
       bio: json['bio'] as String?,
       yearsExperience: (json['yearsExperience'] as num?)?.toInt(),
       cityName: city?['name'] as String?,
-      rating: Rating.fromJson((json['rating'] as Map?)?.cast<String, dynamic>()),
+      rating:
+          Rating.fromJson((json['rating'] as Map?)?.cast<String, dynamic>()),
       jobsCompleted: (json['jobsCompleted'] as num?)?.toInt() ?? 0,
       tagCounts: (json['tagCounts'] as Map?)?.map(
             (k, v) => MapEntry(k as String, (v as num).toInt()),
@@ -238,8 +241,7 @@ class ProviderProfile {
           const {},
       skills: (json['skills'] as List?)
               ?.map((s) => ProviderSkill(
-                    categoryId:
-                        ((s as Map)['categoryId'] as num).toInt(),
+                    categoryId: ((s as Map)['categoryId'] as num).toInt(),
                     slug: s['slug'] as String? ?? '',
                     // The public profile sends nameKey rather than a resolved
                     // name; the slug is the readable fallback.
@@ -248,7 +250,8 @@ class ProviderProfile {
               .toList() ??
           const [],
       priceCards: (json['priceCards'] as List?)
-              ?.map((p) => PriceCard.fromJson((p as Map).cast<String, dynamic>()))
+              ?.map(
+                  (p) => PriceCard.fromJson((p as Map).cast<String, dynamic>()))
               .toList() ??
           const [],
       memberSince: DateTime.tryParse(json['memberSince'] as String? ?? ''),

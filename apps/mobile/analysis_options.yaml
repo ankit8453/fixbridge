@@ -6,11 +6,17 @@ linter:
     # either in a release build is a real leak, not a style problem.
     avoid_print: true
     prefer_single_quotes: true
-    require_trailing_commas: true
     unawaited_futures: true
+    # `require_trailing_commas` is deliberately off: it and `dart format`
+    # disagree — the formatter removes commas the lint then asks for — and
+    # chasing that loop costs real time for a purely cosmetic rule. The
+    # formatter is the single authority on layout here.
 
 analyzer:
   errors:
     # A missing `await` on a network call is how a screen ends up showing
     # stale state, so it fails the analyzer rather than warning.
     unawaited_futures: error
+  exclude:
+    - build/**
+    - android/**

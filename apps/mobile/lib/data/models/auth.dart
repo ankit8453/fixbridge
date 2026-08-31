@@ -51,8 +51,8 @@ class AuthUser {
         id: json['id'] as String,
         phone: json['phone'] as String? ?? '',
         name: json['name'] as String?,
-        roles:
-            (json['roles'] as List?)?.map((r) => r as String).toList() ?? const [],
+        roles: (json['roles'] as List?)?.map((r) => r as String).toList() ??
+            const [],
         status: json['status'] as String? ?? 'active',
         defaultCityId: (json['defaultCityId'] as num?)?.toInt(),
         preferredLanguage: json['preferredLanguage'] as String? ?? 'hi',

@@ -90,7 +90,6 @@ class _LanguageScreenState extends ConsumerState<LanguageScreen> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: AppSpacing.xxl),
-
               _LanguageOption(
                 title: 'हिन्दी',
                 subtitle: 'Hindi',
@@ -104,7 +103,6 @@ class _LanguageScreenState extends ConsumerState<LanguageScreen> {
                 selected: _selected == 'en',
                 onTap: () => setState(() => _selected = 'en'),
               ),
-
               const Spacer(),
               AppButton(
                 label: widget.isSettings ? 'Save' : 'Continue',

@@ -50,8 +50,7 @@ class AuthRepository {
     _api.setTokens(
       AuthTokens(
         accessToken: session.accessToken,
-        expiresAt:
-            DateTime.now().add(Duration(seconds: session.expiresIn)),
+        expiresAt: DateTime.now().add(Duration(seconds: session.expiresIn)),
       ),
     );
   }
@@ -86,7 +85,8 @@ class AuthRepository {
   /// The live user. Re-asserts server-side that the account is still active.
   Future<AuthUser> me() async {
     final json = await _api.get<Map<String, dynamic>>('/auth/me');
-    final user = AuthUser.fromJson((json['user'] as Map).cast<String, dynamic>());
+    final user =
+        AuthUser.fromJson((json['user'] as Map).cast<String, dynamic>());
     await _store.cacheUser(user.toJson());
     return user;
   }
@@ -99,7 +99,8 @@ class AuthRepository {
       '/auth/me',
       body: {'preferredLanguage': code},
     );
-    final user = AuthUser.fromJson((json['user'] as Map).cast<String, dynamic>());
+    final user =
+        AuthUser.fromJson((json['user'] as Map).cast<String, dynamic>());
     await _store.cacheUser(user.toJson());
     return user;
   }
@@ -110,7 +111,8 @@ class AuthRepository {
     final refreshToken = await _store.readRefreshToken();
     if (refreshToken != null) {
       try {
-        await _api.postPublic('/auth/logout', body: {'refreshToken': refreshToken});
+        await _api
+            .postPublic('/auth/logout', body: {'refreshToken': refreshToken});
       } catch (_) {
         // A failed logout call must not strand somebody in a signed-in state
         // they asked to leave. The local session goes regardless.

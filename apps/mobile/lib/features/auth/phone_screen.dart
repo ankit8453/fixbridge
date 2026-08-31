@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -61,7 +63,9 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
       final query = widget.redirectTo == null
           ? ''
           : '?redirect=${Uri.encodeComponent(widget.redirectTo!)}';
-      context.push('/signin/otp$query');
+      // push() completes only when the OTP screen pops; nothing here waits
+      // on that, so it is marked rather than awaited.
+      unawaited(context.push('/signin/otp$query'));
     } on ApiError catch (e) {
       if (!mounted) return;
       setState(() => _error = _messageFor(e));
@@ -114,7 +118,6 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                 style: AppType.body.copyWith(color: AppColors.grey),
               ),
               const SizedBox(height: AppSpacing.xxl),
-
               AppField(
                 controller: _controller,
                 hint: '98765 43210',
@@ -141,7 +144,6 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                   ),
                 ),
               ),
-
               const Spacer(),
               AppButton(
                 label: 'Send code',

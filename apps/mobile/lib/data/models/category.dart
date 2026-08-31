@@ -45,8 +45,8 @@ class ServiceCategory {
         sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
         providerCount: (json['providerCount'] as num?)?.toInt() ?? 0,
         children: (json['children'] as List?)
-                ?.map((c) =>
-                    ServiceCategory.fromJson((c as Map).cast<String, dynamic>()))
+                ?.map((c) => ServiceCategory.fromJson(
+                    (c as Map).cast<String, dynamic>()))
                 .toList() ??
             const [],
       );

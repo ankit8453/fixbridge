@@ -43,7 +43,9 @@ class ServiceTile extends StatelessWidget {
         soft: AppColors.catPlumbSoft,
       );
     }
-    if (slug.contains('ac') || slug.contains('cool') || slug.contains('fridge')) {
+    if (slug.contains('ac') ||
+        slug.contains('cool') ||
+        slug.contains('fridge')) {
       return (
         icon: Icons.ac_unit_rounded,
         color: AppColors.catAc,

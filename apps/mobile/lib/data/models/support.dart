@@ -38,8 +38,8 @@ class Review {
         bookingId: json['bookingId'] as String? ?? '',
         direction: json['direction'] as String? ?? 'customer_to_provider',
         stars: (json['stars'] as num?)?.toInt() ?? 0,
-        tags:
-            (json['tags'] as List?)?.map((t) => t as String).toList() ?? const [],
+        tags: (json['tags'] as List?)?.map((t) => t as String).toList() ??
+            const [],
         text: json['text'] as String?,
         status: json['status'] as String? ?? 'published',
         createdAt:

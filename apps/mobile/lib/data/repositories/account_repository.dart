@@ -28,7 +28,10 @@ class AccountRepository {
       '/customers/me',
       body: {
         if (displayName != null) 'displayName': displayName.trim(),
-        if (clearEmail) 'email': null else if (email != null) 'email': email.trim(),
+        if (clearEmail)
+          'email': null
+        else if (email != null)
+          'email': email.trim(),
       },
     );
     return CustomerProfile.fromJson(
@@ -38,7 +41,8 @@ class AccountRepository {
   // ── Addresses ──────────────────────────────────────────────────────────
 
   Future<List<Address>> addresses() async {
-    final json = await _api.get<Map<String, dynamic>>('/customers/me/addresses');
+    final json =
+        await _api.get<Map<String, dynamic>>('/customers/me/addresses');
     return (json['addresses'] as List)
         .map((a) => Address.fromJson((a as Map).cast<String, dynamic>()))
         .toList();

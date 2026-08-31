@@ -102,7 +102,8 @@ class BookingRepository {
     final json = await _api.post<Map<String, dynamic>>(
       '/quotations/$quotationId/approve',
     );
-    return Quotation.fromJson((json['quotation'] as Map).cast<String, dynamic>());
+    return Quotation.fromJson(
+        (json['quotation'] as Map).cast<String, dynamic>());
   }
 
   /// "Not at that price." Leaves the booking open for a revision.
@@ -116,7 +117,8 @@ class BookingRepository {
         if (reason != null && reason.trim().isNotEmpty) 'reason': reason.trim(),
       },
     );
-    return Quotation.fromJson((json['quotation'] as Map).cast<String, dynamic>());
+    return Quotation.fromJson(
+        (json['quotation'] as Map).cast<String, dynamic>());
   }
 
   // ── Money ──────────────────────────────────────────────────────────────
@@ -138,7 +140,8 @@ class BookingRepository {
       '/bookings/$bookingId/coupon',
       body: {'code': code.trim().toUpperCase(), 'paymentMethod': paymentMethod},
     );
-    return AppliedCoupon.fromJson((json['coupon'] as Map).cast<String, dynamic>());
+    return AppliedCoupon.fromJson(
+        (json['coupon'] as Map).cast<String, dynamic>());
   }
 
   Future<void> removeCoupon(String bookingId) async {
@@ -232,7 +235,8 @@ class BookingRepository {
       '/bookings/$bookingId/complaints',
       body: {'category': category, 'description': description.trim()},
     );
-    return Complaint.fromJson((json['complaint'] as Map).cast<String, dynamic>());
+    return Complaint.fromJson(
+        (json['complaint'] as Map).cast<String, dynamic>());
   }
 
   /// Complaints this person raised and complaints against them. Not paginated.
