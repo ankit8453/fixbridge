@@ -1,0 +1,16 @@
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    # Money is integer paise and ids are strings; an accidental `print` of
+    # either in a release build is a real leak, not a style problem.
+    avoid_print: true
+    prefer_single_quotes: true
+    require_trailing_commas: true
+    unawaited_futures: true
+
+analyzer:
+  errors:
+    # A missing `await` on a network call is how a screen ends up showing
+    # stale state, so it fails the analyzer rather than warning.
+    unawaited_futures: error

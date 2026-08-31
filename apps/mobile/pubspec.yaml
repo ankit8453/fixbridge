@@ -1,0 +1,47 @@
+name: fixbridge
+description: Customer app for the verified hyperlocal services marketplace.
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State. Deliberately without codegen — `flutter pub get` and `flutter run`
+  # are the whole setup, with no build_runner step between them.
+  flutter_riverpod: ^2.6.1
+
+  # Routing. Chosen because a notification's `deepLink` arrives as a path
+  # ("booking/<uuid>") and go_router can route that string directly.
+  go_router: ^14.6.2
+
+  # HTTP. The interceptor in core/api/api_client.dart is the piece that
+  # matters — see the note there about serialising refreshes.
+  dio: ^5.7.0
+
+  # The refresh token and the device id live here, never in plain prefs.
+  flutter_secure_storage: ^9.2.2
+  # Language choice and last-known city. Nothing sensitive.
+  shared_preferences: ^2.3.3
+
+  # Fonts at runtime for now; SETUP.md has the step to bundle them for release.
+  google_fonts: ^6.2.1
+
+  # Pinned to what flutter_localizations itself requires — it depends on intl
+  # directly, so a looser constraint here fails to resolve rather than
+  # falling back.
+  intl: ^0.20.3
+  connectivity_plus: ^6.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
