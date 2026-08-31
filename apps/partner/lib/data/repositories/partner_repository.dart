@@ -2,7 +2,7 @@ import '../../core/api/api_client.dart';
 import '../models/booking.dart';
 import '../models/partner_profile.dart';
 import '../models/payment.dart';
-import '../models/provider.dart';
+
 import '../models/quotation.dart';
 import '../models/trust.dart';
 import '../models/wallet.dart';
@@ -353,7 +353,7 @@ class PartnerRepository {
 
   /// Own slots, including booked and blocked ones. Both bounds are required —
   /// there is no "next week" default.
-  Future<List<ProviderSlot>> slots({
+  Future<List<OwnSlot>> slots({
     required DateTime from,
     required DateTime to,
   }) async {
@@ -365,7 +365,7 @@ class PartnerRepository {
       },
     );
     return (json['slots'] as List)
-        .map((s) => ProviderSlot.fromJson((s as Map).cast<String, dynamic>()))
+        .map((s) => OwnSlot.fromJson((s as Map).cast<String, dynamic>()))
         .toList();
   }
 

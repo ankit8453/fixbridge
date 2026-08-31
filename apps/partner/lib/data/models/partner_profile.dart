@@ -2,21 +2,16 @@ import 'money.dart';
 import 'provider.dart';
 
 /// One item the profile is still missing, or has satisfied.
+///
+/// The API sends these as **plain strings** — `"displayName"`, `"skills"` —
+/// not objects. Wrapping them here keeps the label logic in one place without
+/// pretending the wire format is richer than it is.
 class CompletenessItem {
-  const CompletenessItem({
-    required this.key,
-    required this.weight,
-    required this.required_,
-  });
+  const CompletenessItem(this.key);
 
   /// `baseLocation`, `skills`, `priceCard`, `availability`, `displayName`,
   /// `photoDocument`, `bio`, `yearsExperience`.
   final String key;
-
-  final int weight;
-
-  /// Only the required ones block listing. The rest move the score.
-  final bool required_;
 
   /// What a technician should read, not what the field is called.
   String get label => switch (key) {
@@ -33,13 +28,6 @@ class CompletenessItem {
         'yearsExperience' => 'Years of experience',
         _ => key,
       };
-
-  factory CompletenessItem.fromJson(Map<String, dynamic> json) =>
-      CompletenessItem(
-        key: json['key'] as String? ?? '',
-        weight: (json['weight'] as num?)?.toInt() ?? 0,
-        required_: json['required'] as bool? ?? false,
-      );
 }
 
 /// How close the profile is to being listed.
@@ -67,17 +55,27 @@ class Completeness {
         score: (json?['score'] as num?)?.toInt() ?? 0,
         threshold: (json?['threshold'] as num?)?.toInt() ?? 80,
         isListed: json?['isListed'] as bool? ?? false,
-        missing: (json?['missing'] as List?)
-                ?.map((m) => CompletenessItem.fromJson(
-                    (m as Map).cast<String, dynamic>()))
-                .toList() ??
-            const [],
-        missingRequired: (json?['missingRequired'] as List?)
-                ?.map((m) => CompletenessItem.fromJson(
-                    (m as Map).cast<String, dynamic>()))
-                .toList() ??
-            const [],
+        missing: _items(json?['missing']),
+        missingRequired: _items(json?['missingRequired']),
       );
+
+  /// Tolerant of both shapes.
+  ///
+  /// The API sends plain strings — `"displayName"` — and reading them as
+  /// objects is what was crashing the profile screen. Accepting an object's
+  /// `key` as well costs nothing, and means a later server change to a richer
+  /// shape cannot break the one screen a technician needs to start earning.
+  static List<CompletenessItem> _items(Object? raw) {
+    if (raw is! List) return const [];
+    return raw
+        .map(
+          (item) => CompletenessItem(
+            item is Map ? item['key'] as String? ?? '' : item.toString(),
+          ),
+        )
+        .where((item) => item.key.isNotEmpty)
+        .toList();
+  }
 }
 
 /// A skill on the technician's own profile.
@@ -177,6 +175,43 @@ class OwnAvailability {
         startTime: json['startTime'] as String? ?? '',
         endTime: json['endTime'] as String? ?? '',
         isActive: json['isActive'] as bool? ?? true,
+      );
+}
+
+/// A slot as the technician sees it.
+///
+/// Distinct from the public `ProviderSlot`, which returns only open hours with
+/// no status: which hours are booked and when somebody took an afternoon off
+/// is deliberately not published, so the two views are different endpoints and
+/// different shapes rather than one with a flag.
+class OwnSlot {
+  const OwnSlot({
+    required this.id,
+    required this.startsAt,
+    required this.endsAt,
+    required this.status,
+    required this.bookingId,
+  });
+
+  final String id;
+  final DateTime startsAt;
+  final DateTime endsAt;
+
+  /// `open`, `booked` or `blocked`.
+  final String status;
+
+  /// Non-null only when booked — lets the week view link to the job.
+  final String? bookingId;
+
+  bool get isBooked => status == 'booked';
+  bool get isBlocked => status == 'blocked';
+
+  factory OwnSlot.fromJson(Map<String, dynamic> json) => OwnSlot(
+        id: json['id'] as String,
+        startsAt: DateTime.parse(json['startsAt'] as String).toLocal(),
+        endsAt: DateTime.parse(json['endsAt'] as String).toLocal(),
+        status: json['status'] as String? ?? 'open',
+        bookingId: json['bookingId'] as String?,
       );
 }
 

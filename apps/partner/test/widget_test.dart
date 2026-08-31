@@ -67,6 +67,46 @@ void main() {
     });
   });
 
+  group('completeness', () {
+    test('reads the plain strings the API actually sends', () {
+      // This is what crashed the profile screen: the API sends
+      // `missing: ["displayName", "skills"]` — plain strings — and the model
+      // was reading them as objects with a `key`.
+      final c = Completeness.fromJson(const {
+        'score': 40,
+        'threshold': 80,
+        'isListed': false,
+        'missing': ['displayName', 'skills', 'priceCard'],
+        'missingRequired': ['displayName', 'skills'],
+      });
+
+      expect(c.score, 40);
+      expect(c.isListed, isFalse);
+      expect(c.missingRequired.length, 2);
+      expect(c.missingRequired.first.key, 'displayName');
+      // And it renders as something a technician can act on.
+      expect(c.missingRequired.first.label, 'Your name');
+    });
+
+    test('survives a richer shape if the server ever sends one', () {
+      final c = Completeness.fromJson(const {
+        'missingRequired': [
+          {'key': 'skills', 'weight': 20, 'required': true},
+        ],
+      });
+      expect(c.missingRequired.single.key, 'skills');
+    });
+
+    test('an absent or malformed list is empty, not a crash', () {
+      expect(Completeness.fromJson(null).missing, isEmpty);
+      expect(Completeness.fromJson(const {}).missingRequired, isEmpty);
+      expect(
+        Completeness.fromJson(const {'missing': 'not-a-list'}).missing,
+        isEmpty,
+      );
+    });
+  });
+
   group('verification', () {
     test('never offers the retired level 3', () {
       // The API's own `levelsRemaining` reports [0,1,2,3] for a brand-new

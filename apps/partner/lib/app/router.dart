@@ -7,9 +7,9 @@ import '../features/auth/auth_controller.dart';
 import '../features/auth/language_screen.dart';
 import '../features/auth/otp_screen.dart';
 import '../features/auth/phone_screen.dart';
-import '../features/home/home_screen.dart';
+
 import '../features/shell/app_shell.dart';
-import 'coming_next.dart';
+import 'screens.dart';
 import 'register_screen.dart';
 import 'splash_screen.dart';
 
@@ -84,6 +84,21 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/setup',
         parentNavigatorKey: _rootKey,
         builder: (_, __) => const SetupScreen(),
+      ),
+      GoRoute(
+        path: '/calendar',
+        parentNavigatorKey: _rootKey,
+        builder: (_, __) => const CalendarScreen(),
+      ),
+      GoRoute(
+        path: '/verification/:level',
+        parentNavigatorKey: _rootKey,
+        // `case` is present when answering an ops request for more, which
+        // uses the same screen but a different endpoint.
+        builder: (_, state) => VerificationScreen(
+          level: int.tryParse(state.pathParameters['level'] ?? '') ?? 0,
+          caseId: state.uri.queryParameters['case'],
+        ),
       ),
       StatefulShellRoute.indexedStack(
         builder: (_, __, shell) => AppShell(navigationShell: shell),
