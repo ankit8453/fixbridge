@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../core/api/api_error.dart';
 import '../../core/providers.dart';
@@ -9,6 +12,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import '../../data/models/money.dart';
 import '../../data/models/partner_profile.dart';
+import '../../data/models/profile_photo.dart';
 import '../../data/models/trust.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_card.dart';
@@ -67,7 +71,9 @@ class ProfileScreen extends ConsumerWidget {
 
                 _Identity(
                   profile: p,
+                  photo: ref.watch(profilePhotoProvider).valueOrNull,
                   onEdit: () => _editProfile(context, ref, p),
+                  onPhoto: () => _changePhoto(context, ref),
                 ),
 
                 // Suspension is the one thing that overrides everything else
@@ -184,6 +190,92 @@ class ProfileScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  /// Setting or replacing the picture customers see.
+  ///
+  /// The camera is offered first: this is a photo of a person, taken now, and
+  /// a technician standing in their own shop is more likely to take one than
+  /// to go looking through a gallery for a good one.
+  Future<void> _changePhoto(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => Padding(
+        padding: EdgeInsets.fromLTRB(
+          AppSpacing.xl,
+          AppSpacing.sm,
+          AppSpacing.xl,
+          AppSpacing.sheetBottom(context),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Your photo', style: AppType.heading),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Customers see this once they have accepted, so they know who '
+              'is at the door. It is not the ID photo used for verification.',
+              style: AppType.body.copyWith(color: AppColors.grey),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            AppButton(
+              label: 'Take a photo',
+              icon: Icons.photo_camera_rounded,
+              onPressed: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            AppButton(
+              label: 'Choose from gallery',
+              kind: AppButtonKind.ghost,
+              icon: Icons.photo_library_outlined,
+              onPressed: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+
+    // Bounded on the way in rather than after upload: the API signs the size
+    // into the URL, so an oversized file is a wasted round trip and a
+    // rejection somebody has to read.
+    final picked = await ImagePicker().pickImage(
+      source: source,
+      maxWidth: 1200,
+      maxHeight: 1200,
+      imageQuality: 85,
+    );
+    if (picked == null) return;
+
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Uploading your photo…')),
+    );
+
+    try {
+      await ref.read(partnerRepositoryProvider).uploadPhoto(
+            File(picked.path),
+            contentType: _contentTypeFor(picked.path),
+          );
+      ref.invalidate(profilePhotoProvider);
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Photo updated.')),
+      );
+    } on ApiError catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  /// The API accepts jpeg, png and webp, and signs this into the upload URL,
+  /// so it has to match the bytes actually sent.
+  static String _contentTypeFor(String path) {
+    final lower = path.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    return 'image/jpeg';
   }
 
   Future<void> _editProfile(
@@ -326,11 +418,11 @@ class ProfileScreen extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       builder: (context) => Padding(
-        padding: const EdgeInsets.fromLTRB(
+        padding: EdgeInsets.fromLTRB(
           AppSpacing.xl,
           AppSpacing.sm,
           AppSpacing.xl,
-          AppSpacing.xl,
+          AppSpacing.sheetBottom(context),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -373,10 +465,17 @@ class ProfileScreen extends ConsumerWidget {
 }
 
 class _Identity extends StatelessWidget {
-  const _Identity({required this.profile, required this.onEdit});
+  const _Identity({
+    required this.profile,
+    required this.photo,
+    required this.onEdit,
+    required this.onPhoto,
+  });
 
   final PartnerProfile profile;
+  final ProfilePhoto? photo;
   final VoidCallback onEdit;
+  final VoidCallback onPhoto;
 
   @override
   Widget build(BuildContext context) {
@@ -385,21 +484,56 @@ class _Identity extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Row(
         children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [AppColors.graphite, AppColors.graphiteMid],
-              ),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              profile.name.substring(0, 1).toUpperCase(),
-              style: AppType.heading.copyWith(color: Colors.white),
+          GestureDetector(
+            onTap: onPhoto,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [AppColors.graphite, AppColors.graphiteMid],
+                    ),
+                    image: photo != null && photo!.isVisible
+                        ? DecorationImage(
+                            image: NetworkImage(photo!.url),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
+                  ),
+                  alignment: Alignment.center,
+                  // The initial shows through only while there is no picture.
+                  child: photo != null && photo!.isVisible
+                      ? null
+                      : Text(
+                          profile.name.substring(0, 1).toUpperCase(),
+                          style: AppType.heading.copyWith(color: Colors.white),
+                        ),
+                ),
+                Positioned(
+                  right: -2,
+                  bottom: -2,
+                  child: Container(
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.ground, width: 2),
+                    ),
+                    child: const Icon(
+                      Icons.photo_camera_rounded,
+                      size: 10,
+                      color: AppColors.inkMuted,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(width: AppSpacing.lg),

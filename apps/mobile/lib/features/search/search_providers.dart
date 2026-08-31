@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/location.dart';
 import '../../core/providers.dart';
 import '../../data/models/category.dart';
 import '../../data/repositories/catalog_repository.dart';
@@ -46,14 +47,48 @@ class SearchQuery {
 final searchQueryProvider =
     StateProvider<SearchQuery>((ref) => const SearchQuery());
 
-/// Where to search from.
+/// Jabalpur city centre — the origin of last resort.
+///
+/// Used only when there is no better answer: no saved location, and either a
+/// refused permission or a fix that never arrived. Searching from here is
+/// wrong for everybody not standing in the middle of town, which is why it is
+/// a fallback and not the default it used to be.
+const _cityCentre = (lat: 23.1815, lng: 79.9864);
+
+/// Where to search from, resolved once and reused.
 ///
 /// The API requires `lat`/`lng` — there is no "search everywhere" — so this
-/// always resolves to something. For the Jabalpur pilot that is the city
-/// centre until a saved address or GPS gives something better; it is a
-/// provider so that swapping in the real source later touches one place.
-final searchOriginProvider = Provider<({double lat, double lng})>((ref) {
-  return (lat: 23.1815, lng: 79.9864);
+/// always produces a point. The order is deliberate:
+///
+///   1. the device's location, if it will give one,
+///   2. the last place that worked, so a refusal does not reset somebody to
+///      the middle of town every launch,
+///   3. the city centre.
+///
+/// [usingFallback] is exposed so the UI can say so. A distance computed from
+/// the wrong origin looks exactly like a correct one, and silently showing
+/// "1.2 km away" when it is really twelve is worse than admitting the app
+/// does not know where somebody is.
+final searchOriginProvider =
+    FutureProvider<({double lat, double lng, bool usingFallback})>((ref) async {
+  final store = ref.read(sessionStoreProvider);
+
+  final result = await DeviceLocation.current();
+  if (result is LocationFound) {
+    await store.setLastLocation(result.lat, result.lng);
+    return (lat: result.lat, lng: result.lng, usingFallback: false);
+  }
+
+  final saved = store.lastLocation;
+  if (saved != null) {
+    return (lat: saved.$1, lng: saved.$2, usingFallback: false);
+  }
+
+  return (
+    lat: _cityCentre.lat,
+    lng: _cityCentre.lng,
+    usingFallback: true,
+  );
 });
 
 /// Type-ahead suggestions.
@@ -92,7 +127,7 @@ final suggestionsProvider =
 final searchResultsProvider =
     FutureProvider.autoDispose<SearchResults>((ref) async {
   final query = ref.watch(searchQueryProvider);
-  final origin = ref.watch(searchOriginProvider);
+  final origin = await ref.watch(searchOriginProvider.future);
   final store = ref.read(sessionStoreProvider);
 
   return ref.read(catalogRepositoryProvider).searchProviders(

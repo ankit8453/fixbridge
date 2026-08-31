@@ -77,7 +77,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 weekPaise: week.paise,
                 weekJobs: week.jobs,
                 wallet: wallet,
-                onTap: () => context.push('/wallet'),
+                // Same reason as /profile in the setup screen: a shell
+                // branch is switched to, never pushed.
+                onTap: () => context.go('/wallet'),
               ),
 
               // Nothing matters more than this if they cannot be found yet.
@@ -310,7 +312,7 @@ class _DeclineSheetState extends State<_DeclineSheet> {
         left: AppSpacing.xl,
         right: AppSpacing.xl,
         top: AppSpacing.sm,
-        bottom: MediaQuery.viewInsetsOf(context).bottom + AppSpacing.xl,
+        bottom: AppSpacing.sheetBottom(context),
       ),
       child: SingleChildScrollView(
         child: Column(

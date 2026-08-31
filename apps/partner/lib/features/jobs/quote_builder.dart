@@ -133,7 +133,7 @@ class _QuoteBuilderState extends ConsumerState<QuoteBuilder> {
         left: AppSpacing.xl,
         right: AppSpacing.xl,
         top: AppSpacing.sm,
-        bottom: MediaQuery.viewInsetsOf(context).bottom + AppSpacing.xl,
+        bottom: AppSpacing.sheetBottom(context),
       ),
       child: SingleChildScrollView(
         child: Column(

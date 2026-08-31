@@ -1,4 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!--
+      Coarse is requested alongside fine deliberately. Android 12+ lets a
+      person grant "approximate" only, and that is entirely good enough for
+      finding somebody a few kilometres away — refusing to work without
+      street-level precision would be asking for more than the job needs.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
     <application
         android:label="fixbridge"
         android:name="${applicationName}"

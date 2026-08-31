@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fixbridge_partner/core/theme/app_colors.dart';
+import 'package:fixbridge_partner/core/theme/app_spacing.dart';
+import 'package:fixbridge_partner/data/models/auth.dart';
 import 'package:fixbridge_partner/data/models/booking.dart';
+import 'package:fixbridge_partner/data/models/partner_profile.dart';
 import 'package:fixbridge_partner/data/models/trust.dart';
 import 'package:fixbridge_partner/data/models/verification.dart';
 import 'package:fixbridge_partner/data/models/wallet.dart';
@@ -107,6 +110,62 @@ void main() {
     });
   });
 
+  group('wire tolerance', () {
+    // Every one of these is a field the server does send. The point is not
+    // that it might stop, but that one malformed row must not take down a
+    // whole screen: these all parse inside a .map() over a list, so a throw
+    // loses every job, not one card.
+
+    test('a booking survives missing timestamps and a short id', () {
+      final b = Booking.fromJson(const {
+        'id': 'abc',
+        'status': 'ACCEPTED',
+      });
+
+      expect(b.status, BookingStatus.accepted);
+      expect(b.shortRef, '#ABC');
+      // Absent rather than crashing; these are only ever formatted.
+      expect(b.startsAt, isA<DateTime>());
+    });
+
+    test('roles that are not strings do not lock somebody out', () {
+      // roles gates the entire app — isTechnician decides which shell loads.
+      final u = AuthUser.fromJson(const {
+        'id': 'u1',
+        'roles': ['technician', 42, null, 'customer'],
+      });
+
+      expect(u.roles, ['technician', 'customer']);
+      expect(u.isTechnician, isTrue);
+    });
+
+    test('a trust component cannot claim a score it does not have', () {
+      // pending is derived, not read, so it can never disagree with
+      // normalized — the profile screen dereferences one based on the other.
+      final scored = Trust.fromJson(const {
+        'components': [
+          {'label': 'Rating', 'normalized': 0.82},
+          {'label': 'Recency', 'normalized': null, 'pending': false},
+        ],
+      });
+
+      expect(scored.components.first.pending, isFalse);
+      // Server said pending:false while sending no score. Derived wins.
+      expect(scored.components.last.pending, isTrue);
+    });
+
+    test('a slot with a broken date still renders', () {
+      final s = OwnSlot.fromJson(const {
+        'id': 's1',
+        'startsAt': 'not-a-date',
+        'status': 'booked',
+      });
+
+      expect(s.isBooked, isTrue);
+      expect(s.startsAt, isA<DateTime>());
+    });
+  });
+
   group('verification', () {
     test('never offers the retired level 3', () {
       // The API's own `levelsRemaining` reports [0,1,2,3] for a brand-new
@@ -191,6 +250,53 @@ void main() {
       ]) {
         expect(status.nextAction, isNotEmpty, reason: '$status needs a prompt');
       }
+    });
+  });
+
+  group('sheet padding', () {
+    // The Save button at the bottom of a sheet kept landing underneath the
+    // floating nav bar, which extendBody:true lets the sheet slide beneath.
+
+    Future<double> padFor(
+      WidgetTester tester, {
+      required double keyboard,
+      required double systemBar,
+    }) async {
+      late double result;
+      await tester.pumpWidget(
+        MediaQuery(
+          data: MediaQueryData(
+            viewInsets: EdgeInsets.only(bottom: keyboard),
+            viewPadding: EdgeInsets.only(bottom: systemBar),
+          ),
+          child: Builder(
+            builder: (context) {
+              result = AppSpacing.sheetBottom(context);
+              return const SizedBox();
+            },
+          ),
+        ),
+      );
+      return result;
+    }
+
+    testWidgets('clears the nav bar when the keyboard is closed',
+        (tester) async {
+      // 48 touch target + 18 pill padding + 12 margin = 78, plus the system
+      // gesture bar and a breathing gap.
+      final pad = await padFor(tester, keyboard: 0, systemBar: 34);
+      expect(pad, greaterThan(78 + 34));
+    });
+
+    testWidgets('clears the keyboard when it is open', (tester) async {
+      final pad = await padFor(tester, keyboard: 320, systemBar: 34);
+      expect(pad, greaterThan(320));
+    });
+
+    testWidgets('never returns less than the nav bar needs', (tester) async {
+      // A device with no gesture bar at all still has our own nav to clear.
+      final pad = await padFor(tester, keyboard: 0, systemBar: 0);
+      expect(pad, greaterThan(78));
     });
   });
 

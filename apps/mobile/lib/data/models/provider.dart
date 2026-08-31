@@ -50,7 +50,7 @@ class ProviderSkill {
   final String name;
 
   factory ProviderSkill.fromJson(Map<String, dynamic> json) => ProviderSkill(
-        categoryId: (json['categoryId'] as num).toInt(),
+        categoryId: (json['categoryId'] as num?)?.toInt() ?? 0,
         slug: json['slug'] as String? ?? '',
         name: json['name'] as String? ?? '',
       );
@@ -172,8 +172,8 @@ class PriceCard {
   bool get isFixed => priceType == 'fixed';
 
   factory PriceCard.fromJson(Map<String, dynamic> json) => PriceCard(
-        id: json['id'] as String,
-        categoryId: (json['categoryId'] as num).toInt(),
+        id: json['id'] as String? ?? '',
+        categoryId: (json['categoryId'] as num?)?.toInt() ?? 0,
         title: json['title'] as String? ?? '',
         priceType: json['priceType'] as String? ?? 'fixed',
         amountPaise: asPaiseOrNull(json['amountPaise']),
@@ -236,12 +236,13 @@ class ProviderProfile {
           Rating.fromJson((json['rating'] as Map?)?.cast<String, dynamic>()),
       jobsCompleted: (json['jobsCompleted'] as num?)?.toInt() ?? 0,
       tagCounts: (json['tagCounts'] as Map?)?.map(
-            (k, v) => MapEntry(k as String, (v as num).toInt()),
+            (k, v) => MapEntry(k.toString(), (v as num?)?.toInt() ?? 0),
           ) ??
           const {},
       skills: (json['skills'] as List?)
               ?.map((s) => ProviderSkill(
-                    categoryId: ((s as Map)['categoryId'] as num).toInt(),
+                    categoryId:
+                        ((s as Map)['categoryId'] as num?)?.toInt() ?? 0,
                     slug: s['slug'] as String? ?? '',
                     // The public profile sends nameKey rather than a resolved
                     // name; the slug is the readable fallback.
@@ -275,9 +276,9 @@ class ProviderSlot {
   final DateTime endsAt;
 
   factory ProviderSlot.fromJson(Map<String, dynamic> json) => ProviderSlot(
-        id: json['id'] as String,
-        startsAt: DateTime.parse(json['startsAt'] as String).toLocal(),
-        endsAt: DateTime.parse(json['endsAt'] as String).toLocal(),
+        id: json['id'] as String? ?? '',
+        startsAt: asDate(json['startsAt']),
+        endsAt: asDate(json['endsAt']),
       );
 }
 
@@ -304,10 +305,9 @@ class ProviderReview {
   final DateTime createdAt;
 
   factory ProviderReview.fromJson(Map<String, dynamic> json) => ProviderReview(
-        id: json['id'] as String,
+        id: json['id'] as String? ?? '',
         stars: (json['stars'] as num?)?.toInt() ?? 0,
-        tags: (json['tags'] as List?)?.map((t) => t as String).toList() ??
-            const [],
+        tags: (json['tags'] as List?)?.whereType<String>().toList() ?? const [],
         text: json['text'] as String?,
         authorName: json['authorName'] as String? ?? '',
         createdAt:

@@ -120,7 +120,7 @@ class BookingEvent {
   final Map<String, dynamic>? payload;
 
   factory BookingEvent.fromJson(Map<String, dynamic> json) => BookingEvent(
-        id: json['id'] as String,
+        id: json['id'] as String? ?? '',
         eventType: json['eventType'] as String? ?? '',
         actorType: json['actorType'] as String? ?? 'system',
         createdAt:
@@ -267,7 +267,14 @@ class Booking {
   bool get hasPendingQuote => pendingQuotation != null;
 
   /// The one short id a person can read out on a phone call.
-  String get shortRef => '#${id.substring(0, 8).toUpperCase()}';
+  ///
+  /// Ids are UUIDs, so the first eight characters identify a booking well
+  /// enough to quote down a phone line. Guarded anyway: this renders in the
+  /// job screen's app bar, and a shorter id would take the whole screen down
+  /// rather than merely printing something odd.
+  String get shortRef => id.length < 8
+      ? '#${id.toUpperCase()}'
+      : '#${id.substring(0, 8).toUpperCase()}';
 
   factory Booking.fromJson(Map<String, dynamic> json) {
     final quotes = (json['quotations'] as List?)
@@ -276,11 +283,11 @@ class Booking {
         const <Quotation>[];
 
     return Booking(
-      id: json['id'] as String,
+      id: json['id'] as String? ?? '',
       status: BookingStatus.parse(json['status'] as String?),
       categoryId: (json['categoryId'] as num?)?.toInt() ?? 0,
-      startsAt: DateTime.parse(json['startsAt'] as String).toLocal(),
-      endsAt: DateTime.parse(json['endsAt'] as String).toLocal(),
+      startsAt: asDate(json['startsAt']),
+      endsAt: asDate(json['endsAt']),
       problemNote: json['problemNote'] as String?,
       visitFeePaise: asPaise(json['visitFeePaise'] ?? 0),
       agreedLabour: AgreedLabour.fromJson(

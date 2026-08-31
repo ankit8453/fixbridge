@@ -64,11 +64,11 @@ class AuthUser {
   }
 
   factory AuthUser.fromJson(Map<String, dynamic> json) => AuthUser(
-        id: json['id'] as String,
+        id: json['id'] as String? ?? '',
         phone: json['phone'] as String? ?? '',
         name: json['name'] as String?,
-        roles: (json['roles'] as List?)?.map((r) => r as String).toList() ??
-            const [],
+        roles:
+            (json['roles'] as List?)?.whereType<String>().toList() ?? const [],
         status: json['status'] as String? ?? 'active',
         defaultCityId: (json['defaultCityId'] as num?)?.toInt(),
         preferredLanguage: json['preferredLanguage'] as String? ?? 'hi',
@@ -116,9 +116,9 @@ class AuthSession {
   final bool isNewUser;
 
   factory AuthSession.fromJson(Map<String, dynamic> json) => AuthSession(
-        accessToken: json['accessToken'] as String,
-        expiresIn: (json['expiresIn'] as num).toInt(),
-        refreshToken: json['refreshToken'] as String,
+        accessToken: json['accessToken'] as String? ?? '',
+        expiresIn: (json['expiresIn'] as num?)?.toInt() ?? 300,
+        refreshToken: json['refreshToken'] as String? ?? '',
         refreshExpiresAt:
             DateTime.tryParse(json['refreshExpiresAt'] as String? ?? '') ??
                 DateTime.now().add(const Duration(days: 30)),

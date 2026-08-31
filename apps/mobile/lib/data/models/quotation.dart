@@ -28,7 +28,7 @@ class QuotationItem {
   String get unitLabel => '$qty × ${Paise.format(unitPaise)}';
 
   factory QuotationItem.fromJson(Map<String, dynamic> json) => QuotationItem(
-        id: json['id'] as String,
+        id: json['id'] as String? ?? '',
         kind: json['kind'] as String? ?? 'part',
         description: json['description'] as String? ?? '',
         qty: (json['qty'] as num?)?.toInt() ?? 1,
@@ -106,7 +106,7 @@ class Quotation {
   List<QuotationItem> get parts => items.where((i) => i.isPart).toList();
 
   factory Quotation.fromJson(Map<String, dynamic> json) => Quotation(
-        id: json['id'] as String,
+        id: json['id'] as String? ?? '',
         bookingId: json['bookingId'] as String? ?? '',
         version: (json['version'] as num?)?.toInt() ?? 1,
         status: json['status'] as String? ?? 'sent',

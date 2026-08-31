@@ -55,3 +55,22 @@ int asPaise(Object? value) {
 }
 
 int? asPaiseOrNull(Object? value) => value == null ? null : asPaise(value);
+
+/// Reads a required timestamp, tolerating an absent or malformed one.
+///
+/// The strict form — `DateTime.parse(json['x'] as String)` — throws twice
+/// over: once on the cast if the field is missing, again on the parse if it
+/// is not ISO-8601. Either throw happens *inside* a `.map()` over a list, so
+/// one bad row takes down a whole screen rather than one card.
+///
+/// Falling back to now is right for the fields this is used on — slot and
+/// booking windows — because they are only ever formatted for display. It
+/// would be wrong for anything the app does arithmetic on to decide money,
+/// and there is nothing like that here.
+DateTime asDate(Object? value) =>
+    DateTime.tryParse(value is String ? value : '')?.toLocal() ??
+    DateTime.now();
+
+/// The nullable twin: absent stays absent rather than becoming now.
+DateTime? asDateOrNull(Object? value) =>
+    DateTime.tryParse(value is String ? value : '')?.toLocal();

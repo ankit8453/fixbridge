@@ -34,7 +34,7 @@ class Payout {
   bool get isFailed => status == 'failed';
 
   factory Payout.fromJson(Map<String, dynamic> json) => Payout(
-        id: json['id'] as String,
+        id: json['id'] as String? ?? '',
         amountPaise: asPaise(json['amountPaise'] ?? 0),
         amountDisplay: json['amountDisplay'] as String? ?? '',
         status: json['status'] as String? ?? 'pending',

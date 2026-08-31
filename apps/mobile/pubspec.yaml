@@ -41,6 +41,9 @@ dependencies:
   # clipboard is not a call button.
   url_launcher: ^6.3.1
 
+  # Searching from where the customer actually is.
+  geolocator: ^13.0.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

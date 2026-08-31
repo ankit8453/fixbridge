@@ -28,6 +28,9 @@ dependencies:
   # Verification documents: an ID photo, a selfie, a certificate.
   image_picker: ^1.1.2
 
+  # Where the technician works from, and their base location.
+  geolocator: ^13.0.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

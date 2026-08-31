@@ -3,7 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fixbridge/core/theme/app_colors.dart';
 import 'package:fixbridge/data/models/money.dart';
+import 'package:fixbridge/data/models/auth.dart';
 import 'package:fixbridge/data/models/booking.dart';
+import 'package:fixbridge/data/models/provider.dart';
 
 /// A first pass, covering the rules that are expensive to get wrong.
 ///
@@ -11,6 +13,37 @@ import 'package:fixbridge/data/models/booking.dart';
 /// frame depends on stored preferences and a network call, so a widget test
 /// over it would assert almost nothing while breaking constantly.
 void main() {
+  group('wire tolerance', () {
+    // These all parse inside a .map() over a list, so a throw on one row
+    // loses the whole screen rather than one card.
+
+    test('a booking survives missing timestamps and a short id', () {
+      final b = Booking.fromJson(const {'id': 'abc', 'status': 'ACCEPTED'});
+
+      expect(b.status, BookingStatus.accepted);
+      expect(b.shortRef, '#ABC');
+      expect(b.startsAt, isA<DateTime>());
+    });
+
+    test('roles that are not strings do not lock somebody out', () {
+      final u = AuthUser.fromJson(const {
+        'id': 'u1',
+        'roles': ['customer', 7, null],
+      });
+
+      expect(u.roles, ['customer']);
+      expect(u.isCustomer, isTrue);
+    });
+
+    test('a provider card parses with almost nothing in it', () {
+      // Search results are a list: one sparse row must not empty the screen.
+      final p = ProviderCard.fromJson(const {'providerId': 'p1'});
+      expect(p.providerId, 'p1');
+      // Unrated is null, never a zero that reads as a bad score.
+      expect(p.rating, isNull);
+    });
+  });
+
   group('money', () {
     test('renders whole rupees without decimals', () {
       // ₹1,090.00 reads slower than ₹1,090 on a screen people scan.

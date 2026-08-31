@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_error.dart';
+import '../../core/location.dart';
 import '../../core/providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
@@ -33,9 +34,12 @@ class _EditProfileSheetState extends ConsumerState<EditProfileSheet> {
     text: widget.profile.yearsExperience?.toString() ?? '',
   );
   late int _radius = widget.profile.serviceRadiusKm;
+  late GeoPoint? _base = widget.profile.baseLocation;
 
   String? _error;
+  String? _locationNote;
   bool _saving = false;
+  bool _locating = false;
 
   @override
   void dispose() {
@@ -43,6 +47,33 @@ class _EditProfileSheetState extends ConsumerState<EditProfileSheet> {
     _bio.dispose();
     _years.dispose();
     super.dispose();
+  }
+
+  /// Reads the phone's location for the base point.
+  ///
+  /// Standing where you work is the honest way to set this, and it is the one
+  /// moment a technician is guaranteed to be there — during onboarding, at
+  /// their own shop or home. Refusal is handled rather than blocked: the note
+  /// explains what happened and the rest of the form still saves.
+  Future<void> _locate() async {
+    setState(() {
+      _locating = true;
+      _locationNote = null;
+    });
+
+    final result = await DeviceLocation.current();
+    if (!mounted) return;
+
+    setState(() {
+      _locating = false;
+      switch (result) {
+        case LocationFound(:final lat, :final lng):
+          _base = GeoPoint(lat, lng);
+          _locationNote = null;
+        case LocationRefused(:final message):
+          _locationNote = message;
+      }
+    });
   }
 
   Future<void> _save() async {
@@ -62,6 +93,8 @@ class _EditProfileSheetState extends ConsumerState<EditProfileSheet> {
             yearsExperience: int.tryParse(_years.text.trim()),
             clearExperience: _years.text.trim().isEmpty,
             serviceRadiusKm: _radius,
+            lat: _base?.lat,
+            lng: _base?.lng,
           );
 
       ref.invalidate(partnerProfileProvider);
@@ -81,7 +114,7 @@ class _EditProfileSheetState extends ConsumerState<EditProfileSheet> {
         left: AppSpacing.xl,
         right: AppSpacing.xl,
         top: AppSpacing.sm,
-        bottom: MediaQuery.viewInsetsOf(context).bottom + AppSpacing.xl,
+        bottom: AppSpacing.sheetBottom(context),
       ),
       child: SingleChildScrollView(
         child: Column(
@@ -117,6 +150,36 @@ class _EditProfileSheetState extends ConsumerState<EditProfileSheet> {
                 LengthLimitingTextInputFormatter(2),
               ],
             ),
+            const SizedBox(height: AppSpacing.lg),
+            Text('Where do you work from?', style: AppType.cardTitle),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              _base == null
+                  ? 'Customers are matched to you by distance from here. '
+                      'Without it you cannot be found at all.'
+                  : 'Set. Customers within your travel distance of this point '
+                      'can find you.',
+              style: AppType.meta.copyWith(
+                color: _base == null ? AppColors.amber : AppColors.grey,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            AppButton(
+              label: _base == null
+                  ? 'Use my current location'
+                  : 'Update to where I am now',
+              kind: AppButtonKind.ghost,
+              icon: Icons.my_location_rounded,
+              loading: _locating,
+              onPressed: _locate,
+            ),
+            if (_locationNote != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                _locationNote!,
+                style: AppType.meta.copyWith(color: AppColors.amber),
+              ),
+            ],
             const SizedBox(height: AppSpacing.lg),
             Text('How far will you travel?', style: AppType.cardTitle),
             const SizedBox(height: AppSpacing.xs),

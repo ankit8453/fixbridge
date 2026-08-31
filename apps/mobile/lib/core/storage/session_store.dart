@@ -23,6 +23,8 @@ class SessionStore {
   static const _kLocale = 'fb.locale';
   static const _kCityId = 'fb.city_id';
   static const _kOnboarded = 'fb.onboarded';
+  static const _kLat = 'fb.last_lat';
+  static const _kLng = 'fb.last_lng';
 
   static Future<SessionStore> open() async {
     const secure = FlutterSecureStorage(
@@ -76,6 +78,24 @@ class SessionStore {
 
   Future<void> setCityId(int id) => _prefs.setInt(_kCityId, id);
 
+  /// The last place we successfully searched from.
+  ///
+  /// Persisted so the app opens with results rather than a permission prompt
+  /// on every launch — somebody who searched from home yesterday is very
+  /// likely still near there, and a stale-but-close origin beats making them
+  /// wait for a GPS fix before they can see anything.
+  (double, double)? get lastLocation {
+    final lat = _prefs.getDouble(_kLat);
+    final lng = _prefs.getDouble(_kLng);
+    if (lat == null || lng == null) return null;
+    return (lat, lng);
+  }
+
+  Future<void> setLastLocation(double lat, double lng) async {
+    await _prefs.setDouble(_kLat, lat);
+    await _prefs.setDouble(_kLng, lng);
+  }
+
   bool get hasOnboarded => _prefs.getBool(_kOnboarded) ?? false;
 
   Future<void> setOnboarded() => _prefs.setBool(_kOnboarded, true);
@@ -92,6 +112,8 @@ class SessionStore {
     await _prefs.remove(_kLocale);
     await _prefs.remove(_kCityId);
     await _prefs.remove(_kOnboarded);
+    await _prefs.remove(_kLat);
+    await _prefs.remove(_kLng);
   }
 
   /// Kept for the cached-user snapshot the splash screen reads so it can draw

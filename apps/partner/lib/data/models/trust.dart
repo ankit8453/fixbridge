@@ -9,7 +9,6 @@ class TrustComponent {
     required this.normalized,
     required this.weight,
     required this.contribution,
-    required this.pending,
   });
 
   /// `rating`, `acceptance`, `reliability`, `complaints` or `recency`.
@@ -25,9 +24,16 @@ class TrustComponent {
   final double weight;
   final double contribution;
 
-  /// True when `normalized` is null. Greyed out rather than shown as zero —
-  /// "not enough jobs yet" and "you scored nothing" are different messages.
-  final bool pending;
+  /// True when there is not enough history to score this component. Greyed out
+  /// rather than shown as zero — "not enough jobs yet" and "you scored nothing"
+  /// are different messages.
+  ///
+  /// Derived from [normalized] rather than read from the response, even though
+  /// the API sends its own `pending` and computes it the same way. The screen
+  /// reads `pending` to decide whether dereferencing `normalized` is safe, and
+  /// two fields that must agree eventually disagree; tying them to one value
+  /// makes that impossible instead of unlikely.
+  bool get pending => normalized == null;
 
   factory TrustComponent.fromJson(Map<String, dynamic> json) => TrustComponent(
         name: json['name'] as String? ?? '',
@@ -36,7 +42,6 @@ class TrustComponent {
         normalized: (json['normalized'] as num?)?.toDouble(),
         weight: (json['weight'] as num?)?.toDouble() ?? 0,
         contribution: (json['contribution'] as num?)?.toDouble() ?? 0,
-        pending: json['pending'] as bool? ?? false,
       );
 }
 

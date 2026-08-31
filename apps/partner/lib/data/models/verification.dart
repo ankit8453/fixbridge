@@ -29,7 +29,7 @@ class VerificationDocument {
 
   factory VerificationDocument.fromJson(Map<String, dynamic> json) =>
       VerificationDocument(
-        id: json['id'] as String,
+        id: json['id'] as String? ?? '',
         docType: json['docType'] as String? ?? 'other',
         status: json['status'] as String? ?? 'pending',
         contentType: json['contentType'] as String? ?? '',
@@ -61,7 +61,9 @@ class UploadTarget {
     return UploadTarget(
       documentId: document?['id'] as String? ?? '',
       url: upload?['url'] as String? ?? '',
-      headers: (upload?['headers'] as Map?)?.map(
+      // `requiredHeaders`, not `headers` — the name matters because these are
+      // signed into the URL, and sending none makes storage reject the PUT.
+      headers: (upload?['requiredHeaders'] as Map?)?.map(
             (k, v) => MapEntry(k as String, v.toString()),
           ) ??
           const {},
@@ -100,7 +102,7 @@ class VerificationCase {
 
   factory VerificationCase.fromJson(Map<String, dynamic> json) =>
       VerificationCase(
-        id: json['id'] as String,
+        id: json['id'] as String? ?? '',
         level: (json['level'] as num?)?.toInt() ?? 0,
         levelName: json['levelName'] as String? ?? '',
         status: json['status'] as String? ?? 'submitted',
@@ -158,10 +160,10 @@ class VerificationSummary {
 
   /// Derived here rather than read from the response.
   ///
-  /// The API's own `levelsRemaining` reports `[0,1,2,3]` for a brand-new
-  /// technician — a live bug, since submitting level 3 is a 400. Computing it
-  /// from `levelsPassed` against the three real levels avoids showing a step
-  /// that cannot be completed.
+  /// The API used to report `[0,1,2,3]` for a brand-new technician, offering a
+  /// level whose submission answers 400. That is fixed server-side, but this
+  /// stays derived: an app already on someone's phone cannot be corrected by
+  /// deploying the API, and the retired level must never reappear in the UI.
   List<int> get levelsRemaining =>
       VerificationLevels.all.where((l) => !levelsPassed.contains(l)).toList();
 
@@ -184,7 +186,8 @@ class VerificationSummary {
     return VerificationSummary(
       badge: summary?['badge'] as String? ?? 'NONE',
       levelsPassed: (summary?['levelsPassed'] as List?)
-              ?.map((l) => (l as num).toInt())
+              ?.whereType<num>()
+              .map((l) => l.toInt())
               .toList() ??
           const [],
       cases: (json['cases'] as List?)

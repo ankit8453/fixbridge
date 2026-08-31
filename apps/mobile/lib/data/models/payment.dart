@@ -62,7 +62,7 @@ class Payment {
   String get display => Paise.show(amountDisplay, amountPaise);
 
   factory Payment.fromJson(Map<String, dynamic> json) => Payment(
-        id: json['id'] as String,
+        id: json['id'] as String? ?? '',
         bookingId: json['bookingId'] as String?,
         purpose: json['purpose'] as String? ?? 'final_bill',
         method: json['method'] as String? ?? 'online',

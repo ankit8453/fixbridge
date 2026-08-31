@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers.dart';
 import '../../data/models/booking.dart';
 import '../../data/models/partner_profile.dart';
+import '../../data/models/profile_photo.dart';
 import '../../data/models/trust.dart';
 import '../../data/models/verification.dart';
 import '../../data/models/wallet.dart';
@@ -14,6 +15,15 @@ import '../auth/auth_controller.dart';
 /// The technician's own profile.
 final partnerProfileProvider = FutureProvider<PartnerProfile>((ref) async {
   return ref.watch(partnerRepositoryProvider).profile();
+});
+
+/// The customer-facing display picture.
+///
+/// Separate from the profile itself because the URL is signed and short-lived
+/// — bundling it into the profile would mean re-fetching everything whenever
+/// it expired.
+final profilePhotoProvider = FutureProvider<ProfilePhoto?>((ref) async {
+  return ref.watch(partnerRepositoryProvider).photo();
 });
 
 final walletProvider = FutureProvider<Wallet>((ref) async {

@@ -37,7 +37,7 @@ class ServiceCategory {
 
   factory ServiceCategory.fromJson(Map<String, dynamic> json) =>
       ServiceCategory(
-        id: (json['id'] as num).toInt(),
+        id: (json['id'] as num?)?.toInt() ?? 0,
         slug: json['slug'] as String,
         name: json['name'] as String,
         nameKey: json['nameKey'] as String? ?? '',
@@ -78,7 +78,7 @@ class CategorySuggestion {
 
   factory CategorySuggestion.fromJson(Map<String, dynamic> json) =>
       CategorySuggestion(
-        categoryId: (json['categoryId'] as num).toInt(),
+        categoryId: (json['categoryId'] as num?)?.toInt() ?? 0,
         slug: json['slug'] as String,
         name: json['name'] as String,
         parentId: (json['parentId'] as num?)?.toInt(),

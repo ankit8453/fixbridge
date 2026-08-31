@@ -68,6 +68,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Widget build(BuildContext context) {
     final query = ref.watch(searchQueryProvider);
     final results = ref.watch(searchResultsProvider);
+    // False while the origin is still resolving, so the banner never flashes
+    // up before we know whether it is needed.
+    final guessing =
+        ref.watch(searchOriginProvider).valueOrNull?.usingFallback ?? false;
     final suggestions = ref.watch(suggestionsProvider);
     final showSuggestions = _focus.hasFocus && query.text.trim().length >= 2;
 
@@ -151,19 +155,28 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                               AppSpacing.screenX,
                               AppSpacing.xl,
                             ),
-                            itemCount: page.results.length,
+                            // One extra row for the banner, when the origin
+                            // is a guess. A distance measured from the wrong
+                            // point looks identical to a correct one.
+                            itemCount: page.results.length + (guessing ? 1 : 0),
                             separatorBuilder: (_, __) =>
                                 const SizedBox(height: AppSpacing.md),
-                            itemBuilder: (_, i) => ProviderCardTile(
-                              provider: page.results[i],
-                              // Carry the searched service through, so the
-                              // profile prices the job the customer asked
-                              // about rather than a different one.
-                              onTap: () => context.push(
-                                '/provider/${page.results[i].providerId}'
-                                '${query.categoryId != null ? '?category=${query.categoryId}' : ''}',
-                              ),
-                            ),
+                            itemBuilder: (_, index) {
+                              if (guessing && index == 0) {
+                                return const _ApproximateOrigin();
+                              }
+                              final i = guessing ? index - 1 : index;
+                              return ProviderCardTile(
+                                provider: page.results[i],
+                                // Carry the searched service through, so the
+                                // profile prices the job the customer asked
+                                // about rather than a different one.
+                                onTap: () => context.push(
+                                  '/provider/${page.results[i].providerId}'
+                                  '${query.categoryId != null ? '?category=${query.categoryId}' : ''}',
+                                ),
+                              );
+                            },
                           ),
                         ),
                 ),
@@ -444,6 +457,44 @@ class _ResultsSkeleton extends StatelessWidget {
             const Shimmer(width: 44, height: 16),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Says plainly that distances are measured from the middle of town.
+///
+/// Shown only when the app could not get a location and has nothing saved.
+/// Without it, "1.2 km away" reads as a fact when it is really a guess from a
+/// point the customer may be nowhere near.
+class _ApproximateOrigin extends StatelessWidget {
+  const _ApproximateOrigin();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.amberSoft,
+        borderRadius: AppRadius.tileR,
+        border: Border.all(color: AppColors.amberLine),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.location_off_outlined,
+            size: 18,
+            color: AppColors.amberText,
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Text(
+              'Distances are measured from the city centre because we could '
+              'not read your location.',
+              style: AppType.meta.copyWith(color: AppColors.amberText),
+            ),
+          ),
+        ],
       ),
     );
   }

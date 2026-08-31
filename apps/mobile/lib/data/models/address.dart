@@ -52,7 +52,7 @@ class Address {
   factory Address.fromJson(Map<String, dynamic> json) {
     final location = json['location'] as Map?;
     return Address(
-      id: json['id'] as String,
+      id: json['id'] as String? ?? '',
       label: json['label'] as String? ?? 'other',
       labelText: json['labelText'] as String?,
       addressText: json['addressText'] as String? ?? '',

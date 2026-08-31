@@ -1,8 +1,14 @@
+import 'dart:io';
+
+import 'package:dio/dio.dart';
+
 import '../../core/api/api_client.dart';
+import '../../core/api/api_error.dart';
 import '../models/booking.dart';
 import '../models/partner_profile.dart';
 import '../models/payment.dart';
 
+import '../models/profile_photo.dart';
 import '../models/quotation.dart';
 import '../models/trust.dart';
 import '../models/wallet.dart';
@@ -376,5 +382,75 @@ class PartnerRepository {
   Future<void> unblockSlot(String slotId) async {
     await _api
         .post<Map<String, dynamic>>('/providers/me/slots/$slotId/unblock');
+  }
+
+  // ── Profile photo ──────────────────────────────────────────────────────
+
+  /// The picture a customer sees once they have accepted.
+  ///
+  /// Deliberately separate from the verification `photo` document, which is a
+  /// KYC portrait that ops review and no customer ever sees. Uploading one
+  /// does not satisfy the other; they answer different questions.
+  Future<ProfilePhoto?> photo() async {
+    final json = await _api.get<Map<String, dynamic>>('/providers/me/photo');
+    return ProfilePhoto.fromJson(
+        (json['photo'] as Map?)?.cast<String, dynamic>());
+  }
+
+  /// The three-step upload: ask, PUT, confirm.
+  ///
+  /// [sizeBytes] and [contentType] are signed into the URL, so they are
+  /// declared up front and cannot be a guess — storage rejects a body that
+  /// does not match what was signed.
+  Future<ProfilePhoto> uploadPhoto(File file,
+      {required String contentType}) async {
+    final bytes = await file.readAsBytes();
+
+    final issued = await _api.post<Map<String, dynamic>>(
+      '/providers/me/photo/upload-url',
+      body: {'contentType': contentType, 'sizeBytes': bytes.length},
+    );
+
+    final photoId = issued['photoId'] as String? ?? '';
+    final upload = (issued['upload'] as Map?)?.cast<String, dynamic>();
+    final url = upload?['url'] as String? ?? '';
+    final headers = (upload?['requiredHeaders'] as Map?)?.map(
+          (k, v) => MapEntry(k.toString(), v.toString()),
+        ) ??
+        const <String, String>{};
+
+    // A bare Dio on purpose: this goes to storage, not to our API, so it must
+    // not carry our Authorization header, and the signed headers have to
+    // arrive exactly as they were issued.
+    try {
+      await Dio().put<void>(
+        url,
+        data: Stream.fromIterable([bytes]),
+        options: Options(
+          headers: {...headers, Headers.contentLengthHeader: bytes.length},
+        ),
+      );
+    } on DioException catch (e) {
+      throw ApiError.fromDio(
+        e,
+        fallbackMessage: 'Could not upload that photo. Try again.',
+      );
+    }
+
+    // Until this runs the object exists in storage but the profile does not
+    // know about it, so nothing would ever show it.
+    final confirmed = await _api.post<Map<String, dynamic>>(
+      '/providers/me/photo/$photoId/confirm',
+    );
+    final photo = ProfilePhoto.fromJson(
+        (confirmed['photo'] as Map?)?.cast<String, dynamic>());
+    if (photo == null) {
+      throw ApiError(
+        code: 'PHOTO_NOT_SAVED',
+        message: 'The photo uploaded but did not save. Try again.',
+        statusCode: 500,
+      );
+    }
+    return photo;
   }
 }

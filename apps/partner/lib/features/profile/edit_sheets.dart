@@ -38,11 +38,11 @@ class SkillPickerSheet extends ConsumerWidget {
     final have = alreadyHave.map((s) => s.categoryId).toSet();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
+      padding: EdgeInsets.fromLTRB(
         AppSpacing.xl,
         AppSpacing.sm,
         AppSpacing.xl,
-        AppSpacing.xl,
+        AppSpacing.sheetBottom(context),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -197,7 +197,7 @@ class _PriceSheetState extends State<PriceSheet> {
         left: AppSpacing.xl,
         right: AppSpacing.xl,
         top: AppSpacing.sm,
-        bottom: MediaQuery.viewInsetsOf(context).bottom + AppSpacing.xl,
+        bottom: AppSpacing.sheetBottom(context),
       ),
       child: SingleChildScrollView(
         child: Column(

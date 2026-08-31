@@ -299,8 +299,16 @@ export async function getSummary(
 ): Promise<VerificationSummaryResponse> {
   const summary = await repo.findSummary(deps.context.prisma, providerId);
 
+  // Derived, never listed literally. A hardcoded list here drifted from
+  // VERIFICATION_LEVELS when level 3 was retired, so a technician with no
+  // submissions yet was told to submit a level that answers 400.
   if (!summary) {
-    return { badge: 'NONE', badgeSince: null, levelsPassed: [], levelsRemaining: [0, 1, 2, 3] };
+    return {
+      badge: 'NONE',
+      badgeSince: null,
+      levelsPassed: [],
+      levelsRemaining: remainingLevels([]),
+    };
   }
 
   return {

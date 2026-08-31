@@ -79,7 +79,17 @@ class SetupScreen extends ConsumerWidget {
                 const SizedBox(height: AppSpacing.xl),
                 _ProfileTrack(
                   profile: p,
-                  onFix: () => context.push('/profile'),
+                  // `go`, not `push`. /profile is a branch of the shell, and
+                  // pushing it from this root-navigator screen builds a
+                  // second, detached copy with no bottom bar and no way back.
+                  onFix: () => context.go('/profile'),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                _PhotoPrompt(
+                  hasPhoto:
+                      ref.watch(profilePhotoProvider).valueOrNull?.isVisible ??
+                          false,
+                  onTap: () => context.go('/profile'),
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 verification.when(
@@ -252,6 +262,60 @@ class _ProfileTrack extends StatelessWidget {
     (key: 'priceCard', label: 'Your prices'),
     (key: 'availability', label: 'When you work'),
   ];
+}
+
+/// The display picture, which is not a gate but matters at the door.
+///
+/// Deliberately outside the five required items: it does not block listing,
+/// and putting it in that checklist would tell somebody they cannot work
+/// without it. It sits here because the moment a technician is setting
+/// themselves up is the moment they will actually take one.
+class _PhotoPrompt extends StatelessWidget {
+  const _PhotoPrompt({required this.hasPhoto, required this.onTap});
+
+  final bool hasPhoto;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      onTap: onTap,
+      child: Row(
+        children: [
+          Icon(
+            hasPhoto ? Icons.check_circle_rounded : Icons.photo_camera_outlined,
+            size: 18,
+            color: hasPhoto ? AppColors.green : AppColors.inkMuted,
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  hasPhoto ? 'Your photo is set' : 'Add your photo',
+                  style: AppType.cardTitle,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  hasPhoto
+                      ? 'Customers see this after they accept.'
+                      : 'Optional, but customers who can see who is coming '
+                          'open the door faster.',
+                  style: AppType.meta.copyWith(color: AppColors.grey),
+                ),
+              ],
+            ),
+          ),
+          const Icon(
+            Icons.chevron_right_rounded,
+            size: 18,
+            color: AppColors.greyLight,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _VerificationTrack extends StatelessWidget {

@@ -78,6 +78,23 @@ class Completeness {
   }
 }
 
+/// A point on the map.
+class GeoPoint {
+  const GeoPoint(this.lat, this.lng);
+
+  final double lat;
+  final double lng;
+
+  /// Null in, null out — an absent base location is the normal state for a
+  /// technician who has not set one yet, not a parse failure.
+  static GeoPoint? fromJson(Map<String, dynamic>? json) {
+    final lat = (json?['lat'] as num?)?.toDouble();
+    final lng = (json?['lng'] as num?)?.toDouble();
+    if (lat == null || lng == null) return null;
+    return GeoPoint(lat, lng);
+  }
+}
+
 /// A skill on the technician's own profile.
 class OwnSkill {
   const OwnSkill({
@@ -93,7 +110,7 @@ class OwnSkill {
   final String? experienceNote;
 
   factory OwnSkill.fromJson(Map<String, dynamic> json) => OwnSkill(
-        categoryId: (json['categoryId'] as num).toInt(),
+        categoryId: (json['categoryId'] as num?)?.toInt() ?? 0,
         categorySlug: json['categorySlug'] as String? ?? '',
         categoryName: json['categoryName'] as String? ?? '',
         experienceNote: json['experienceNote'] as String?,
@@ -127,8 +144,8 @@ class OwnPriceCard {
   String get display => amountPaise == null ? '—' : Paise.format(amountPaise!);
 
   factory OwnPriceCard.fromJson(Map<String, dynamic> json) => OwnPriceCard(
-        id: json['id'] as String,
-        categoryId: (json['categoryId'] as num).toInt(),
+        id: json['id'] as String? ?? '',
+        categoryId: (json['categoryId'] as num?)?.toInt() ?? 0,
         categoryName: json['categoryName'] as String? ?? '',
         title: json['title'] as String? ?? '',
         priceType: json['priceType'] as String? ?? 'fixed',
@@ -170,7 +187,7 @@ class OwnAvailability {
 
   factory OwnAvailability.fromJson(Map<String, dynamic> json) =>
       OwnAvailability(
-        id: json['id'] as String,
+        id: json['id'] as String? ?? '',
         dayOfWeek: (json['dayOfWeek'] as num?)?.toInt() ?? 0,
         startTime: json['startTime'] as String? ?? '',
         endTime: json['endTime'] as String? ?? '',
@@ -207,9 +224,9 @@ class OwnSlot {
   bool get isBlocked => status == 'blocked';
 
   factory OwnSlot.fromJson(Map<String, dynamic> json) => OwnSlot(
-        id: json['id'] as String,
-        startsAt: DateTime.parse(json['startsAt'] as String).toLocal(),
-        endsAt: DateTime.parse(json['endsAt'] as String).toLocal(),
+        id: json['id'] as String? ?? '',
+        startsAt: asDate(json['startsAt']),
+        endsAt: asDate(json['endsAt']),
         status: json['status'] as String? ?? 'open',
         bookingId: json['bookingId'] as String?,
       );
@@ -223,6 +240,7 @@ class PartnerProfile {
     required this.bio,
     required this.yearsExperience,
     required this.cityId,
+    required this.baseLocation,
     required this.serviceRadiusKm,
     required this.isListed,
     required this.badge,
@@ -238,6 +256,13 @@ class PartnerProfile {
   final String? bio;
   final int? yearsExperience;
   final int cityId;
+
+  /// Where they work from. **Null until they set it, and one of the five
+  /// required items** — without it nobody can be matched to them, so a
+  /// profile with no base location can never be listed however complete the
+  /// rest of it is.
+  final GeoPoint? baseLocation;
+
   final int serviceRadiusKm;
 
   /// Whether the profile is complete enough to be *findable*. Independent of
@@ -254,7 +279,13 @@ class PartnerProfile {
   final List<OwnPriceCard> priceCards;
   final List<OwnAvailability> availability;
 
-  String get name => displayName ?? 'Your profile';
+  /// Never empty — the avatar takes its first character, and a name that is
+  /// null or only whitespace would otherwise crash the screen rather than
+  /// looking untidy.
+  String get name {
+    final trimmed = displayName?.trim() ?? '';
+    return trimmed.isEmpty ? 'Your profile' : trimmed;
+  }
 
   /// Both gates cleared. Until this is true, no customer can find them.
   bool get canReceiveWork => isListed && badge.isEarned;
@@ -263,16 +294,19 @@ class PartnerProfile {
     final verification = json['verification'] as Map?;
 
     return PartnerProfile(
-      userId: json['userId'] as String,
+      userId: json['userId'] as String? ?? '',
       displayName: json['displayName'] as String?,
       bio: json['bio'] as String?,
       yearsExperience: (json['yearsExperience'] as num?)?.toInt(),
       cityId: (json['cityId'] as num?)?.toInt() ?? 0,
+      baseLocation: GeoPoint.fromJson(
+          (json['baseLocation'] as Map?)?.cast<String, dynamic>()),
       serviceRadiusKm: (json['serviceRadiusKm'] as num?)?.toInt() ?? 5,
       isListed: json['isListed'] as bool? ?? false,
       badge: TrustBadge.parse(verification?['badge'] as String?),
       levelsPassed: (verification?['levelsPassed'] as List?)
-              ?.map((l) => (l as num).toInt())
+              ?.whereType<num>()
+              .map((l) => l.toInt())
               .toList() ??
           const [],
       completeness: Completeness.fromJson(

@@ -34,12 +34,11 @@ class Review {
   bool get isMine => direction == 'customer_to_provider';
 
   factory Review.fromJson(Map<String, dynamic> json) => Review(
-        id: json['id'] as String,
+        id: json['id'] as String? ?? '',
         bookingId: json['bookingId'] as String? ?? '',
         direction: json['direction'] as String? ?? 'customer_to_provider',
         stars: (json['stars'] as num?)?.toInt() ?? 0,
-        tags: (json['tags'] as List?)?.map((t) => t as String).toList() ??
-            const [],
+        tags: (json['tags'] as List?)?.whereType<String>().toList() ?? const [],
         text: json['text'] as String?,
         status: json['status'] as String? ?? 'published',
         createdAt:
@@ -107,7 +106,7 @@ class Complaint {
   bool get isOpen => status == 'open' || status == 'in_review';
 
   factory Complaint.fromJson(Map<String, dynamic> json) => Complaint(
-        id: json['id'] as String,
+        id: json['id'] as String? ?? '',
         bookingId: json['bookingId'] as String? ?? '',
         category: json['category'] as String? ?? 'other',
         description: json['description'] as String? ?? '',
