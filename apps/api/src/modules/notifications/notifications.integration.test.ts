@@ -689,11 +689,21 @@ describe('Phase 10 — notifications', () => {
         .send({ otp: startOtp ?? '0000' })
         .expect(200);
 
+      /**
+       * The booking is anchored at `FIXED_PRICE_PAISE`, so labour above that is
+       * *extra* and must say why — this test predates that rule and sent a bare
+       * ₹500 against an agreed ₹220, which the labour rules now refuse. The
+       * split is stated honestly here; what this test is actually about is the
+       * notification the customer receives, not the pricing.
+       */
       await request(app as Express)
         .post(`/api/v1/bookings/${bookingId}/quotations`)
         .set(auth(technician.accessToken))
         .send({
           labourPaise: 50_000,
+          agreedLabourPaise: FIXED_PRICE_PAISE,
+          extraLabourPaise: 50_000 - FIXED_PRICE_PAISE,
+          extraLabourReason: 'The compressor mount had seized and had to be cut free.',
           items: [{ kind: 'part', description: 'Capacitor', qty: 1, unitPaise: 30_000 }],
         })
         .expect(201);

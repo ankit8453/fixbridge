@@ -137,13 +137,34 @@ export function createRedisClient(config: AppConfig, logger: AppLogger): Redis {
   const client = new Redis(config.REDIS_URL, {
     connectTimeout: 2_000,
     maxRetriesPerRequest: 1,
+    /**
+     * Fall back quickly, but **never stop trying to come back**.
+     *
+     * This used to `return null` after a few attempts, which tells ioredis to
+     * abandon the connection permanently. Three tries at 100ms apart is about
+     * 300ms — shorter than any real outage, and far shorter than the ~40s a
+     * `docker compose up` takes — so in practice the process latched onto the
+     * in-memory stub at startup and stayed there until somebody restarted it.
+     *
+     * That is worse than an outage on more than one instance: each process
+     * holds its *own* OTP map, so a booking code issued by one is rejected by
+     * another, and the rate limiters silently reset to empty. Both failures are
+     * invisible until a customer is standing at their door with a code that
+     * does not work.
+     *
+     * So: switch to the fallback after `MAX_RECONNECT_ATTEMPTS` so requests
+     * keep being served, then keep retrying on a capped backoff. The `ready`
+     * handler below clears `useMock`, which makes recovery automatic.
+     */
     retryStrategy: (attempt) => {
-      if (attempt > MAX_RECONNECT_ATTEMPTS) {
-        logger.warn('redis: connection failed, switching to in-memory fallback client');
+      if (attempt === MAX_RECONNECT_ATTEMPTS + 1) {
+        logger.warn('redis: unreachable, serving from the in-memory fallback while retrying');
         useMock = true;
-        return null; // Give up reconnecting
       }
-      return 100;
+
+      // 100ms while it might be a blip, then up to 5s so a long outage costs
+      // one connection attempt every five seconds rather than a busy loop.
+      return Math.min(100 * attempt, 5_000);
     },
   });
 

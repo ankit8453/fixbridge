@@ -260,4 +260,61 @@ describe('parseConfig — production guards', () => {
     expect(message).toMatch(/AUTH_FIXED_OTP/);
     expect(message).toMatch(/JWT_SECRET/);
   });
+
+  /**
+   * The local `.env` loosens the OTP limits so a test run is not throttled
+   * halfway through — 100 requests per phone instead of 5. Harmless on a
+   * laptop; in production the same numbers would leave OTP verification
+   * effectively unthrottled against brute force.
+   *
+   * A QA pass flagged this as something to remember before launch. A thing you
+   * have to remember is a thing you eventually forget, so the boot refuses.
+   */
+  it('refuses development OTP limits in production', () => {
+    expect(() => parseConfig({ ...PRODUCTION_ENV, OTP_MAX_PER_PHONE: '100' })).toThrow(
+      ConfigValidationError,
+    );
+    expect(() => parseConfig({ ...PRODUCTION_ENV, OTP_MAX_PER_IP: '100' })).toThrow(
+      ConfigValidationError,
+    );
+    expect(() => parseConfig({ ...PRODUCTION_ENV, OTP_MAX_VERIFY_ATTEMPTS: '20' })).toThrow(
+      ConfigValidationError,
+    );
+  });
+
+  it('names the offending limit, and says what it should be', () => {
+    let message = '';
+
+    try {
+      parseConfig({ ...PRODUCTION_ENV, OTP_MAX_PER_PHONE: '100' });
+    } catch (error) {
+      message = error instanceof Error ? error.message : '';
+    }
+
+    expect(message).toMatch(/OTP_MAX_PER_PHONE/);
+    expect(message).toMatch(/ceiling/);
+  });
+
+  it('leaves the same loose limits alone outside production', () => {
+    // Development is where those values belong, so nothing should complain.
+    const config = parseConfig({
+      ...VALID_ENV,
+      OTP_MAX_PER_PHONE: '100',
+      OTP_MAX_PER_IP: '100',
+      OTP_MAX_VERIFY_ATTEMPTS: '20',
+    });
+
+    expect(config.OTP_MAX_PER_PHONE).toBe(100);
+  });
+
+  it('accepts sane production limits', () => {
+    const config = parseConfig({
+      ...PRODUCTION_ENV,
+      OTP_MAX_PER_PHONE: '5',
+      OTP_MAX_PER_IP: '20',
+      OTP_MAX_VERIFY_ATTEMPTS: '5',
+    });
+
+    expect(config.OTP_MAX_PER_PHONE).toBe(5);
+  });
 });

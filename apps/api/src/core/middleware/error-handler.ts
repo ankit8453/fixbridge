@@ -12,6 +12,27 @@ export interface ErrorHandlerOptions {
   logger?: AppLogger;
 }
 
+/**
+ * An error that already knows it is the caller's fault.
+ *
+ * Express's body parser (and several other middlewares) throw plain `Error`s
+ * with a `status`/`statusCode` property already set — a malformed JSON body
+ * arrives as a `SyntaxError` carrying `status: 400`. Honouring that is the
+ * difference between "you sent bad JSON" and a 500 that blames the server for
+ * something it did nothing wrong in.
+ *
+ * Restricted to 4xx deliberately: a middleware claiming a 5xx gets the normal
+ * internal-error treatment, message and all, because that *is* our fault.
+ */
+function clientErrorStatus(value: unknown): number | null {
+  if (!(value instanceof Error)) return null;
+
+  const raw =
+    (value as { status?: unknown }).status ?? (value as { statusCode?: unknown }).statusCode;
+
+  return typeof raw === 'number' && raw >= 400 && raw < 500 ? raw : null;
+}
+
 function toFieldErrors(error: ZodError): ApiFieldError[] {
   return error.issues.map((issue) => ({
     field: issue.path.length > 0 ? issue.path.join('.') : '(root)',
@@ -49,6 +70,8 @@ export function createErrorHandler(options: ErrorHandlerOptions): ErrorRequestHa
     let message = t('errors.internal');
     let details: unknown;
 
+    const clientStatus = clientErrorStatus(err);
+
     if (err instanceof ZodError) {
       statusCode = 400;
       code = 'VALIDATION_ERROR';
@@ -64,6 +87,18 @@ export function createErrorHandler(options: ErrorHandlerOptions): ErrorRequestHa
       for (const [name, value] of Object.entries(err.headers ?? {})) {
         res.setHeader(name, value);
       }
+    } else if (clientStatus !== null) {
+      /**
+       * A malformed request body is the client's mistake, not ours.
+       *
+       * `express.json()` throws a `SyntaxError` carrying `status: 400`, and
+       * without this branch it fell through to the 500 default — so a caller
+       * sending `{ broken json` was told "something went wrong at our end",
+       * and could inflate the 5xx rate that alerting watches at will.
+       */
+      statusCode = clientStatus;
+      code = 'BAD_REQUEST';
+      message = t('errors.badRequest');
     }
 
     if (statusCode >= 500) {

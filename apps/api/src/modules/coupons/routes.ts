@@ -28,18 +28,32 @@ const deps = (req: Request): service.CouponDeps => ({ context: getContext(req) }
 /**
  * The console's coupon CRUD.
  *
- * Mounted under `/api/v1/admin`, so the admin router's `requireRoles('ops',
- * 'admin')` and the audit-coverage test both already apply. Every **mutation**
- * here additionally carries `requireRoles('admin')`, because a coupon is money
- * config: it commits the platform to spending its own commission, which is the
- * same class of decision as a commission rate or a refund. The list is left
- * readable by ops — seeing which campaigns are live is part of answering a
- * customer's "why didn't my code work".
+ * **This router guards itself.** It is mounted at `/api/v1/admin/coupons`,
+ * which is a *sibling* of the `/api/v1/admin` mount rather than nested inside
+ * it — Express matches the more specific path first, so `adminRouter`'s
+ * `authenticate` never runs for these routes. This comment previously claimed
+ * the opposite, and the result was that every coupon endpoint was reachable
+ * with no token at all: `GET /api/v1/admin/coupons` returned every live
+ * discount code to anonymous callers, and the mutations threw 500s because
+ * `requireRoles` ran with `req.user` undefined.
+ *
+ * Every **mutation** additionally carries `requireRoles('admin')`, because a
+ * coupon is money config: it commits the platform to spending its own
+ * commission, which is the same class of decision as a commission rate or a
+ * refund. The list is left readable by ops — seeing which campaigns are live
+ * is part of answering a customer's "why didn't my code work".
  *
  * See `ADMIN_ONLY_ROUTES` in `core/audit.ts`, which enumerates exactly these
  * four routes and is checked against this router by a test.
  */
 export const opsRouter = Router();
+
+/**
+ * The guard the sibling mount does not supply. Matches every other ops router
+ * (`verification`, `payments`, `complaints`, `reviews`, `trust`,
+ * `provider-photos`), each of which authenticates itself for the same reason.
+ */
+opsRouter.use(authenticate, requireRoles('ops', 'admin'));
 
 opsRouter.get(
   '/',

@@ -89,15 +89,35 @@ export const decideSchema = z
 
 export type DecideInput = z.infer<typeof decideSchema>;
 
+/**
+ * The ops queue filter.
+ *
+ * `page_size` is the name every other admin list takes (`/admin/bookings`,
+ * `/admin/providers`, `/admin/complaints`, `/admin/audit-logs`,
+ * `/admin/coupons`). This endpoint took only `pageSize`, and because the schema
+ * is `.strict()` the mismatch was not a silently-ignored parameter but a hard
+ * 400 — a trap for any new client, the Flutter app included. Both spellings are
+ * accepted now; `page_size` wins when a caller sends both, since it is the one
+ * the rest of the API documents.
+ *
+ * `level` is capped at 2, not 3: references was retired as a verification
+ * level (see `state-machine.ts`), so 3 is no longer a value anyone can filter
+ * for.
+ */
 export const queueQuerySchema = z
   .object({
     status: z.enum(['submitted', 'in_review', 'needs_info', 'passed', 'failed']).optional(),
-    level: z.coerce.number().int().min(0).max(3).optional(),
+    level: z.coerce.number().int().min(0).max(2).optional(),
     cityId: z.coerce.number().int().min(1).optional(),
     page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+    pageSize: z.coerce.number().int().min(1).max(100).optional(),
+    page_size: z.coerce.number().int().min(1).max(100).optional(),
   })
-  .strict();
+  .strict()
+  .transform(({ page_size, pageSize, ...rest }) => ({
+    ...rest,
+    pageSize: page_size ?? pageSize ?? 20,
+  }));
 
 export type QueueQuery = z.infer<typeof queueQuerySchema>;
 

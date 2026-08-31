@@ -10,7 +10,36 @@
 
 ---
 
-## Verdict
+## Status — all defects fixed (31 Aug 2026)
+
+Every defect below has been fixed and verified. The full API suite now passes
+**1,078 of 1,078** — the first fully green run, since DEF-003 turned out to be the
+root cause of the three failures carried for weeks as "pre-existing".
+
+| Defect | Status | Verified by |
+|---|---|---|
+| DEF-003 · coupon routes unauthenticated | **Fixed** | Anonymous read now 401; create/pause/resume now 201/200/200 (were 500). Two regression tests walk every admin route anonymously |
+| DEF-001 · Redis never reconnects | **Fixed** | Retry backs off to a 5-second cap and never gives up. Three unit tests pin the policy |
+| DEF-002 · malformed JSON returns 500 | **Fixed** | Now 400 `BAD_REQUEST`. Regression test added |
+| DEF-004 · queue pagination mismatch | **Fixed** | Both `page_size` and `pageSize` accepted |
+
+Two further defects were found *while* fixing these, and are also fixed:
+
+- **`marketing_discount` had the wrong balance sign.** The `account_balances` view
+  signs balances so that positive means "holds value", naming the debit-natured
+  account types explicitly. The expense account added in an earlier session was
+  never added to that list, so a platform-funded coupon read as a **gain** of
+  ₹109.80 rather than a spend. Fixed by replacing the view; no data rewritten.
+- **Production could boot with development OTP limits.** Recommendation 5 asked
+  somebody to remember to check this before launch. The boot now refuses instead:
+  `OTP_MAX_PER_PHONE` above 10 in production is a startup error that names the
+  field and the ceiling.
+
+The report as originally filed follows, unchanged.
+
+---
+
+## Verdict (as filed)
 
 **Not ready for production.** One critical security defect must be fixed before any public deployment; three lower-severity defects should be fixed before launch.
 

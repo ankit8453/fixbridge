@@ -283,7 +283,8 @@
     },
     "common": {
       "notFound": "That item was not found."
-    }
+    },
+    "badRequest": "We could not read what you sent. Please try again."
   },
   "common": {
     "greeting": "Hello {{name}}"

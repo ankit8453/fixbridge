@@ -480,6 +480,38 @@ const baseConfigSchema = z.object({
  */
 export const configSchema = baseConfigSchema.superRefine((config, ctx) => {
   /**
+   * Development conveniences must not reach production.
+   *
+   * The local `.env` deliberately loosens the OTP limits — 100 requests per
+   * phone instead of 5 — so a test run is not throttled halfway through. That
+   * is fine on a laptop and dangerous in production, where the same numbers
+   * would leave OTP verification effectively unthrottled against brute force.
+   *
+   * A QA pass flagged this as something to "remember to check before launch".
+   * A thing you have to remember is a thing you eventually forget, so the boot
+   * refuses instead: a production process cannot start with limits this loose.
+   */
+  if (config.NODE_ENV === 'production') {
+    const ceilings = [
+      ['OTP_MAX_PER_PHONE', config.OTP_MAX_PER_PHONE, 10],
+      ['OTP_MAX_PER_IP', config.OTP_MAX_PER_IP, 30],
+      ['OTP_MAX_VERIFY_ATTEMPTS', config.OTP_MAX_VERIFY_ATTEMPTS, 10],
+    ] as const;
+
+    for (const [field, value, ceiling] of ceilings) {
+      if (value > ceiling) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [field],
+          message:
+            `is ${value} in production, which is above the safe ceiling of ${ceiling}. ` +
+            'This looks like a development override — brute-force protection depends on it.',
+        });
+      }
+    }
+  }
+
+  /**
    * Razorpay needs all three keys or none.
    *
    * Checked in every environment, not just production: a half-configured gateway

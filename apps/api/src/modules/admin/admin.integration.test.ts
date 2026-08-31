@@ -544,6 +544,58 @@ describe('Phase 11 — the ops console API', () => {
      * refusal — and if the guard were missing, a `400` here would fail this test
      * just as loudly as a `200` would.
      */
+    /**
+     * DEF-003: every admin route must refuse an anonymous caller.
+     *
+     * The coupon router was mounted at `/api/v1/admin/coupons`, a *sibling* of
+     * the `/api/v1/admin` mount rather than nested inside it. Express matches
+     * the more specific path first, so `adminRouter`'s `authenticate` never
+     * ran and `GET /admin/coupons` returned every live discount code to
+     * anyone on the internet. Coupons are platform-funded, so that is money.
+     *
+     * Walking the registry rather than listing paths means a future router
+     * mounted the same way is caught the day it is added — the shape of the
+     * mistake matters more than the one endpoint that made it.
+     */
+    it('refuses an anonymous caller on every admin route', async () => {
+      if (unavailableReason || !fixture) return;
+
+      const server = app as Express;
+
+      const paths = [
+        '/api/v1/admin/coupons',
+        '/api/v1/admin/summary',
+        '/api/v1/admin/bookings',
+        '/api/v1/admin/providers',
+        '/api/v1/admin/complaints',
+        '/api/v1/admin/audit-logs',
+        '/api/v1/admin/verification/queue',
+        '/api/v1/admin/provider-photos/reported',
+      ];
+
+      for (const path of paths) {
+        const response = await request(server).get(path);
+
+        expect(response.status, `${path} must not be readable anonymously`).toBe(401);
+      }
+    }, 60_000);
+
+    /**
+     * The write half of the same defect: with no `authenticate`, `requireRoles`
+     * ran with `req.user` undefined and threw `AppError.internal`, so every
+     * coupon mutation answered 500. A 500 there reads as "coupons are broken"
+     * and hides the fact that the reads were wide open.
+     */
+    it('answers 401, not 500, when a coupon mutation is attempted anonymously', async () => {
+      if (unavailableReason || !fixture) return;
+
+      const response = await request(app as Express)
+        .post('/api/v1/admin/coupons')
+        .send({});
+
+      expect(response.status).toBe(401);
+    }, 30_000);
+
     it('refuses an ops token on every admin-only route', async () => {
       if (unavailableReason || !fixture) return;
 

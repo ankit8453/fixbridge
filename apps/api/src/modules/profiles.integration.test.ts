@@ -192,6 +192,26 @@ describe('Phase 3 — categories', () => {
     const response = await request(app).get('/api/v1/categories?cityId=abc');
     expect(response.status).toBe(400);
   });
+
+  /**
+   * DEF-002: a body the parser cannot read is the caller's mistake.
+   *
+   * `express.json()` throws a `SyntaxError` carrying `status: 400`, but the
+   * error handler ignored that and fell through to its 500 default — so a
+   * client sending `{ broken json` was told "something went wrong at our end",
+   * and could inflate the 5xx rate that alerting watches at will.
+   */
+  it('answers 400, not 500, when the request body is not valid JSON', async (ctx) => {
+    if (!app) return ctx.skip();
+
+    const response = await request(app)
+      .patch('/api/v1/customers/me')
+      .set('Content-Type', 'application/json')
+      .send('{ this is not json');
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe('BAD_REQUEST');
+  });
 });
 
 describe('Phase 3 — customer profile and addresses', () => {
