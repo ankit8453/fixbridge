@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/api_error.dart';
 import '../../core/providers.dart';
@@ -19,6 +20,7 @@ import '../../shared/widgets/avatar.dart';
 import '../../shared/widgets/states.dart';
 import '../bookings/booking_status_ui.dart';
 import 'booking_providers.dart';
+import 'review_sheet.dart';
 import 'widgets/otp_card.dart';
 import 'widgets/progress_rail.dart';
 import 'widgets/quotation_card.dart';
@@ -155,6 +157,16 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
         QuotationCard(
           quotation: b.approvedQuotation!,
           visitFeePaise: b.visitFeePaise,
+        ),
+      ],
+
+      // A finished job asks for a rating once, and stops asking after it has
+      // one — the API returns both sides' reviews, so it knows.
+      if (b.status == BookingStatus.workDone) ...[
+        const SizedBox(height: AppSpacing.xl),
+        _ReviewPrompt(
+          bookingId: b.id,
+          technicianName: b.counterpart.displayName,
         ),
       ],
 
@@ -478,15 +490,117 @@ class _Counterpart extends StatelessWidget {
               foreground: AppColors.green,
               bordered: false,
               size: 40,
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: c.phone!));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Number copied')),
-                );
-              },
+              onPressed: () => _call(context, c.phone!),
             ),
         ],
       ),
+    );
+  }
+}
+
+/// Reviews already left on this booking.
+///
+/// Both directions come back; only the customer's own is relevant here, and
+/// its presence is what decides whether to keep asking.
+final _myReviewProvider =
+    FutureProvider.autoDispose.family<bool, String>((ref, bookingId) async {
+  final reviews = await ref.watch(bookingRepositoryProvider).reviews(bookingId);
+  return reviews.any((r) => r.isMine);
+});
+
+class _ReviewPrompt extends ConsumerWidget {
+  const _ReviewPrompt({required this.bookingId, required this.technicianName});
+
+  final String bookingId;
+  final String technicianName;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final reviewed = ref.watch(_myReviewProvider(bookingId));
+
+    return reviewed.maybeWhen(
+      // Nothing while it loads, and nothing on error: a failed lookup should
+      // not push somebody to review a job twice.
+      data: (alreadyReviewed) {
+        if (alreadyReviewed) {
+          return AppCard(
+            color: AppColors.greenSoft,
+            borderColor: AppColors.greenSoft,
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.check_circle_rounded,
+                  size: 18,
+                  color: AppColors.green,
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Text(
+                    'Thanks for rating this job.',
+                    style: AppType.meta.copyWith(color: AppColors.ink),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return AppCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('How did it go?', style: AppType.cardTitle),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                'Your rating is what other people see when they are deciding '
+                'who to trust.',
+                style: AppType.meta.copyWith(color: AppColors.grey),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              AppButton(
+                label: 'Rate $technicianName',
+                kind: AppButtonKind.ghost,
+                onPressed: () async {
+                  final posted = await showModalBottomSheet<bool>(
+                    context: context,
+                    isScrollControlled: true,
+                    builder: (_) => ReviewSheet(
+                      bookingId: bookingId,
+                      technicianName: technicianName,
+                    ),
+                  );
+                  if (posted ?? false) {
+                    ref.invalidate(_myReviewProvider(bookingId));
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+      },
+      orElse: () => const SizedBox.shrink(),
+    );
+  }
+}
+
+/// Opens the dialler with the number filled in.
+///
+/// `tel:` deliberately does not place the call — Android shows the number in
+/// the dialler and the person presses the button. Falls back to the clipboard
+/// only if no dialler answers, which happens on a tablet with no SIM.
+Future<void> _call(BuildContext context, String phone) async {
+  final digits = phone.replaceAll(RegExp(r'[^\d+]'), '');
+  final uri = Uri(scheme: 'tel', path: digits);
+
+  if (await canLaunchUrl(uri)) {
+    await launchUrl(uri);
+    return;
+  }
+
+  await Clipboard.setData(ClipboardData(text: phone));
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('No dialler here — number copied instead')),
     );
   }
 }

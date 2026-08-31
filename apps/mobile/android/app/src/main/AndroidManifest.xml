@@ -41,5 +41,14 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!--
+          Android 11+ hides other apps unless they are declared here. Without
+          this, canLaunchUrl('tel:…') returns false even when a dialler is
+          installed, and the call button silently does nothing.
+        -->
+        <intent>
+            <action android:name="android.intent.action.DIAL"/>
+            <data android:scheme="tel"/>
+        </intent>
     </queries>
 </manifest>

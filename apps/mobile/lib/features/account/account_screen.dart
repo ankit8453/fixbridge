@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/api/api_error.dart';
 import '../../core/config/env.dart';
 import '../../core/providers.dart';
 import '../../core/theme/app_colors.dart';
@@ -9,6 +10,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_card.dart';
+import '../../shared/widgets/app_field.dart';
 import '../../shared/widgets/avatar.dart';
 import '../auth/auth_controller.dart';
 
@@ -59,16 +61,22 @@ class AccountScreen extends ConsumerWidget {
 
             if (user != null) ...[
               _SettingRow(
+                icon: Icons.badge_outlined,
+                title: 'Your name',
+                value: user.name == null ? 'Add' : 'Edit',
+                onTap: () => _editName(context, ref, user.name),
+              ),
+              _SettingRow(
                 icon: Icons.place_outlined,
                 title: 'Saved addresses',
                 value: 'Manage',
-                onTap: () => _soon(context, 'Addresses'),
+                onTap: () => context.push('/account/addresses'),
               ),
               _SettingRow(
                 icon: Icons.support_agent_rounded,
                 title: 'Complaints',
                 value: 'View',
-                onTap: () => _soon(context, 'Complaints'),
+                onTap: () => context.push('/account/complaints'),
               ),
             ],
 
@@ -89,10 +97,70 @@ class AccountScreen extends ConsumerWidget {
     );
   }
 
-  void _soon(BuildContext context, String what) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$what is coming in the next build.')),
+  /// The name a technician sees when they accept. Editable because the first
+  /// sign-in lets it be skipped, and somebody who skipped it should not be
+  /// stuck as "no name" forever.
+  Future<void> _editName(
+    BuildContext context,
+    WidgetRef ref,
+    String? current,
+  ) async {
+    final controller = TextEditingController(text: current ?? '');
+
+    final saved = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) => Padding(
+          padding: EdgeInsets.only(
+            left: AppSpacing.xl,
+            right: AppSpacing.xl,
+            top: AppSpacing.sm,
+            bottom: MediaQuery.viewInsetsOf(context).bottom + AppSpacing.xl,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Your name', style: AppType.heading),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                'The technician sees this when they accept your booking.',
+                style: AppType.meta.copyWith(color: AppColors.grey),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              AppField(
+                controller: controller,
+                hint: 'Your name',
+                autofocus: true,
+                maxLength: 120,
+                textCapitalization: TextCapitalization.words,
+                onChanged: (_) => setSheetState(() {}),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              AppButton(
+                label: 'Save',
+                onPressed: controller.text.trim().isEmpty
+                    ? null
+                    : () => Navigator.pop(context, controller.text.trim()),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
+
+    if (saved == null) return;
+
+    try {
+      await ref.read(authControllerProvider.notifier).setName(saved);
+    } on ApiError catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message)),
+        );
+      }
+    }
   }
 
   Future<void> _confirmSignOut(BuildContext context, WidgetRef ref) async {

@@ -110,6 +110,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, state) =>
             BookingScreen(bookingId: state.pathParameters['id']!),
       ),
+      GoRoute(
+        path: '/account/addresses',
+        parentNavigatorKey: _rootKey,
+        builder: (_, __) => const AddressesScreen(),
+      ),
+      GoRoute(
+        path: '/account/complaints',
+        parentNavigatorKey: _rootKey,
+        builder: (_, __) => const ComplaintsScreen(),
+      ),
 
       StatefulShellRoute.indexedStack(
         builder: (_, __, shell) => AppShell(navigationShell: shell),

@@ -6,6 +6,8 @@
 library;
 
 export '../features/account/account_screen.dart';
+export '../features/account/addresses_screen.dart';
+export '../features/account/complaints_screen.dart';
 export '../features/booking/booking_screen.dart';
 export '../features/bookings/bookings_screen.dart';
 export '../features/notifications/notifications_screen.dart';

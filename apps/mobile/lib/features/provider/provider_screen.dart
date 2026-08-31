@@ -147,8 +147,7 @@ class _ProviderScreenState extends ConsumerState<ProviderScreen> {
               ),
               _BookBar(
                 card: _cardFor(p),
-                needsService:
-                    p.priceCards.length > 1 && _cardFor(p) == null,
+                needsService: p.priceCards.length > 1 && _cardFor(p) == null,
                 slot: _selectedSlot,
                 onBook: () => _book(p),
               ),
