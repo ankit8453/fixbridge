@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/location.dart';
+import '../../core/providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
@@ -467,11 +469,50 @@ class _ResultsSkeleton extends StatelessWidget {
 /// Shown only when the app could not get a location and has nothing saved.
 /// Without it, "1.2 km away" reads as a fact when it is really a guess from a
 /// point the customer may be nowhere near.
-class _ApproximateOrigin extends StatelessWidget {
+/// Says plainly that distances are measured from the middle of town, and
+/// offers the way out.
+///
+/// A banner that only states a problem leaves somebody stuck: the reason the
+/// location is missing is usually a permission they can still grant, and once
+/// it has been permanently denied only the system settings screen can undo it.
+/// So the action changes to match which of those it is.
+class _ApproximateOrigin extends ConsumerStatefulWidget {
   const _ApproximateOrigin();
 
   @override
+  ConsumerState<_ApproximateOrigin> createState() => _ApproximateOriginState();
+}
+
+class _ApproximateOriginState extends ConsumerState<_ApproximateOrigin> {
+  bool _busy = false;
+  LocationRefused? _refusal;
+
+  Future<void> _retry() async {
+    setState(() => _busy = true);
+    final result = await DeviceLocation.current();
+    if (!mounted) return;
+
+    if (result is LocationFound) {
+      await ref
+          .read(sessionStoreProvider)
+          .setLastLocation(result.lat, result.lng);
+      if (!mounted) return;
+      // Re-resolves the origin, which re-runs the search behind it.
+      ref.invalidate(searchOriginProvider);
+      return;
+    }
+
+    setState(() {
+      _busy = false;
+      _refusal = result as LocationRefused;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final refusal = _refusal;
+    final toSettings = refusal?.settingsWouldHelp ?? false;
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
@@ -479,20 +520,40 @@ class _ApproximateOrigin extends StatelessWidget {
         borderRadius: AppRadius.tileR,
         border: Border.all(color: AppColors.amberLine),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.location_off_outlined,
-            size: 18,
-            color: AppColors.amberText,
+          Row(
+            children: [
+              const Icon(
+                Icons.location_off_outlined,
+                size: 18,
+                color: AppColors.amberText,
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Text(
+                  refusal?.message ??
+                      'Distances are measured from the city centre until we '
+                          'know where you are.',
+                  style: AppType.meta.copyWith(color: AppColors.amberText),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Text(
-              'Distances are measured from the city centre because we could '
-              'not read your location.',
-              style: AppType.meta.copyWith(color: AppColors.amberText),
-            ),
+          const SizedBox(height: AppSpacing.sm),
+          AppButton(
+            label: toSettings ? 'Open settings' : 'Use my location',
+            kind: AppButtonKind.ghost,
+            icon: toSettings
+                ? Icons.settings_outlined
+                : Icons.my_location_rounded,
+            loading: _busy,
+            onPressed: toSettings
+                ? () => refusal!.reason == LocationDenial.serviceOff
+                    ? DeviceLocation.openLocationSettings()
+                    : DeviceLocation.openSettings()
+                : _retry,
           ),
         ],
       ),

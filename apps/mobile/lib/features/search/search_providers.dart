@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/location.dart';
 import '../../core/providers.dart';
 import '../provider/provider_providers.dart';
 import '../../data/models/category.dart';
@@ -60,18 +61,22 @@ const _cityCentre = (lat: 23.1815, lng: 79.9864);
 /// The API requires `lat`/`lng` — there is no "search everywhere" — so this
 /// always produces a point. The order is deliberate:
 ///
-///   1. the customer's default saved address, which needs no permission at
-///      all and is the common case for anyone who has booked before,
-///   2. the last location that worked, so a refusal does not reset somebody
-///      to the middle of town on every launch,
-///   3. the city centre.
+///   1. the customer's default saved address. Needs no permission at all and
+///      is the common case for anyone who has booked before, so a returning
+///      customer is never prompted.
+///   2. the device's location. **This is where the permission prompt lives.**
+///      By the time we reach it there is genuinely nothing else to go on, and
+///      the customer is looking at a screen whose whole job is "who is near
+///      me" — which is exactly when being asked makes sense, and what every
+///      other app of this kind does.
+///   3. the last location that worked, so a refusal does not re-prompt and
+///      re-fail on every launch.
+///   4. the city centre, admitted as a guess.
 ///
-/// **It deliberately does not ask for GPS here.** Prompting for a location
-/// permission before the customer has asked for anything is how you earn a
-/// "never allow" on a cheap Android phone, and that decision is permanent.
-/// The prompt belongs on a button the customer chose to press — the one in
-/// the address sheet — not on a screen merely opening. The web surface made
-/// the same call for the same reason.
+/// An earlier version of this skipped step 2 entirely, on the theory that an
+/// unprompted permission request earns a permanent "never allow". True of a
+/// *page load*, wrong here: with no saved address the alternative to asking is
+/// silently pretending the customer is in the middle of town.
 ///
 /// [usingFallback] is exposed so the UI can say so. A distance computed from
 /// the wrong origin looks exactly like a correct one, and silently showing
@@ -81,8 +86,8 @@ final searchOriginProvider =
     FutureProvider<({double lat, double lng, bool usingFallback})>((ref) async {
   final store = ref.read(sessionStoreProvider);
 
-  // A saved address already carries coordinates — the server geocodes from
-  // the text when the phone did not supply them, so these are always resolved.
+  // A saved address already carries coordinates — the server geocodes from the
+  // text when the phone did not supply them, so these are always resolved.
   final addresses = await ref.watch(myAddressesProvider.future);
   if (addresses.isNotEmpty) {
     final chosen = addresses.firstWhere(
@@ -90,6 +95,14 @@ final searchOriginProvider =
       orElse: () => addresses.first,
     );
     return (lat: chosen.lat, lng: chosen.lng, usingFallback: false);
+  }
+
+  // Asks, on a phone that has not been asked yet. Returns without prompting
+  // once the answer is a permanent no, so this cannot nag.
+  final fix = await DeviceLocation.current();
+  if (fix is LocationFound) {
+    await store.setLastLocation(fix.lat, fix.lng);
+    return (lat: fix.lat, lng: fix.lng, usingFallback: false);
   }
 
   final saved = store.lastLocation;
