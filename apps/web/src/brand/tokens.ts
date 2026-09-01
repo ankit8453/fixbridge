@@ -27,7 +27,13 @@ import { DEFAULT_APP_NAME } from '@fixbridge/shared';
 
 export const APP_NAME = import.meta.env.VITE_APP_NAME ?? DEFAULT_APP_NAME;
 
-/** First character, uppercased, for the placeholder wordmark — see BrandLogo. */
+/**
+ * First character, uppercased.
+ *
+ * No longer used by `BrandLogo`, which now draws the real mark, but kept as
+ * the fallback initial for avatar-style placeholders where a person or a
+ * surface has no image of its own.
+ */
 export const APP_INITIAL = APP_NAME.charAt(0).toUpperCase();
 
 /**
@@ -237,26 +243,37 @@ export function BrandStyleVars(): ReactElement {
  * `<BrandLogo />` needs to change.
  */
 export function BrandLogo({ size = 32 }: { size?: number }): ReactElement {
-  return createElement(
-    'span',
-    {
-      role: 'img',
-      'aria-label': APP_NAME,
-      style: {
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: size,
-        height: size,
-        borderRadius: size * 0.25,
-        backgroundColor: brandColors.primary,
-        color: brandColors.primaryForeground,
-        fontWeight: 700,
-        fontSize: size * 0.5,
-        lineHeight: 1,
-        flexShrink: 0,
-      },
+  return createElement('img', {
+    src: '/img/brand/logo-mark.png',
+    alt: APP_NAME,
+    width: size,
+    height: size,
+    style: {
+      // The mark is wider than tall, so height is the axis that must be
+      // honoured -- letting width drive it in a flex row squashes it.
+      width: 'auto',
+      height: size,
+      objectFit: 'contain',
+      flexShrink: 0,
+      display: 'block',
     },
-    APP_INITIAL,
-  );
+  });
+}
+
+/**
+ * The mark with the wordmark beside it, for a page that is introducing the
+ * product rather than continuing it -- sign-in, the marketing header.
+ */
+export function BrandLockup({ height = 40 }: { height?: number }): ReactElement {
+  return createElement('img', {
+    src: '/img/brand/logo-wordmark.png',
+    alt: APP_NAME,
+    style: {
+      width: 'auto',
+      height,
+      objectFit: 'contain',
+      flexShrink: 0,
+      display: 'block',
+    },
+  });
 }

@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import '../../shared/widgets/app_button.dart';
+import '../../shared/widgets/brand_mark.dart';
 import 'auth_controller.dart';
 
 /// The first screen, and the one that has to be got right.
@@ -75,7 +76,7 @@ class _LanguageScreenState extends ConsumerState<LanguageScreen> {
             children: [
               SizedBox(height: widget.isSettings ? AppSpacing.lg : 56),
               if (!widget.isSettings) ...[
-                const _Mark(),
+                const BrandLockup(width: 170),
                 const SizedBox(height: AppSpacing.xl),
               ],
               Text(
@@ -198,26 +199,6 @@ class _LanguageOption extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// A placeholder wordmark. The brand name is genuinely undecided, so nothing
-/// here hardcodes one — this draws the app's initial and moves on.
-class _Mark extends StatelessWidget {
-  const _Mark();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 60,
-      height: 60,
-      decoration: BoxDecoration(
-        gradient: AppColors.liveGradient,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      alignment: Alignment.center,
-      child: const Icon(Icons.handyman_rounded, color: Colors.white, size: 28),
     );
   }
 }

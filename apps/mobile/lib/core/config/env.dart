@@ -27,8 +27,9 @@ abstract final class Env {
     return '$root/health';
   }
 
-  /// The brand name is genuinely undecided; the API returns its own in
-  /// `/health`. Nothing user-facing should hardcode a name.
+  /// The brand name, settled as FixBridge. Still read from the environment so
+  /// a white-label build needs no code change, and so the value lives in one
+  /// place rather than scattered through the copy.
   static const appName = String.fromEnvironment(
     'APP_NAME',
     defaultValue: 'FixBridge',

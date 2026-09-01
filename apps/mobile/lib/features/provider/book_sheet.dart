@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_error.dart';
+import '../../core/location.dart';
 import '../../core/providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
@@ -374,11 +375,42 @@ class _AddAddressSheetState extends ConsumerState<AddAddressSheet> {
   String? _error;
   bool _saving = false;
 
+  ({double lat, double lng})? _coords;
+  String? _geoNote;
+  bool _locating = false;
+
   @override
   void dispose() {
     _address.dispose();
     _landmark.dispose();
     super.dispose();
+  }
+
+  /// Pins the address to real coordinates.
+  ///
+  /// Optional on purpose. Without it the server geocodes the address text, so
+  /// a refusal costs accuracy rather than blocking the save — and a customer
+  /// who is not at the address they are adding should not be pinning it to
+  /// where they happen to be standing.
+  Future<void> _locate() async {
+    setState(() {
+      _locating = true;
+      _geoNote = null;
+    });
+
+    final result = await DeviceLocation.current();
+    if (!mounted) return;
+
+    setState(() {
+      _locating = false;
+      switch (result) {
+        case LocationFound(:final lat, :final lng):
+          _coords = (lat: lat, lng: lng);
+          _geoNote = null;
+        case LocationRefused(:final message):
+          _geoNote = message;
+      }
+    });
   }
 
   Future<void> _save() async {
@@ -394,6 +426,8 @@ class _AddAddressSheetState extends ConsumerState<AddAddressSheet> {
             addressText: _address.text,
             label: _label,
             landmark: _landmark.text,
+            lat: _coords?.lat,
+            lng: _coords?.lng,
           );
       if (mounted) Navigator.pop(context, address);
     } on ApiError catch (e) {
@@ -457,6 +491,35 @@ class _AddAddressSheetState extends ConsumerState<AddAddressSheet> {
               hint: 'Near Surtalai bus stop',
               maxLength: 200,
             ),
+            const SizedBox(height: AppSpacing.md),
+            AppButton(
+              label: _coords == null
+                  ? 'Use my current location'
+                  : 'Location pinned',
+              kind: AppButtonKind.ghost,
+              icon: _coords == null
+                  ? Icons.my_location_rounded
+                  : Icons.check_rounded,
+              loading: _locating,
+              onPressed: _coords == null ? _locate : null,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              _coords == null
+                  ? 'Helps a technician find you. If you skip it we work the '
+                      'location out from the address above.'
+                  : 'Saved with this address.',
+              style: AppType.caption.copyWith(
+                color: _coords == null ? AppColors.grey : AppColors.green,
+              ),
+            ),
+            if (_geoNote != null) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                _geoNote!,
+                style: AppType.caption.copyWith(color: AppColors.amberText),
+              ),
+            ],
             const SizedBox(height: AppSpacing.lg),
             AppButton(
               label: 'Save address',

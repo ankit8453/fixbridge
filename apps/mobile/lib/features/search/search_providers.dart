@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/location.dart';
 import '../../core/providers.dart';
+import '../provider/provider_providers.dart';
 import '../../data/models/category.dart';
 import '../../data/repositories/catalog_repository.dart';
 
@@ -60,10 +60,18 @@ const _cityCentre = (lat: 23.1815, lng: 79.9864);
 /// The API requires `lat`/`lng` — there is no "search everywhere" — so this
 /// always produces a point. The order is deliberate:
 ///
-///   1. the device's location, if it will give one,
-///   2. the last place that worked, so a refusal does not reset somebody to
-///      the middle of town every launch,
+///   1. the customer's default saved address, which needs no permission at
+///      all and is the common case for anyone who has booked before,
+///   2. the last location that worked, so a refusal does not reset somebody
+///      to the middle of town on every launch,
 ///   3. the city centre.
+///
+/// **It deliberately does not ask for GPS here.** Prompting for a location
+/// permission before the customer has asked for anything is how you earn a
+/// "never allow" on a cheap Android phone, and that decision is permanent.
+/// The prompt belongs on a button the customer chose to press — the one in
+/// the address sheet — not on a screen merely opening. The web surface made
+/// the same call for the same reason.
 ///
 /// [usingFallback] is exposed so the UI can say so. A distance computed from
 /// the wrong origin looks exactly like a correct one, and silently showing
@@ -73,10 +81,15 @@ final searchOriginProvider =
     FutureProvider<({double lat, double lng, bool usingFallback})>((ref) async {
   final store = ref.read(sessionStoreProvider);
 
-  final result = await DeviceLocation.current();
-  if (result is LocationFound) {
-    await store.setLastLocation(result.lat, result.lng);
-    return (lat: result.lat, lng: result.lng, usingFallback: false);
+  // A saved address already carries coordinates — the server geocodes from
+  // the text when the phone did not supply them, so these are always resolved.
+  final addresses = await ref.watch(myAddressesProvider.future);
+  if (addresses.isNotEmpty) {
+    final chosen = addresses.firstWhere(
+      (a) => a.isDefault,
+      orElse: () => addresses.first,
+    );
+    return (lat: chosen.lat, lng: chosen.lng, usingFallback: false);
   }
 
   final saved = store.lastLocation;

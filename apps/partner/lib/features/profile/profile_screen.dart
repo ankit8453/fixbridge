@@ -89,6 +89,17 @@ class ProfileScreen extends ConsumerWidget {
                   orElse: () => const SizedBox.shrink(),
                 ),
 
+                // Its own row rather than a field buried in the details
+                // sheet. It is one of the five hard gates, and a technician
+                // who cannot see that it is missing cannot fix it — which is
+                // exactly how somebody sits at "not visible to customers"
+                // without knowing why.
+                const SizedBox(height: AppSpacing.md),
+                _BaseLocationCard(
+                  profile: p,
+                  onTap: () => _editProfile(context, ref, p),
+                ),
+
                 if (!p.canReceiveWork) ...[
                   const SizedBox(height: AppSpacing.md),
                   AppCard(
@@ -579,6 +590,63 @@ class _Identity extends StatelessWidget {
             Icons.chevron_right_rounded,
             size: 18,
             color: AppColors.greyLight,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Where the technician works from, and whether it is set.
+class _BaseLocationCard extends StatelessWidget {
+  const _BaseLocationCard({required this.profile, required this.onTap});
+
+  final PartnerProfile profile;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final set = profile.baseLocation != null;
+
+    return AppCard(
+      onTap: onTap,
+      color: set ? null : AppColors.amberSoft,
+      borderColor: set ? null : AppColors.amberLine,
+      child: Row(
+        children: [
+          Icon(
+            set ? Icons.place_rounded : Icons.wrong_location_outlined,
+            size: 18,
+            color: set ? AppColors.green : AppColors.amber,
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  set ? 'Where you work from' : 'Set where you work from',
+                  style: AppType.cardTitle.copyWith(
+                    color: set ? AppColors.ink : AppColors.amber,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  set
+                      ? 'Customers within ${profile.serviceRadiusKm} km of '
+                          'this point can find you.'
+                      : 'Until you set this, no customer can find you at all.',
+                  style: AppType.meta.copyWith(
+                    color: set ? AppColors.grey : AppColors.amber,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            Icons.chevron_right_rounded,
+            size: 18,
+            color: set ? AppColors.greyLight : AppColors.amber,
           ),
         ],
       ),

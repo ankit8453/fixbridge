@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_spacing.dart';
+import '../shared/widgets/brand_mark.dart';
 
 /// Held only while the stored session is exchanged for a live one.
 ///
@@ -20,7 +21,7 @@ class SplashScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _Mark(),
+            BrandLockup(width: 190),
             SizedBox(height: AppSpacing.xl),
             SizedBox(
               width: 22,
@@ -33,24 +34,6 @@ class SplashScreen extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _Mark extends StatelessWidget {
-  const _Mark();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 64,
-      height: 64,
-      decoration: BoxDecoration(
-        gradient: AppColors.earningsGradient,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      alignment: Alignment.center,
-      child: const Icon(Icons.handyman_rounded, color: Colors.white, size: 30),
     );
   }
 }
