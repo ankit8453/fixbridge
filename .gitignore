@@ -39,3 +39,7 @@ tmp/
 # the wrong place for them. The host serves this directory; the README beside
 # them says what has to be true of a real release build.
 apps/web/public/downloads/*.apk
+
+# Release signing. The keystore lives outside the repo entirely; this is the
+# file that points at it and carries its password.
+apps/*/android/key.properties
