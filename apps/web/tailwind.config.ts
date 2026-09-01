@@ -25,8 +25,8 @@ const config: Config = {
         },
         'brand-accent': 'var(--color-brand-accent)',
         'brand-accent-alt': 'var(--color-brand-accent-alt)',
-        // The customer storefront — warm coral on cream, deliberately not the
-        // indigo of the partner app. See shopColors in brand/tokens.ts.
+        // The customer storefront — the customer app's blue on the logo's warm
+        // paper. See shopColors in brand/tokens.ts.
         shop: {
           DEFAULT: 'var(--color-shop-primary)',
           foreground: 'var(--color-shop-primary-foreground)',

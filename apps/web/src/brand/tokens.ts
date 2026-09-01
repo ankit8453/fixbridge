@@ -37,64 +37,71 @@ export const APP_NAME = import.meta.env.VITE_APP_NAME ?? DEFAULT_APP_NAME;
 export const APP_INITIAL = APP_NAME.charAt(0).toUpperCase();
 
 /**
- * The FixBridge palette, taken from the logo rather than invented beside it.
+ * The FixBridge palette: navy, blue and gold, each with one job.
  *
- * Navy and gold are the mark's own two colours, sampled from `logo.png`: a
- * brand whose site does not match its logo reads as a template somebody
- * dropped a logo into. This replaces an indigo/plum scheme chosen while the
- * name was still undecided, which had no relationship to anything.
+ * All three are real — navy and gold are sampled from `logo.png`, and the blue
+ * is the exact `#2563eb` the customer app uses. That last point is the whole
+ * reason it is here: somebody who taps a blue button on this site and then
+ * opens the app should not feel they have arrived somewhere else.
  *
- * Contrast measured, not guessed:
- *   - navy `#2b2e5c` is **12.21:1** on the ground — AAA, so it carries body
- *     text, headings and icons without qualification.
- *   - gold `#e0ba62` is **1.77:1** on the ground and therefore DECORATIVE
- *     ONLY there; but it is **6.9:1 on navy**, which clears AA. Gold text on a
- *     navy field is the signature pairing and is safe. Gold on white is not.
- *   - `accentDeep` `#a8761f` is 3.81:1 — clears AA for large text (18pt+) and
- *     icons, nothing smaller.
+ *   - **navy** is the chrome. Headers, footers, dark bands, the anchor end of
+ *     a gradient. It is the brand's own colour and it holds the page together.
+ *   - **blue** is the action. Every button, link and interactive accent.
+ *     Deliberately not navy: if the chrome and the buttons are the same
+ *     colour, nothing on the page looks clickable.
+ *   - **gold** is the warmth. Badges, rules, highlights.
+ *
+ * An earlier version of this file was indigo and plum, chosen while the brand
+ * was still undecided; it matched neither the logo nor either app.
+ *
+ * Contrast measured, not guessed, against the `#fbfaf7` ground:
+ *   - blue `#2563eb` — **4.95:1**, clears AA for body text.
+ *   - navy `#2b2e5c` — **12.21:1**, AAA.
+ *   - gold `#e0ba62` — **1.77:1**, so DECORATIVE ONLY on a light ground. It is
+ *     **6.9:1 on navy**, which clears AA, so gold text on a navy band is safe.
+ *     Gold on blue is 2.8:1 and is not.
  */
 export const brandColors = {
-  /** Brand navy, straight from the wordmark. 12.21:1 on the ground. */
-  primary: '#2b2e5c',
+  /** The action colour, identical to the customer app's. 4.95:1 on ground. */
+  primary: '#2563eb',
   primaryForeground: '#ffffff',
-  /** Deeper navy, for pressed states and the far end of a gradient. */
-  primaryDeep: '#1c1e3f',
-  /** Barely-there navy tint for selected rows and icon chips. */
-  primarySoft: '#eeeff6',
+  /** Deeper blue for pressed states and the far end of a gradient. 6.42:1. */
+  primaryDeep: '#1d4ed8',
+  /** The app's own `blueSoft`, for selected rows and icon chips. */
+  primarySoft: '#eff4ff',
   /**
    * Gold. DECORATIVE on a light ground (1.77:1) — badges, rules, the warm end
    * of a gradient. Safe as text only on navy, where it is 6.9:1.
    */
   accent: '#e0ba62',
-  /** The mark's mid navy, the gradient's other end and a second chart series. */
-  accentAlt: '#434478',
+  /** Brand navy — the chrome: dark bands, headers, footers, gradient anchor. */
+  accentAlt: '#2b2e5c',
 } as const;
 
 /**
  * The customer storefront's palette.
  *
- * The same navy and gold, on a warmer ground. An earlier version made this
- * plum specifically so the three surfaces could not be confused — reasonable
- * while the brand was undecided, but it meant the surface a customer actually
- * sees was the one furthest from the brand. Surfaces are now told apart by
- * ground and density rather than by hue: the storefront is warm and roomy,
- * the ops console stays teal because it is a different tool for a different
- * audience.
+ * The customer app's blue on the logo's own warm paper. An earlier version was
+ * plum, chosen so the three surfaces could not be confused — reasonable while
+ * the brand was undecided, but it meant the surface a customer actually sees
+ * was the one furthest from the brand. The surfaces are now told apart by hue
+ * where it matters (graphite for technicians, teal for ops) and by ground and
+ * density everywhere else.
  */
 export const shopColors = {
-  /** Brand navy. 12.21:1 on the ground — carries real text. */
-  primary: '#2b2e5c',
+  /** The customer app's blue, to the digit. 4.95:1 on the ground. */
+  primary: '#2563eb',
   primaryForeground: '#ffffff',
   /**
-   * The mark's mid navy. 8.61:1 — safe for text, and the lighter end of a
-   * gradient behind white glyphs.
+   * Lighter blue. 3.1:1 — DECORATIVE ONLY. Gradients, icon fills behind white
+   * glyphs, illustration. Never body text on a light ground.
    */
-  bright: '#434478',
-  /** Deep navy, for pressed states and the far end of a gradient. */
-  deep: '#1c1e3f',
+  bright: '#60a5fa',
+  /** Deep blue, for pressed states and the far end of a gradient. */
+  deep: '#1d4ed8',
   /** The tint behind selected rows and icon chips. */
-  soft: '#eeeff6',
-  /** Gold. Decorative on this ground; safe as text only on navy. */
+  soft: '#eff4ff',
+  /** Gold. Decorative here; safe as text only on navy. */
   accent: '#e0ba62',
   /**
    * The page ground: the logo's own cream, lightened. Warm rather than the
