@@ -37,86 +37,76 @@ export const APP_NAME = import.meta.env.VITE_APP_NAME ?? DEFAULT_APP_NAME;
 export const APP_INITIAL = APP_NAME.charAt(0).toUpperCase();
 
 /**
- * Placeholder palette. Chosen to look intentional (not "unstyled defaults")
- * without resembling any real company's identity, since the brand is
- * genuinely undecided — swap these three values and every `bg-brand`,
- * `text-brand`, `text-brand-accent` class in the app follows.
+ * The FixBridge palette, taken from the logo rather than invented beside it.
+ *
+ * Navy and gold are the mark's own two colours, sampled from `logo.png`: a
+ * brand whose site does not match its logo reads as a template somebody
+ * dropped a logo into. This replaces an indigo/plum scheme chosen while the
+ * name was still undecided, which had no relationship to anything.
+ *
+ * Contrast measured, not guessed:
+ *   - navy `#2b2e5c` is **12.21:1** on the ground — AAA, so it carries body
+ *     text, headings and icons without qualification.
+ *   - gold `#e0ba62` is **1.77:1** on the ground and therefore DECORATIVE
+ *     ONLY there; but it is **6.9:1 on navy**, which clears AA. Gold text on a
+ *     navy field is the signature pairing and is safe. Gold on white is not.
+ *   - `accentDeep` `#a8761f` is 3.81:1 — clears AA for large text (18pt+) and
+ *     icons, nothing smaller.
  */
 export const brandColors = {
-  /**
-   * Indigo, not the muted teal this shipped with.
-   *
-   * The first palette was chosen to be inoffensive while the brand was
-   * undecided, and it succeeded a little too well -- the owner's word for the
-   * result was that it looked like a government portal. Correct: desaturated
-   * blue-green at mid lightness is the house style of exactly that, and a
-   * marketplace asking somebody to trust a stranger with their home needs to
-   * feel like a product, not a form.
-   *
-   * Indigo at 6.29:1 on white clears WCAG AA for body text, so it can be used
-   * for real text and not just decoration -- which the accent below cannot.
-   */
-  primary: '#4f46e5',
+  /** Brand navy, straight from the wordmark. 12.21:1 on the ground. */
+  primary: '#2b2e5c',
   primaryForeground: '#ffffff',
+  /** Deeper navy, for pressed states and the far end of a gradient. */
+  primaryDeep: '#1c1e3f',
+  /** Barely-there navy tint for selected rows and icon chips. */
+  primarySoft: '#eeeff6',
   /**
-   * Deeper indigo, for gradients and pressed states. Having the second stop as
-   * a token rather than a Tailwind literal keeps a rebrand to this one file.
+   * Gold. DECORATIVE on a light ground (1.77:1) — badges, rules, the warm end
+   * of a gradient. Safe as text only on navy, where it is 6.9:1.
    */
-  primaryDeep: '#4338ca',
-  /** Very light tint for selected rows and icon chips. */
-  primarySoft: '#eef2ff',
-  /**
-   * Amber. 2.15:1 on white, so DECORATIVE ONLY -- badges, highlights, the
-   * gradient's warm end. Never body text, never a lone icon carrying meaning.
-   */
-  accent: '#f59e0b',
-  /** Violet, the gradient's other end and the second chart series. */
-  accentAlt: '#7c3aed',
+  accent: '#e0ba62',
+  /** The mark's mid navy, the gradient's other end and a second chart series. */
+  accentAlt: '#434478',
 } as const;
 
 /**
- * The customer storefront's palette — deep plum, deliberately NOT the indigo
- * the partner app uses nor the teal of the ops console.
+ * The customer storefront's palette.
  *
- * Three surfaces, three registers. The ops console is teal (an instrument
- * panel), the partner app is indigo (the product a technician works for), and
- * this is plum — the one a customer sees when they are deciding whether to
- * let somebody into their house. Plum is uncommon in this category, which is
- * the point: it reads as a brand rather than as a default framework blue, and
- * nobody confuses it with the other two surfaces at a glance.
- *
- * Contrast measured, not guessed:
- *   - `primary` #7e22ce is 6.82:1 on the ground — clears WCAG AA for body
- *     text, so it can carry real copy and not just chrome.
- *   - `bright` #a855f7 is 3.87:1 — DECORATIVE ONLY. Gradients, fills behind
- *     white text, illustration. Never body text on a light ground.
+ * The same navy and gold, on a warmer ground. An earlier version made this
+ * plum specifically so the three surfaces could not be confused — reasonable
+ * while the brand was undecided, but it meant the surface a customer actually
+ * sees was the one furthest from the brand. Surfaces are now told apart by
+ * ground and density rather than by hue: the storefront is warm and roomy,
+ * the ops console stays teal because it is a different tool for a different
+ * audience.
  */
 export const shopColors = {
-  /** Plum. 6.82:1 on the ground — clears WCAG AA, so it can carry real text. */
-  primary: '#7e22ce',
+  /** Brand navy. 12.21:1 on the ground — carries real text. */
+  primary: '#2b2e5c',
   primaryForeground: '#ffffff',
   /**
-   * Light violet. 3.87:1 — DECORATIVE ONLY. Gradients, icon fills behind white
-   * glyphs, illustration. Never body text on a light ground.
+   * The mark's mid navy. 8.61:1 — safe for text, and the lighter end of a
+   * gradient behind white glyphs.
    */
-  bright: '#a855f7',
-  /** Deep plum, for pressed states and the far end of a gradient. */
-  deep: '#6b21a8',
-  /** The barely-there tint behind selected rows and icon chips. */
-  soft: '#faf5ff',
-  /** Warm gold — the one warm note, used sparingly. Decorative. */
-  accent: '#f0a04b',
+  bright: '#434478',
+  /** Deep navy, for pressed states and the far end of a gradient. */
+  deep: '#1c1e3f',
+  /** The tint behind selected rows and icon chips. */
+  soft: '#eeeff6',
+  /** Gold. Decorative on this ground; safe as text only on navy. */
+  accent: '#e0ba62',
   /**
-   * The page ground. A hair off white with a violet cast, so the surface does
-   * not read as the default white every other app ships.
+   * The page ground: the logo's own cream, lightened. Warm rather than the
+   * default white, so the site sits on the same paper the mark was drawn on.
    */
-  ground: '#fdfcfd',
-  /** Near-black with a violet cast, so text does not look blue on this ground. */
-  ink: '#1c1721',
-  /** De-emphasised copy. 5.56:1. */
-  inkSoft: '#6b6472',
-  /** Hairline borders. */
-  line: '#ece7f0',
+  ground: '#fbfaf7',
+  /** Near-black with a navy cast, so text does not look cold on warm paper. */
+  ink: '#1b1c2e',
+  /** De-emphasised copy. 6.03:1 — still AA for body text. */
+  inkSoft: '#5c5f72',
+  /** Hairline borders, warm to match the ground. */
+  line: '#e9e7e0',
 } as const;
 
 /**

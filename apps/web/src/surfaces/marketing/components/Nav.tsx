@@ -61,11 +61,23 @@ export function MarketingNav({ locale }: { locale: Locale }) {
 
         <div className="ml-auto flex shrink-0 items-center gap-2.5 lg:ml-0">
           <LocaleToggle />
+          {/* The one filled button in the header points at the download,
+              because that is the action this site exists to produce. */}
           <Link
-            to={buildLocalizedHref(locale, '/app')}
-            className="inline-flex min-h-touch items-center justify-center rounded-full bg-brand px-5 text-sm font-semibold text-brand-foreground shadow-sm transition-all hover:-translate-y-px hover:opacity-90"
+            to={buildLocalizedHref(locale, '/download')}
+            className="inline-flex min-h-touch items-center justify-center gap-2 rounded-full bg-brand px-5 text-sm font-semibold text-brand-foreground shadow-sm transition-all hover:-translate-y-px hover:opacity-90"
           >
-            {t('marketing.nav.bookNow')}
+            <svg viewBox="0 0 24 24" className="h-[17px] w-[17px]" aria-hidden="true">
+              <path
+                d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            {t('marketing.nav.downloadCta')}
           </Link>
         </div>
       </div>

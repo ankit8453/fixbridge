@@ -109,7 +109,7 @@ class _BookSheetState extends ConsumerState<BookSheet> {
         right: AppSpacing.xl,
         top: AppSpacing.sm,
         // Lifts the sheet above the keyboard when the note field is focused.
-        bottom: MediaQuery.viewInsetsOf(context).bottom + AppSpacing.xl,
+        bottom: AppSpacing.sheetBottom(context),
       ),
       child: SingleChildScrollView(
         child: Column(
@@ -445,7 +445,7 @@ class _AddAddressSheetState extends ConsumerState<AddAddressSheet> {
         left: AppSpacing.xl,
         right: AppSpacing.xl,
         top: AppSpacing.sm,
-        bottom: MediaQuery.viewInsetsOf(context).bottom + AppSpacing.xl,
+        bottom: AppSpacing.sheetBottom(context),
       ),
       child: SingleChildScrollView(
         child: Column(

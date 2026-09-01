@@ -110,12 +110,15 @@ export default function Home() {
               {t('marketing.hero2.sub')}
             </p>
 
+            {/* Downloading the app is what this site is for, so it leads.
+                Booking on the web stays one tap away for anyone who would
+                rather not install anything, or is on an iPhone. */}
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-              <CtaLink href={buildLocalizedHref(locale, '/app')}>
-                {t('marketing.hero2.ctaBook')}
+              <CtaLink href={buildLocalizedHref(locale, '/download')}>
+                {t('marketing.hero2.ctaDownload')}
               </CtaLink>
-              <CtaLink href={buildLocalizedHref(locale, '/for-partners')} variant="secondary">
-                {t('marketing.hero2.ctaPartner')}
+              <CtaLink href={buildLocalizedHref(locale, '/app')} variant="secondary">
+                {t('marketing.hero2.ctaBook')}
               </CtaLink>
             </div>
 

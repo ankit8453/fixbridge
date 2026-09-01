@@ -472,6 +472,40 @@ const baseConfigSchema = z.object({
    * router.
    */
   WEB_ORIGIN: z.string().min(1).default('http://localhost:3000'),
+
+  /* ---- app releases (sideloaded APKs) ---- */
+
+  /**
+   * The newest build of each app, and the oldest one still allowed to talk to
+   * this API.
+   *
+   * These live in config rather than the database because a release is a
+   * deploy-time fact, not a business record: the APK is published alongside
+   * the API that understands it, and coupling the two to one env change is
+   * what stops a forced-update flag from drifting away from the binary it
+   * refers to.
+   *
+   * `MIN` is the blunt instrument. Raising it locks every older install out of
+   * the app until they update, so it exists for the case where an old client
+   * would misread a response badly enough to be dangerous — a changed money
+   * field, a removed status — and not for ordinary releases.
+   *
+   * Versions are `major.minor.patch`, matching `pubspec.yaml`.
+   */
+  APP_CUSTOMER_LATEST_VERSION: z.string().regex(/^\d+\.\d+\.\d+$/).default('0.1.0'),
+  APP_CUSTOMER_MIN_VERSION: z.string().regex(/^\d+\.\d+\.\d+$/).default('0.1.0'),
+  APP_PARTNER_LATEST_VERSION: z.string().regex(/^\d+\.\d+\.\d+$/).default('0.1.0'),
+  APP_PARTNER_MIN_VERSION: z.string().regex(/^\d+\.\d+\.\d+$/).default('0.1.0'),
+
+  /** Where the APK actually lives. Served from the marketing site, not here. */
+  APP_CUSTOMER_DOWNLOAD_URL: z
+    .string()
+    .min(1)
+    .default('http://localhost:3000/download'),
+  APP_PARTNER_DOWNLOAD_URL: z
+    .string()
+    .min(1)
+    .default('http://localhost:3000/download'),
 });
 
 /**

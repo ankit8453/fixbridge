@@ -284,7 +284,10 @@
     "common": {
       "notFound": "That item was not found."
     },
-    "badRequest": "We could not read what you sent. Please try again."
+    "badRequest": "We could not read what you sent. Please try again.",
+    "releases": {
+      "unknownApp": "We do not recognise that app."
+    }
   },
   "common": {
     "greeting": "Hello {{name}}"

@@ -7,7 +7,8 @@
       "download": "Download",
       "contact": "Contact",
       "bookNow": "Book now",
-      "menu": "Main menu"
+      "menu": "Main menu",
+      "downloadCta": "Get the app"
     },
     "footer": {
       "tagline": "Verified technicians, upfront pricing — built for Jabalpur.",
@@ -147,7 +148,18 @@
       "partnerCardDesc": "Job requests, earnings and your schedule — in one place.",
       "statusComingSoon": "Coming soon",
       "useWebInstead": "Use the website for now",
-      "webFallbackNote": "Until the mobile app ships, the website is just as fast and just as reliable — and it doesn't take up any space on your phone."
+      "webFallbackNote": "Until the mobile app ships, the website is just as fast and just as reliable — and it doesn't take up any space on your phone.",
+      "androidTitle": "Android",
+      "androidStep1": "Tap the download button — the file saves to your phone.",
+      "androidStep2": "Open it. Android will ask permission to install from your browser; allow it once.",
+      "androidStep3": "Tap Install, then Open. Updates arrive inside the app.",
+      "androidCustomerCta": "Download FixBridge",
+      "androidPartnerCta": "Download FixBridge Partner",
+      "iosTitle": "iPhone",
+      "iosBody": "The iPhone app is on its way to the App Store. Apple does not allow apps to be installed from a website, so we cannot offer a direct download. Until it is published you can use the full website on your iPhone — everything works in the browser.",
+      "iosCta": "Open FixBridge in your browser",
+      "safetyNote": "Only ever download FixBridge from this page. An APK from anywhere else is not ours.",
+      "versionLabel": "Version"
     },
     "contact": {
       "metaTitle": "Contact Us",
@@ -229,7 +241,8 @@
       "ctaPartner": "Earn as a partner",
       "chipVerified": "Every technician ID-verified",
       "chipPrice": "Price locked before work starts",
-      "chipPay": "Pay after the job — cash or UPI"
+      "chipPay": "Pay after the job — cash or UPI",
+      "ctaDownload": "Download the app"
     },
     "liveband": {
       "heading": "Trusted across the city",

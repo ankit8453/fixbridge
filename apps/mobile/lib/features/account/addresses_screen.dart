@@ -130,11 +130,11 @@ class AddressesScreen extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       builder: (context) => Padding(
-        padding: const EdgeInsets.fromLTRB(
+        padding: EdgeInsets.fromLTRB(
           AppSpacing.xl,
           AppSpacing.sm,
           AppSpacing.xl,
-          AppSpacing.xl,
+          AppSpacing.sheetBottom(context),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,

@@ -9,6 +9,8 @@ import '../../core/theme/app_typography.dart';
 import '../../data/models/category.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/states.dart';
+import '../location/location_sheet.dart';
+import '../location/location_providers.dart';
 import 'home_providers.dart';
 import 'widgets/live_booking_card.dart';
 import 'widgets/service_tile.dart';
@@ -51,7 +53,7 @@ class HomeScreen extends ConsumerWidget {
             children: [
               // Single-city pilot, so this is fixed for now. It becomes a
               // picker when there is a second city to pick.
-              const _LocationLine(city: 'Jabalpur'),
+              const _LocationLine(),
               const SizedBox(height: 3),
               Text(greeting, style: AppType.title),
 
@@ -96,25 +98,64 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-class _LocationLine extends StatelessWidget {
-  const _LocationLine({required this.city});
-
-  final String city;
+/// The location header, tappable — the pattern every delivery app uses.
+///
+/// It names a saved address when there is one, says "Current location" when
+/// running off a device fix, and admits it is guessing when neither worked.
+/// Tapping opens the picker, which is also where the permission is asked for:
+/// a header that shows the wrong place and cannot be corrected is worse than
+/// one that admits it does not know.
+class _LocationLine extends ConsumerWidget {
+  const _LocationLine();
 
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Icon(Icons.place_rounded, size: 12, color: AppColors.blue),
-        const SizedBox(width: 4),
-        Text(
-          city,
-          style: AppType.meta.copyWith(
-            color: AppColors.greyLight,
-            fontWeight: FontWeight.w600,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final resolved = ref.watch(resolvedLocationProvider);
+    final loc = resolved.valueOrNull;
+    final guessing = loc?.isGuess ?? false;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          builder: (_) => const LocationSheet(),
+        ),
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                guessing ? Icons.location_off_rounded : Icons.place_rounded,
+                size: 12,
+                color: guessing ? AppColors.amberText : AppColors.blue,
+              ),
+              const SizedBox(width: 4),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 210),
+                child: Text(
+                  loc?.label ?? 'Finding you…',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppType.meta.copyWith(
+                    color: guessing ? AppColors.amberText : AppColors.greyLight,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 2),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 14,
+                color: guessing ? AppColors.amberText : AppColors.greyLight,
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }

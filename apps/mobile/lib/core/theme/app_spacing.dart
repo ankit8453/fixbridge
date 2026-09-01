@@ -20,6 +20,34 @@ abstract final class AppSpacing {
 
   /// Distance from the last control to the bottom safe area.
   static const screenBottom = 16.0;
+
+  /// The bottom padding a modal bottom sheet needs.
+  ///
+  /// Three things stack up under a sheet and all three have to be cleared, or
+  /// the last control — nearly always Save or Sign out — ends up underneath
+  /// something and cannot be tapped:
+  ///
+  ///   * the keyboard, when open (`viewInsets`),
+  ///   * the system gesture bar (`viewPadding`),
+  ///   * the app's own floating navigation bar, which `extendBody: true`
+  ///     lets the sheet slide beneath.
+  ///
+  /// `viewInsets` already subsumes `viewPadding` while the keyboard is up, so
+  /// these are taken as a maximum rather than a sum.
+  static double sheetBottom(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final keyboard = media.viewInsets.bottom;
+    final system = media.viewPadding.bottom;
+
+    return (keyboard > 0 ? keyboard : system + _floatingNavHeight) + xl;
+  }
+
+  /// The floating nav's own height plus the gap beneath it.
+  ///
+  /// Derived from the same tokens AppShell builds it from — a touch target,
+  /// the pill's vertical padding either side, and the shell's bottom margin —
+  /// so moving any of them moves this with it instead of silently drifting.
+  static const _floatingNavHeight = AppSizes.minTouch + (sm + 1) * 2 + md;
 }
 
 abstract final class AppRadius {

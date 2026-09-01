@@ -25,6 +25,10 @@ dependencies:
   # Dialling the customer, and opening their address in a maps app.
   url_launcher: ^6.3.1
 
+  # Reads this build's own version, so the update check compares against
+  # what is actually installed rather than a constant that can go stale.
+  package_info_plus: ^8.1.2
+
   # Verification documents: an ID photo, a selfie, a certificate.
   image_picker: ^1.1.2
 

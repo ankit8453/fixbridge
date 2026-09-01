@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/config/env.dart';
+import '../shared/widgets/update_gate.dart';
 import '../core/providers.dart';
 import '../core/theme/app_theme.dart';
 import '../features/auth/auth_controller.dart';
@@ -59,7 +60,9 @@ class _PartnerAppState extends ConsumerState<PartnerApp> {
         );
         return MediaQuery(
           data: MediaQuery.of(context).copyWith(textScaler: scale),
-          child: child ?? const SizedBox.shrink(),
+          // Wraps every route, so a build the API has retired cannot be used
+          // by navigating past the screen that says so.
+          child: UpdateGate(child: child ?? const SizedBox.shrink()),
         );
       },
     );

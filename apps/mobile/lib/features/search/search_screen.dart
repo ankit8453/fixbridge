@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/location.dart';
-import '../../core/providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
@@ -11,6 +9,7 @@ import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/states.dart';
 import '../home/home_providers.dart';
+import '../location/location_sheet.dart';
 import 'search_providers.dart';
 import 'widgets/provider_card_tile.dart';
 
@@ -470,49 +469,15 @@ class _ResultsSkeleton extends StatelessWidget {
 /// Without it, "1.2 km away" reads as a fact when it is really a guess from a
 /// point the customer may be nowhere near.
 /// Says plainly that distances are measured from the middle of town, and
-/// offers the way out.
+/// opens the same picker the home header uses.
 ///
-/// A banner that only states a problem leaves somebody stuck: the reason the
-/// location is missing is usually a permission they can still grant, and once
-/// it has been permanently denied only the system settings screen can undo it.
-/// So the action changes to match which of those it is.
-class _ApproximateOrigin extends ConsumerStatefulWidget {
+/// Deliberately not a second permission flow: one place asks for location in
+/// this app, and this is a shortcut to it.
+class _ApproximateOrigin extends StatelessWidget {
   const _ApproximateOrigin();
 
   @override
-  ConsumerState<_ApproximateOrigin> createState() => _ApproximateOriginState();
-}
-
-class _ApproximateOriginState extends ConsumerState<_ApproximateOrigin> {
-  bool _busy = false;
-  LocationRefused? _refusal;
-
-  Future<void> _retry() async {
-    setState(() => _busy = true);
-    final result = await DeviceLocation.current();
-    if (!mounted) return;
-
-    if (result is LocationFound) {
-      await ref
-          .read(sessionStoreProvider)
-          .setLastLocation(result.lat, result.lng);
-      if (!mounted) return;
-      // Re-resolves the origin, which re-runs the search behind it.
-      ref.invalidate(searchOriginProvider);
-      return;
-    }
-
-    setState(() {
-      _busy = false;
-      _refusal = result as LocationRefused;
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final refusal = _refusal;
-    final toSettings = refusal?.settingsWouldHelp ?? false;
-
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
@@ -533,9 +498,8 @@ class _ApproximateOriginState extends ConsumerState<_ApproximateOrigin> {
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Text(
-                  refusal?.message ??
-                      'Distances are measured from the city centre until we '
-                          'know where you are.',
+                  'Distances are measured from the city centre until we know '
+                  'where you are.',
                   style: AppType.meta.copyWith(color: AppColors.amberText),
                 ),
               ),
@@ -543,17 +507,14 @@ class _ApproximateOriginState extends ConsumerState<_ApproximateOrigin> {
           ),
           const SizedBox(height: AppSpacing.sm),
           AppButton(
-            label: toSettings ? 'Open settings' : 'Use my location',
+            label: 'Set your location',
             kind: AppButtonKind.ghost,
-            icon: toSettings
-                ? Icons.settings_outlined
-                : Icons.my_location_rounded,
-            loading: _busy,
-            onPressed: toSettings
-                ? () => refusal!.reason == LocationDenial.serviceOff
-                    ? DeviceLocation.openLocationSettings()
-                    : DeviceLocation.openSettings()
-                : _retry,
+            icon: Icons.my_location_rounded,
+            onPressed: () => showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              builder: (_) => const LocationSheet(),
+            ),
           ),
         ],
       ),

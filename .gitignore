@@ -32,3 +32,10 @@ Thumbs.db
 # local docker volumes / scratch
 .docker-data/
 tmp/
+
+# Built APKs staged for the download page.
+#
+# Binaries, ~120 MB each as debug builds, and rebuilt on every release — git is
+# the wrong place for them. The host serves this directory; the README beside
+# them says what has to be true of a real release build.
+apps/web/public/downloads/*.apk

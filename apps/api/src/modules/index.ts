@@ -25,6 +25,7 @@ import {
 import { router as complaintsRouter, opsRouter as complaintsOpsRouter } from './complaints/routes';
 import { router as trustRouter, opsRouter as trustOpsRouter } from './trust/routes';
 import { router as notificationsRouter } from './notifications/routes';
+import { router as releasesRouter } from './releases/routes';
 import { router as adminRouter } from './admin/routes';
 // `bookingCouponRouter` is mounted by the bookings router, alongside payments.
 import { opsRouter as couponsOpsRouter } from './coupons/routes';
@@ -47,6 +48,10 @@ export function registerModuleRoutes(app: Express): void {
   // Public and signature-authenticated. Registered first so nothing else can
   // claim the path.
   app.use(WEBHOOK_PREFIX, webhookRouter);
+
+  // Unauthenticated on purpose: a build old enough to need forcing out may no
+  // longer be able to sign in, and would then never receive the message.
+  app.use(`${API_PREFIX}/releases`, releasesRouter);
 
   app.use(`${API_PREFIX}/auth`, authRouter);
   app.use(`${API_PREFIX}/categories`, categoriesRouter);
