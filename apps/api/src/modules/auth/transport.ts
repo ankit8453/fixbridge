@@ -1,5 +1,7 @@
+import type { AppConfig } from '../../core/config';
 import { AppError } from '../../core/errors';
 import type { AppLogger } from '../../core/logger';
+import { createMbgOtpTransport } from './mbg-otp';
 
 export interface OtpMessage {
   phone: string;
@@ -83,8 +85,26 @@ export function createDisabledOtpTransport(logger: AppLogger): OtpTransport {
 export function createOtpTransport(
   logger: AppLogger,
   nodeEnv: string,
-  transport: 'logger' | 'disabled' = 'logger',
+  transport: AppConfig['AUTH_OTP_TRANSPORT'] = 'logger',
+  config?: AppConfig,
 ): OtpTransport {
+  if (transport === 'mbg') {
+    if (!config) {
+      throw new Error('the mbg OTP transport needs the config to build its client');
+    }
+
+    return createMbgOtpTransport({
+      baseUrl: config.MBG_API_BASE_URL,
+      // The schema guarantees these are present for this branch.
+      accessToken: config.MBG_ACCESS_TOKEN as string,
+      flowId: config.MBG_OTP_FLOW_ID as string,
+      fieldName: config.MBG_OTP_FIELD_NAME,
+      includePlus: config.MBG_PHONE_INCLUDE_PLUS,
+      timeoutMs: config.MBG_TIMEOUT_MS,
+      logger,
+    });
+  }
+
   if (transport === 'disabled') {
     if (nodeEnv === 'production') {
       logger.warn(

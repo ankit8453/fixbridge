@@ -82,7 +82,34 @@ const baseConfigSchema = z.object({
    * standing up before its messaging credentials exist. It has to be asked for
    * explicitly, so nobody arrives there by forgetting to configure something.
    */
-  AUTH_OTP_TRANSPORT: z.enum(['logger', 'disabled']).default('logger'),
+  AUTH_OTP_TRANSPORT: z.enum(['logger', 'disabled', 'mbg']).default('logger'),
+
+  /* ---- MBGCart WhatsApp. Required when AUTH_OTP_TRANSPORT=mbg. ---- */
+
+  MBG_API_BASE_URL: z.string().url().default('https://app.mbgcart.com/api'),
+
+  /** `X-ACCESS-TOKEN`. **The secret.** Never logged, never in code. */
+  MBG_ACCESS_TOKEN: z.string().min(1).optional(),
+
+  /** The dashboard flow that actually sends the WhatsApp message. */
+  MBG_OTP_FLOW_ID: z.string().min(1).optional(),
+
+  /** Contact field the flow reads the code from. */
+  MBG_OTP_FIELD_NAME: z.string().min(1).default('DATA_BANK_OTP'),
+
+  /**
+   * Whether the number keeps its leading `+`.
+   *
+   * Phones are stored in E.164 (`+919876543210`) and most WhatsApp providers
+   * want the digits alone, which is the default. If MBGCart accepts the call
+   * but nothing arrives, this is the first thing to try.
+   */
+  MBG_PHONE_INCLUDE_PLUS: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+
+  MBG_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(30_000).default(8_000),
 
   OTP_TTL_SECONDS: z.coerce.number().int().min(60).max(1_800).default(300),
   OTP_MAX_VERIFY_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(5),
@@ -613,6 +640,28 @@ export const configSchema = baseConfigSchema.superRefine((config, ctx) => {
    * fails at the first signature check, which is the worst moment to find out —
    * a customer has already paid by then.
    */
+  /**
+   * WhatsApp delivery needs its credentials, or it will fail at the first
+   * sign-in attempt rather than at boot — which is exactly the wrong moment to
+   * discover a missing token.
+   */
+  if (config.AUTH_OTP_TRANSPORT === 'mbg') {
+    const required = [
+      ['MBG_ACCESS_TOKEN', config.MBG_ACCESS_TOKEN],
+      ['MBG_OTP_FLOW_ID', config.MBG_OTP_FLOW_ID],
+    ] as const;
+
+    for (const [field, value] of required) {
+      if (value === undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [field],
+          message: 'is required when AUTH_OTP_TRANSPORT=mbg',
+        });
+      }
+    }
+  }
+
   if (config.PAYMENT_GATEWAY === 'razorpay') {
     const required = [
       ['RAZORPAY_KEY_ID', config.RAZORPAY_KEY_ID],

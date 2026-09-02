@@ -159,7 +159,8 @@
       "adminCredentialsInvalid": "That ID or password was not accepted.",
       "adminChallengeExpired": "That sign-in attempt has expired. Please start again.",
       "adminTooManyAttempts": "Too many attempts. Please try again shortly.",
-      "otpDeliveryUnavailable": "We cannot send verification codes at the moment. Please try again shortly."
+      "otpDeliveryUnavailable": "We cannot send verification codes at the moment. Please try again shortly.",
+      "otpDeliveryFailed": "We could not send your code. Please try again in a moment."
     },
     "categories": {
       "notFound": "That service is not available.",
