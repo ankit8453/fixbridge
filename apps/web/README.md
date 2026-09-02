@@ -372,3 +372,27 @@ provenance — "ported from X". Those are deliberate history, not broken
 links: they say where a non-obvious business rule came from, which is worth
 more than a path that resolves. Git history has the files if a decision ever
 needs re-litigating.
+
+## Deployment (`vercel.json`)
+
+`vercel.json` deliberately contains **no comments** — not even the `"//"` key
+convention. Vercel validates the file against a strict schema and rejects any
+property it does not recognise, so a `"//"` key fails the whole deployment with
+`should NOT have additional property '//'`. The explanation therefore lives
+here instead.
+
+**`rewrites`** is what makes deep links work. This app is a Vite SPA: every
+route below `/` is resolved in the browser by the router, not by a file on
+disk. Without the rewrite, loading or refreshing `/en/download` asks Vercel for
+a file at that path, finds none, and returns 404 — which is why the site worked
+while navigating but broke the moment anyone reloaded or opened a link
+directly. Vercel checks the filesystem before applying rewrites, so real assets
+still serve normally.
+
+**`headers`** covers two things the defaults get wrong:
+
+- APKs need `application/vnd.android.package-archive`, or the browser saves
+  them as a text file the phone will not install. `must-revalidate` stops a
+  stale build being served after a release.
+- Vite fingerprints filenames under `/assets`, so a changed file gets a new
+  name and the old one can be cached permanently.
