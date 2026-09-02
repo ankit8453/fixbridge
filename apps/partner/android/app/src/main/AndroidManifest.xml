@@ -1,5 +1,19 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!--
+      Flutter injects INTERNET into the debug and profile manifests only, so a
+      release build without this line compiles, installs and runs — and every
+      network call fails with a connection error that looks like a server
+      problem. It is the one permission this app cannot work without.
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!--
+      Lets the app tell "no signal" apart from "the server is down", so the
+      error it shows is the true one.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!--
       Coarse is requested alongside fine deliberately. Android 12+ lets a
       person grant "approximate" only, and that is entirely good enough for
       finding somebody a few kilometres away — refusing to work without
