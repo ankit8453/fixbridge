@@ -69,7 +69,7 @@ not doing. Chrome is optional too.
 **A real phone is better than the emulator** — it starts faster, and it is the
 kind of hardware the app is actually for.
 
-On the phone: Settings → About phone → tap *Build number* seven times, then
+On the phone: Settings → About phone → tap _Build number_ seven times, then
 Settings → Developer options → enable **USB debugging**. Plug it in by USB and
 accept the trust prompt. Check it is seen:
 
@@ -78,7 +78,7 @@ flutter devices
 ```
 
 If you would rather use the emulator, create one in Android Studio under
-*Device Manager* (a Pixel image is fine), then:
+_Device Manager_ (a Pixel image is fine), then:
 
 ```powershell
 flutter emulators --launch <emulator_id>
@@ -130,13 +130,13 @@ inbound TCP on port 3001 for private networks.
 
 ## Everyday commands
 
-| | |
-|---|---|
-| `flutter run` | Run in debug. `r` hot-reloads, `R` restarts, `q` quits. |
-| `flutter analyze` | Static analysis. Run before committing. |
-| `flutter test` | Unit and widget tests. |
-| `flutter clean` | Wipes build output when something is stuck. |
-| `flutter build apk --release` | A release APK for handing to a pilot user. |
+|                               |                                                         |
+| ----------------------------- | ------------------------------------------------------- |
+| `flutter run`                 | Run in debug. `r` hot-reloads, `R` restarts, `q` quits. |
+| `flutter analyze`             | Static analysis. Run before committing.                 |
+| `flutter test`                | Unit and widget tests.                                  |
+| `flutter clean`               | Wipes build output when something is stuck.             |
+| `flutter build apk --release` | A release APK for handing to a pilot user.              |
 
 ---
 

@@ -1,12 +1,12 @@
 # Flutter customer app — build plan
 
-| | |
-|---|---|
-| **Scope** | Customer app only. The 5 pilot technicians keep the partner web dashboard. |
-| **Visual direction** | Modern but light — motion, not media. No video, no heavy Lottie. |
-| **Target device** | ₹8–15k Android, 4G that drops, screen read in daylight |
-| **Backend** | Unchanged. Every endpoint the app needs already exists and is tested. |
-| **API base** | `/api/v1` · health at `/health` (outside the prefix) |
+|                      |                                                                            |
+| -------------------- | -------------------------------------------------------------------------- |
+| **Scope**            | Customer app only. The 5 pilot technicians keep the partner web dashboard. |
+| **Visual direction** | Modern but light — motion, not media. No video, no heavy Lottie.           |
+| **Target device**    | ₹8–15k Android, 4G that drops, screen read in daylight                     |
+| **Backend**          | Unchanged. Every endpoint the app needs already exists and is tested.      |
+| **API base**         | `/api/v1` · health at `/health` (outside the prefix)                       |
 
 ---
 
@@ -44,17 +44,17 @@ one has bitten a client before.
 
 ### 2.1 Onboarding
 
-| Screen | Endpoints | Notes |
-|---|---|---|
-| Language picker | — | Local only until sign-in; then `PATCH /auth/me`. Hindi is the default (`DEFAULT_LOCALE = 'hi'`). |
-| Phone entry | `POST /auth/otp/request` | Returns masked phone + `expiresInSeconds`. Three separate 429s: `details.scope` is `cooldown` (60s resend), `phone` (5/window), `ip` (30). Show the right message for each. |
-| OTP entry | `POST /auth/otp/verify` | 6 digits, `deviceId` required. `401 OTP_INVALID` covers both wrong-code and no-pending-code — do not try to distinguish them in copy. After 5 attempts the code is cleared and you get 429. |
-| Name / city (new user only) | `PATCH /customers/me` | Only when `isNewUser: true`. Skippable. |
+| Screen                      | Endpoints                | Notes                                                                                                                                                                                       |
+| --------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Language picker             | —                        | Local only until sign-in; then `PATCH /auth/me`. Hindi is the default (`DEFAULT_LOCALE = 'hi'`).                                                                                            |
+| Phone entry                 | `POST /auth/otp/request` | Returns masked phone + `expiresInSeconds`. Three separate 429s: `details.scope` is `cooldown` (60s resend), `phone` (5/window), `ip` (30). Show the right message for each.                 |
+| OTP entry                   | `POST /auth/otp/verify`  | 6 digits, `deviceId` required. `401 OTP_INVALID` covers both wrong-code and no-pending-code — do not try to distinguish them in copy. After 5 attempts the code is cleared and you get 429. |
+| Name / city (new user only) | `PATCH /customers/me`    | Only when `isNewUser: true`. Skippable.                                                                                                                                                     |
 
 **Browse-before-signup is supported.** `GET /categories`, `/search/resolve`,
 `/search/providers`, `/providers/:id`, `/providers/:id/slots` and
 `/providers/:id/reviews` are all public. The app should let a first-time user
-search and open a profile, and only ask for a phone number at *Book*.
+search and open a profile, and only ask for a phone number at _Book_.
 
 ### 2.2 Home
 
@@ -64,10 +64,10 @@ search and open a profile, and only ask for a phone number at *Book*.
 
 ### 2.3 Search
 
-| Step | Endpoint |
-|---|---|
+| Step              | Endpoint                                                                  |
+| ----------------- | ------------------------------------------------------------------------- |
 | As the user types | `GET /search/resolve?q=&limit=8` — debounce 250 ms, works in both scripts |
-| Results | `GET /search/providers?lat=&lng=&…` |
+| Results           | `GET /search/providers?lat=&lng=&…`                                       |
 
 `lat`/`lng` are **required**. Source order: the selected address → last known
 GPS → city centroid. The availability trio (`date`, `start_time`, `end_time`)
@@ -101,16 +101,16 @@ Address is chosen from `GET /customers/me/addresses`; new ones via
 
 `GET /bookings/:id`, polled. This one screen changes shape eleven times.
 
-| Status | What the screen shows | Actions |
-|---|---|---|
-| `REQUESTED` | Waiting for response + a countdown to `BOOKING_REQUEST_TTL_MINUTES` (60) | Cancel |
-| `ACCEPTED` | **Start OTP**, counterpart name + revealed phone + photo | Call · Cancel |
-| `EN_ROUTE` | On the way | Call · Cancel |
-| `ARRIVED` | At your door | Call · **Raise complaint** (from ARRIVED onwards). No cancel. |
-| `IN_PROGRESS` | **End OTP** appears. Quotation card if one is pending. | Approve / Reject quote · Decline work · Complaint |
-| `WORK_DONE` | Payable breakdown, pay button, review prompt | Pay · Review · Complaint |
-| `CLOSED_QUOTE_DECLINED` | Visit fee only | Pay · Complaint |
-| `REJECTED` / `EXPIRED` / `CANCELLED_*` | Terminal, with reason | Book again |
+| Status                                 | What the screen shows                                                    | Actions                                                       |
+| -------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| `REQUESTED`                            | Waiting for response + a countdown to `BOOKING_REQUEST_TTL_MINUTES` (60) | Cancel                                                        |
+| `ACCEPTED`                             | **Start OTP**, counterpart name + revealed phone + photo                 | Call · Cancel                                                 |
+| `EN_ROUTE`                             | On the way                                                               | Call · Cancel                                                 |
+| `ARRIVED`                              | At your door                                                             | Call · **Raise complaint** (from ARRIVED onwards). No cancel. |
+| `IN_PROGRESS`                          | **End OTP** appears. Quotation card if one is pending.                   | Approve / Reject quote · Decline work · Complaint             |
+| `WORK_DONE`                            | Payable breakdown, pay button, review prompt                             | Pay · Review · Complaint                                      |
+| `CLOSED_QUOTE_DECLINED`                | Visit fee only                                                           | Pay · Complaint                                               |
+| `REJECTED` / `EXPIRED` / `CANCELLED_*` | Terminal, with reason                                                    | Book again                                                    |
 
 Polling cadence — this is a battery and data decision, not a UI one:
 
@@ -168,15 +168,15 @@ GET  /bookings/:id/payments  — poll every 4 s, up to ~2 min, until `captured`
 
 ### 2.9 Reviews, complaints, notifications, account
 
-| Screen | Endpoints |
-|---|---|
-| Leave review | `POST /bookings/:id/reviews` — 1–5 stars, ≤5 tags from `punctual, polite, fair_price, clean_work, expert`, optional text ≤500 |
-| Report a review | `POST /reviews/:reviewId/report { reason }` |
-| Report a photo | `POST /provider-photos/:photoId/report { reason }` — **currently missing from the web app; the Flutter app should have it** |
-| Raise complaint | `POST /bookings/:id/complaints { category, description }` — 7 categories, description 10–1000 |
-| Complaint list | `GET /complaints`, `GET /complaints/:id` — not paginated |
-| Inbox | `GET /notifications`, `/unread-count`, `POST /:id/read`, `/read-all` |
-| Account | `GET /auth/me`, `PATCH /auth/me` (language), `GET|PATCH /customers/me`, addresses CRUD |
+| Screen          | Endpoints                                                                                                                     |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Leave review    | `POST /bookings/:id/reviews` — 1–5 stars, ≤5 tags from `punctual, polite, fair_price, clean_work, expert`, optional text ≤500 |
+| Report a review | `POST /reviews/:reviewId/report { reason }`                                                                                   |
+| Report a photo  | `POST /provider-photos/:photoId/report { reason }` — **currently missing from the web app; the Flutter app should have it**   |
+| Raise complaint | `POST /bookings/:id/complaints { category, description }` — 7 categories, description 10–1000                                 |
+| Complaint list  | `GET /complaints`, `GET /complaints/:id` — not paginated                                                                      |
+| Inbox           | `GET /notifications`, `/unread-count`, `POST /:id/read`, `/read-all`                                                          |
+| Account         | `GET /auth/me`, `PATCH /auth/me` (language), `GET                                                                             | PATCH /customers/me`, addresses CRUD |
 
 `deepLink` on a notification is a resolved path like `booking/<uuid>` — route
 it, don't display it.
@@ -226,14 +226,14 @@ Future<String> _refresh() => _inflight ??= _doRefresh().whenComplete(() {
 
 Error handling by code, from `error.code` in the envelope:
 
-| Code | Action |
-|---|---|
-| `AUTH_TOKEN_EXPIRED` | Refresh silently, replay the request once |
-| `AUTH_TOKEN_INVALID`, `AUTH_SESSION_REVOKED`, `REFRESH_TOKEN_INVALID` | Clear session, route to sign-in |
-| `ACCOUNT_BLOCKED` | Blocked screen with support contact |
-| `VALIDATION_ERROR` | Map `details[]` onto form fields by `field` |
-| `RATE_LIMITED` | Honour `Retry-After`; message chosen by `details.scope` |
-| everything else | Show `error.message` — it is already localised |
+| Code                                                                  | Action                                                  |
+| --------------------------------------------------------------------- | ------------------------------------------------------- |
+| `AUTH_TOKEN_EXPIRED`                                                  | Refresh silently, replay the request once               |
+| `AUTH_TOKEN_INVALID`, `AUTH_SESSION_REVOKED`, `REFRESH_TOKEN_INVALID` | Clear session, route to sign-in                         |
+| `ACCOUNT_BLOCKED`                                                     | Blocked screen with support contact                     |
+| `VALIDATION_ERROR`                                                    | Map `details[]` onto form fields by `field`             |
+| `RATE_LIMITED`                                                        | Honour `Retry-After`; message chosen by `details.scope` |
+| everything else                                                       | Show `error.message` — it is already localised          |
 
 Headers on every request: `Authorization: Bearer`, `Accept-Language: hi|en`.
 
@@ -253,17 +253,17 @@ Headers on every request: `Authorization: Bearer`, `Accept-Language: hi|en`.
 
 Continuous with the web customer app so the two read as one product.
 
-| Token | Value | Use |
-|---|---|---|
-| `primary` | `#7e22ce` | Actions, active state — 6.82:1 on white |
-| `bright` | `#a855f7` | **Decorative only** — 3.87:1, never text |
-| `deep` | `#6b21a8` | Pressed, headers |
-| `soft` | `#faf5ff` | Tinted surfaces |
-| `accent` | `#f0a04b` | Gold — badges, ratings |
-| `ground` | `#fdfcfd` | Page |
-| `ink` | `#1c1721` | Body text |
-| `inkSoft` | `#6b6472` | Secondary — 5.56:1 |
-| `line` | `#ece7f0` | Dividers |
+| Token     | Value     | Use                                      |
+| --------- | --------- | ---------------------------------------- |
+| `primary` | `#7e22ce` | Actions, active state — 6.82:1 on white  |
+| `bright`  | `#a855f7` | **Decorative only** — 3.87:1, never text |
+| `deep`    | `#6b21a8` | Pressed, headers                         |
+| `soft`    | `#faf5ff` | Tinted surfaces                          |
+| `accent`  | `#f0a04b` | Gold — badges, ratings                   |
+| `ground`  | `#fdfcfd` | Page                                     |
+| `ink`     | `#1c1721` | Body text                                |
+| `inkSoft` | `#6b6472` | Secondary — 5.56:1                       |
+| `line`    | `#ece7f0` | Dividers                                 |
 
 Type: **Inter** for Latin, **Noto Sans Devanagari** for Hindi, bundled as
 assets rather than fetched (a font that fails to download on 4G leaves a page
@@ -271,15 +271,15 @@ of boxes).
 
 Motion budget — the "motion, not media" direction, concretely:
 
-| Moment | Technique | Duration |
-|---|---|---|
-| Card → profile | `Hero` on avatar + name | 320 ms `easeOutCubic` |
-| Status advance | `AnimatedContainer` on the timeline rail, node scale-in | 400 ms |
-| OTP reveal | Staggered digit fade + slide, 40 ms apart | 240 ms |
-| Payment success | Draw-on tick via `CustomPainter` + `AnimationController` | 500 ms |
-| List load | Shimmer skeleton | 1.2 s loop |
-| Bottom nav | Icon morph + colour lerp | 200 ms |
-| Sheets | `showModalBottomSheet` with a drag handle | default |
+| Moment          | Technique                                                | Duration              |
+| --------------- | -------------------------------------------------------- | --------------------- |
+| Card → profile  | `Hero` on avatar + name                                  | 320 ms `easeOutCubic` |
+| Status advance  | `AnimatedContainer` on the timeline rail, node scale-in  | 400 ms                |
+| OTP reveal      | Staggered digit fade + slide, 40 ms apart                | 240 ms                |
+| Payment success | Draw-on tick via `CustomPainter` + `AnimationController` | 500 ms                |
+| List load       | Shimmer skeleton                                         | 1.2 s loop            |
+| Bottom nav      | Icon morph + colour lerp                                 | 200 ms                |
+| Sheets          | `showModalBottomSheet` with a drag handle                | default               |
 
 All wrapped in `MediaQuery.disableAnimationsOf(context)` checks. No video, no
 Lottie file over ~50 KB, no autoplaying anything. Illustration is drawn — SVG
@@ -292,18 +292,18 @@ Haptics: `HapticFeedback.lightImpact()` on OTP digit entry and quote approval;
 
 ## 5. Build order
 
-| Phase | Content | Why here |
-|---|---|---|
-| **1** | Project, theme, l10n, Dio + refresh mutex, error envelope, secure storage | Nothing works without the interceptor |
-| **2** | Auth: language → phone → OTP → session | Gate for everything else |
-| **3** | Home, categories, search, resolve, provider profile, reviews | The public half; testable without a booking |
-| **4** | Addresses, slots, `POST /bookings` | First write path |
-| **5** | Booking detail, polling, status timeline, OTP display, cancel | The core screen |
-| **6** | Quotations: history, split display, approve / reject / decline-work | Highest correctness risk |
-| **7** | Coupons + Razorpay + capture polling | Needs a live-ish gateway |
-| **8** | Reviews, complaints, photo report | Post-job |
-| **9** | Notifications, deep links, account | Retention |
-| **10** | Empty/error states, skeletons, motion pass, Hindi proofread, release build | The part that gets skipped |
+| Phase  | Content                                                                    | Why here                                    |
+| ------ | -------------------------------------------------------------------------- | ------------------------------------------- |
+| **1**  | Project, theme, l10n, Dio + refresh mutex, error envelope, secure storage  | Nothing works without the interceptor       |
+| **2**  | Auth: language → phone → OTP → session                                     | Gate for everything else                    |
+| **3**  | Home, categories, search, resolve, provider profile, reviews               | The public half; testable without a booking |
+| **4**  | Addresses, slots, `POST /bookings`                                         | First write path                            |
+| **5**  | Booking detail, polling, status timeline, OTP display, cancel              | The core screen                             |
+| **6**  | Quotations: history, split display, approve / reject / decline-work        | Highest correctness risk                    |
+| **7**  | Coupons + Razorpay + capture polling                                       | Needs a live-ish gateway                    |
+| **8**  | Reviews, complaints, photo report                                          | Post-job                                    |
+| **9**  | Notifications, deep links, account                                         | Retention                                   |
+| **10** | Empty/error states, skeletons, motion pass, Hindi proofread, release build | The part that gets skipped                  |
 
 Phases 1–2 and 3 are the only hard sequence; 8 and 9 can run in parallel with 7.
 
@@ -313,7 +313,7 @@ Phases 1–2 and 3 are the only hard sequence; 8 and 9 can run in parallel with 
 
 1. **Push notifications.** There is no FCM token endpoint. Today the app can
    only poll and rely on WhatsApp. A `POST /notifications/devices
-   { token, platform }` would be the one genuinely new endpoint. Not required
+{ token, platform }` would be the one genuinely new endpoint. Not required
    for v1 — WhatsApp already carries the critical messages.
 2. **`GET /providers/:id` does not expose the technician's photo** to a
    browsing customer. `BookingDetail.counterpart.photoUrl` only appears after

@@ -492,20 +492,26 @@ const baseConfigSchema = z.object({
    *
    * Versions are `major.minor.patch`, matching `pubspec.yaml`.
    */
-  APP_CUSTOMER_LATEST_VERSION: z.string().regex(/^\d+\.\d+\.\d+$/).default('0.1.0'),
-  APP_CUSTOMER_MIN_VERSION: z.string().regex(/^\d+\.\d+\.\d+$/).default('0.1.0'),
-  APP_PARTNER_LATEST_VERSION: z.string().regex(/^\d+\.\d+\.\d+$/).default('0.1.0'),
-  APP_PARTNER_MIN_VERSION: z.string().regex(/^\d+\.\d+\.\d+$/).default('0.1.0'),
+  APP_CUSTOMER_LATEST_VERSION: z
+    .string()
+    .regex(/^\d+\.\d+\.\d+$/)
+    .default('0.1.0'),
+  APP_CUSTOMER_MIN_VERSION: z
+    .string()
+    .regex(/^\d+\.\d+\.\d+$/)
+    .default('0.1.0'),
+  APP_PARTNER_LATEST_VERSION: z
+    .string()
+    .regex(/^\d+\.\d+\.\d+$/)
+    .default('0.1.0'),
+  APP_PARTNER_MIN_VERSION: z
+    .string()
+    .regex(/^\d+\.\d+\.\d+$/)
+    .default('0.1.0'),
 
   /** Where the APK actually lives. Served from the marketing site, not here. */
-  APP_CUSTOMER_DOWNLOAD_URL: z
-    .string()
-    .min(1)
-    .default('http://localhost:3000/download'),
-  APP_PARTNER_DOWNLOAD_URL: z
-    .string()
-    .min(1)
-    .default('http://localhost:3000/download'),
+  APP_CUSTOMER_DOWNLOAD_URL: z.string().min(1).default('http://localhost:3000/download'),
+  APP_PARTNER_DOWNLOAD_URL: z.string().min(1).default('http://localhost:3000/download'),
 });
 
 /**

@@ -12,17 +12,17 @@ installed — `flutter pub get`, then `flutter run` with the API up.
 
 ## What is built
 
-| Area | State |
-|---|---|
-| Design system — colour, type, spacing, motion | Done |
-| HTTP client, error envelope, refresh mutex, retry policy | Done |
-| Session storage, device id | Done |
-| Models for every customer-facing response | Done |
-| Repositories for auth, catalog, bookings, account | Done |
-| Language picker → phone → OTP → name | Done |
-| Home, bookings list, inbox, account | Done |
-| Search, technician profile, booking detail | **Next** |
-| Quotation approval, payment, reviews, complaints | **Next** |
+| Area                                                     | State    |
+| -------------------------------------------------------- | -------- |
+| Design system — colour, type, spacing, motion            | Done     |
+| HTTP client, error envelope, refresh mutex, retry policy | Done     |
+| Session storage, device id                               | Done     |
+| Models for every customer-facing response                | Done     |
+| Repositories for auth, catalog, bookings, account        | Done     |
+| Language picker → phone → OTP → name                     | Done     |
+| Home, bookings list, inbox, account                      | Done     |
+| Search, technician profile, booking detail               | **Next** |
+| Quotation approval, payment, reviews, complaints         | **Next** |
 
 The three unbuilt screens exist as routes that say what they will be and
 which endpoints they use, so navigation and deep links are exercised from

@@ -37,7 +37,10 @@ export interface ReleaseResponse {
  */
 export function compareVersions(a: string, b: string): number {
   const parse = (v: string): [number, number, number] => {
-    const parts = v.trim().split('.').map((p) => Number.parseInt(p, 10));
+    const parts = v
+      .trim()
+      .split('.')
+      .map((p) => Number.parseInt(p, 10));
     if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n) || n < 0)) {
       return [-1, -1, -1];
     }
@@ -67,19 +70,13 @@ export function resolveRelease(
   installedVersion?: string,
 ): ReleaseResponse {
   const latestVersion =
-    app === 'customer'
-      ? config.APP_CUSTOMER_LATEST_VERSION
-      : config.APP_PARTNER_LATEST_VERSION;
+    app === 'customer' ? config.APP_CUSTOMER_LATEST_VERSION : config.APP_PARTNER_LATEST_VERSION;
 
   const minSupportedVersion =
-    app === 'customer'
-      ? config.APP_CUSTOMER_MIN_VERSION
-      : config.APP_PARTNER_MIN_VERSION;
+    app === 'customer' ? config.APP_CUSTOMER_MIN_VERSION : config.APP_PARTNER_MIN_VERSION;
 
   const downloadUrl =
-    app === 'customer'
-      ? config.APP_CUSTOMER_DOWNLOAD_URL
-      : config.APP_PARTNER_DOWNLOAD_URL;
+    app === 'customer' ? config.APP_CUSTOMER_DOWNLOAD_URL : config.APP_PARTNER_DOWNLOAD_URL;
 
   const installed = installedVersion?.trim();
 
@@ -88,10 +85,7 @@ export function resolveRelease(
     latestVersion,
     minSupportedVersion,
     downloadUrl,
-    updateRequired:
-      installed === undefined ||
-      compareVersions(installed, minSupportedVersion) < 0,
-    updateAvailable:
-      installed === undefined || compareVersions(installed, latestVersion) < 0,
+    updateRequired: installed === undefined || compareVersions(installed, minSupportedVersion) < 0,
+    updateAvailable: installed === undefined || compareVersions(installed, latestVersion) < 0,
   };
 }

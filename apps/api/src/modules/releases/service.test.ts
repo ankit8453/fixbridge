@@ -62,9 +62,7 @@ describe('resolveRelease', () => {
 
   it('treats the minimum itself as still supported', () => {
     // An off-by-one here locks out the exact version that was declared fine.
-    expect(resolveRelease(config, 'customer', '1.2.0').updateRequired).toBe(
-      false,
-    );
+    expect(resolveRelease(config, 'customer', '1.2.0').updateRequired).toBe(false);
   });
 
   it('forces an update when the client sends no version at all', () => {

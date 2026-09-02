@@ -1,7 +1,7 @@
 # FixBridge API reference — every endpoint
 
 > Compiled by reading `apps/api/src/modules/**` route files, Zod schemas and response
-> types directly. This is what the API *does*, not what it was designed to do.
+> types directly. This is what the API _does_, not what it was designed to do.
 > Written as the working reference for the Flutter build.
 
 **Base:** `API_PREFIX = /api/v1` · **Webhooks:** `/api/v1/webhooks` · Mounting:
@@ -16,20 +16,25 @@
 Every non-2xx response, without exception:
 
 ```ts
-export interface ApiFieldError { field: string; message: string; code: string; }
+export interface ApiFieldError {
+  field: string;
+  message: string;
+  code: string;
+}
 
 export interface ApiErrorBody {
   error: {
     code: string;
-    message: string;      // localised via Accept-Language when the error carries a messageKey
-    requestId: string;    // always present; 'unknown' if request-id middleware never ran
-    details?: unknown;    // ApiFieldError[] for VALIDATION_ERROR
-    stack?: string;       // only when NODE_ENV !== 'production' AND status >= 500
+    message: string; // localised via Accept-Language when the error carries a messageKey
+    requestId: string; // always present; 'unknown' if request-id middleware never ran
+    details?: unknown; // ApiFieldError[] for VALIDATION_ERROR
+    stack?: string; // only when NODE_ENV !== 'production' AND status >= 500
   };
 }
 ```
 
 Mapping rules:
+
 - `ZodError` → **400** `VALIDATION_ERROR`, `details` = `ApiFieldError[]`. `field` is the
   dotted Zod path, or `"(root)"`.
 - `AppError` → its own `statusCode`/`code`; message localised from `messageKey`;
@@ -40,24 +45,24 @@ Mapping rules:
 
 ### 0.2 Error codes a client will actually hit
 
-| Code | Status | Meaning |
-|---|---|---|
-| `VALIDATION_ERROR` | 400 | Zod. `details[]` per field |
-| `BAD_REQUEST` | 400 | `AppError.badRequest`, malformed JSON |
-| `AUTH_TOKEN_MISSING` | 401 | No/malformed `Authorization`. `WWW-Authenticate: Bearer` |
-| `AUTH_TOKEN_EXPIRED` | 401 | **Refresh silently** |
-| `AUTH_TOKEN_INVALID` | 401 | **Force fresh sign-in** |
-| `AUTH_SESSION_REVOKED` | 401 | User on Redis denylist (blocked) |
-| `OTP_INVALID` | 401 | Wrong OTP *and* "no OTP pending" — deliberately indistinguishable |
-| `REFRESH_TOKEN_INVALID` | 401 | Not found / expired / device mismatch / **reuse detected** |
-| `ACCOUNT_BLOCKED` | 403 | `users.status !== 'active'` |
-| `FORBIDDEN` | 403 | `requireRoles`. `details.requiredRoles` (never your own roles) |
-| `NOT_FOUND` | 404 | generic |
-| `BOOKING_NOT_FOUND` / `PROVIDER_NOT_FOUND` / `USER_NOT_FOUND` / `JOURNAL_NOT_FOUND` / `PAYOUT_BATCH_NOT_FOUND` | 404 | |
-| `CONFLICT` | 409 | |
-| `RATE_LIMITED` | 429 | `Retry-After` header. `details: { scope: 'cooldown'\|'phone'\|'ip', retryAfterSeconds }` |
-| `WEBHOOK_SIGNATURE_INVALID` | 400 | Razorpay webhook |
-| `INTERNAL_ERROR` | 500 | |
+| Code                                                                                                           | Status | Meaning                                                                                  |
+| -------------------------------------------------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------- |
+| `VALIDATION_ERROR`                                                                                             | 400    | Zod. `details[]` per field                                                               |
+| `BAD_REQUEST`                                                                                                  | 400    | `AppError.badRequest`, malformed JSON                                                    |
+| `AUTH_TOKEN_MISSING`                                                                                           | 401    | No/malformed `Authorization`. `WWW-Authenticate: Bearer`                                 |
+| `AUTH_TOKEN_EXPIRED`                                                                                           | 401    | **Refresh silently**                                                                     |
+| `AUTH_TOKEN_INVALID`                                                                                           | 401    | **Force fresh sign-in**                                                                  |
+| `AUTH_SESSION_REVOKED`                                                                                         | 401    | User on Redis denylist (blocked)                                                         |
+| `OTP_INVALID`                                                                                                  | 401    | Wrong OTP _and_ "no OTP pending" — deliberately indistinguishable                        |
+| `REFRESH_TOKEN_INVALID`                                                                                        | 401    | Not found / expired / device mismatch / **reuse detected**                               |
+| `ACCOUNT_BLOCKED`                                                                                              | 403    | `users.status !== 'active'`                                                              |
+| `FORBIDDEN`                                                                                                    | 403    | `requireRoles`. `details.requiredRoles` (never your own roles)                           |
+| `NOT_FOUND`                                                                                                    | 404    | generic                                                                                  |
+| `BOOKING_NOT_FOUND` / `PROVIDER_NOT_FOUND` / `USER_NOT_FOUND` / `JOURNAL_NOT_FOUND` / `PAYOUT_BATCH_NOT_FOUND` | 404    |                                                                                          |
+| `CONFLICT`                                                                                                     | 409    |                                                                                          |
+| `RATE_LIMITED`                                                                                                 | 429    | `Retry-After` header. `details: { scope: 'cooldown'\|'phone'\|'ip', retryAfterSeconds }` |
+| `WEBHOOK_SIGNATURE_INVALID`                                                                                    | 400    | Razorpay webhook                                                                         |
+| `INTERNAL_ERROR`                                                                                               | 500    |                                                                                          |
 
 ### 0.3 i18n
 
@@ -84,14 +89,14 @@ Money fields ship as **both** a `…Paise: number` and a formatted `…Display` 
 `?page=` (default 1) and **`?page_size=`** (snake) in; `page`, **`pageSize`** (camel),
 `total` out.
 
-| Endpoint group | `page_size` max | default |
-|---|---|---|
-| reviews | 50 | 10 |
-| complaints queue | 50 | 20 |
-| coupons, admin lists | 100 | 20 |
-| notifications | 100 | `NOTIFICATION_PAGE_SIZE` |
-| search `/providers` | 25 | 10 |
-| search `/resolve` (`limit`) | 20 | 8 |
+| Endpoint group              | `page_size` max | default                  |
+| --------------------------- | --------------- | ------------------------ |
+| reviews                     | 50              | 10                       |
+| complaints queue            | 50              | 20                       |
+| coupons, admin lists        | 100             | 20                       |
+| notifications               | 100             | `NOTIFICATION_PAGE_SIZE` |
+| search `/providers`         | 25              | 10                       |
+| search `/resolve` (`limit`) | 20              | 8                        |
 
 `GET /admin/verification/queue` accepts **both** `page_size` and `pageSize`
 (`page_size` wins) — fixed as DEF-004.
@@ -105,6 +110,7 @@ Money fields ship as **both** a `…Paise: number` and a formatted `…Display` 
 
 **There is none.** No WebSocket, no SSE, no socket.io anywhere in `src/`. Everything
 is polling. A client must poll:
+
 - `GET /bookings/:bookingId` for lifecycle + OTP codes
 - `GET /notifications/unread-count` for the bell badge
 - `GET /bookings/:bookingId/payments` after checkout to see `captured`
@@ -122,10 +128,10 @@ Mounted at `/health` — **outside `/api/v1`**. Public.
 ```ts
 export interface HealthResponse {
   status: 'ok' | 'degraded';
-  app: AppName;            // from APP_NAME config — never a hardcoded brand
+  app: AppName; // from APP_NAME config — never a hardcoded brand
   version: string;
   uptime: number;
-  checks: { postgres: CheckStatus; redis: CheckStatus };  // 'ok' | 'fail'
+  checks: { postgres: CheckStatus; redis: CheckStatus }; // 'ok' | 'fail'
   message: string;
 }
 ```
@@ -137,14 +143,18 @@ export interface HealthResponse {
 ### Step 1 — `POST /auth/otp/request` · public
 
 ```ts
-{ phone: string }   // any human format; transformed to E.164. Valid 10-digit Indian mobile.
+{
+  phone: string;
+} // any human format; transformed to E.164. Valid 10-digit Indian mobile.
 ```
+
 → **200** `{ phone: string /* MASKED, "+9198765*****" */, expiresInSeconds: number, message: string }`
 
 **The OTP is never in the response, never logged, never written to Postgres** — only
 its HMAC lives in Redis.
 
 Three independent limits, checked in order:
+
 1. **Resend cooldown** — `OTP_RESEND_COOLDOWN_SECONDS` default 60s, atomic `SET NX`.
    Does not consume budget. → 429, `details.scope = 'cooldown'`
 2. **Per phone** — `OTP_MAX_PER_PHONE` default 5 per window. → 429, `scope = 'phone'`
@@ -153,10 +163,13 @@ Three independent limits, checked in order:
 ### Step 2 — `POST /auth/otp/verify` · public
 
 ```ts
-{ phone: string;      // same normalisation
-  otp: string;        // exactly 6 digits, /^\d{6}$/
-  deviceId: string }  // 8–128 chars, /^[A-Za-z0-9._:-]+$/
+{
+  phone: string; // same normalisation
+  otp: string; // exactly 6 digits, /^\d{6}$/
+  deviceId: string;
+} // 8–128 chars, /^[A-Za-z0-9._:-]+$/
 ```
+
 → **200** `VerifyOtpResult = AuthSession & { isNewUser: boolean }` plus `message`:
 
 ```ts
@@ -187,12 +200,16 @@ After `OTP_MAX_VERIFY_ATTEMPTS` (default 5) the code is **cleared** → **429**.
 ### Step 3 — `POST /auth/refresh` · public
 
 ```ts
-{ refreshToken: string;  // 20–512 chars
-  deviceId: string }     // MUST match the deviceId the token was bound to
+{
+  refreshToken: string; // 20–512 chars
+  deviceId: string;
+} // MUST match the deviceId the token was bound to
 ```
+
 → **200** `AuthSession` (no `isNewUser`, no `message`).
 
 **Rotation semantics — critical:**
+
 - Every refresh rotates. Single use.
 - An **already-rotated** token = `reuse_detected` → **every token for that
   (user, device) is revoked**, 401 `REFRESH_TOKEN_INVALID`. A naive retry-on-timeout
@@ -207,22 +224,27 @@ After `OTP_MAX_VERIFY_ATTEMPTS` (default 5) the code is **cleared** → **429**.
 still return 200, so it cannot probe token existence.
 
 ### `GET /auth/me` · authenticate
+
 → `{ user: AuthUser, deviceId: string }`. Loads live user, re-asserts `status === 'active'`.
 
 ### `PATCH /auth/me` · authenticate
+
 `{ preferredLanguage: 'hi' | 'en' }` `.strict()` → `{ user, message }`.
 **The only notification preference in v1** — no per-topic opt-outs.
 
 ### `GET /auth/admin-only` · admin
+
 Demo route; JSDoc says delete it. Not for clients.
 
 ### How `deviceId` works
+
 Client-generated, **stable per install**. Constrained (8–128, `[A-Za-z0-9._:-]`) so
 it cannot smuggle data into the DB or JWT. Baked into access-token claims
 (`{ sub, roles, deviceId, staff? }`) and stored on the refresh-token row with
 `deviceInfo` (User-Agent, ≤512 chars). Refresh tokens are bound to it.
 
 ### Access-token verification
+
 Stateless — no DB round trip per request. HS256 pinned (`alg: none` impossible),
 `issuer = APP_NAME`, unique `jti`. One Redis `EXISTS` against the block denylist.
 
@@ -244,17 +266,20 @@ Role mapping: `admin → ['admin','ops']`, `subadmin → ['ops']`.
 Query `{ cityId?: number }` (falls back to `DEFAULT_CITY_ID`).
 
 ```ts
-export interface CategoryTreeResponse { cityId: number; categories: CategoryNode[]; }
+export interface CategoryTreeResponse {
+  cityId: number;
+  categories: CategoryNode[];
+}
 
 export interface CategoryNode {
   id: number;
   slug: string;
-  name: string;          // localised via Accept-Language
-  nameKey: string;       // the i18n key, so clients can re-localise offline
+  name: string; // localised via Accept-Language
+  nameKey: string; // the i18n key, so clients can re-localise offline
   icon: string | null;
   sortOrder: number;
   providerCount: number; // listed+verified+active only; clusters sum their services.
-                         // CACHED 5 MINUTES — a browsing hint, not a live number.
+  // CACHED 5 MINUTES — a browsing hint, not a live number.
   children: CategoryNode[];
 }
 ```
@@ -266,16 +291,16 @@ export interface CategoryNode {
 Router-wide `authenticate` + `requireRoles('customer')`. Every query filtered by the
 caller's own id.
 
-| Method | Path | Body | Response |
-|---|---|---|---|
-| GET | `/customers/me` | — | `{ profile }` |
-| PATCH | `/customers/me` | `updateCustomerProfileSchema` | `{ profile, message }` |
-| GET | `/customers/me/addresses` | — | `{ addresses: AddressResponse[] }` |
-| POST | `/customers/me/addresses` | `createAddressSchema` | **201** `{ address, message }` |
-| GET | `/customers/me/addresses/:addressId` | — | `{ address }` |
-| PATCH | `/customers/me/addresses/:addressId` | `updateAddressSchema` | `{ address, message }` |
-| DELETE | `/customers/me/addresses/:addressId` | — | `{ message }` |
-| POST | `/customers/me/addresses/:addressId/default` | — | `{ address, message }` |
+| Method | Path                                         | Body                          | Response                           |
+| ------ | -------------------------------------------- | ----------------------------- | ---------------------------------- |
+| GET    | `/customers/me`                              | —                             | `{ profile }`                      |
+| PATCH  | `/customers/me`                              | `updateCustomerProfileSchema` | `{ profile, message }`             |
+| GET    | `/customers/me/addresses`                    | —                             | `{ addresses: AddressResponse[] }` |
+| POST   | `/customers/me/addresses`                    | `createAddressSchema`         | **201** `{ address, message }`     |
+| GET    | `/customers/me/addresses/:addressId`         | —                             | `{ address }`                      |
+| PATCH  | `/customers/me/addresses/:addressId`         | `updateAddressSchema`         | `{ address, message }`             |
+| DELETE | `/customers/me/addresses/:addressId`         | —                             | `{ message }`                      |
+| POST   | `/customers/me/addresses/:addressId/default` | —                             | `{ address, message }`             |
 
 ```ts
 // PATCH /customers/me — .strict()
@@ -317,6 +342,7 @@ Mount order in `index.ts` matters (most specific first): `/provider-photos` →
 ### 5.1 Public / any-authenticated
 
 **`POST /providers/me/register`** · `authenticate` only (**not** role-gated)
+
 > This is how a **customer becomes a technician**.
 
 `{ displayName?: string; cityId?: number }` `.strict()`
@@ -331,16 +357,22 @@ Mount order in `index.ts` matters (most specific first): `/provider-photos` →
 export interface PublicProviderProfile {
   providerId: string;
   displayName: string | null;
-  badge: Badge;                                // 'NONE' | 'VERIFIED' | 'SILVER' | 'GOLD'
+  badge: Badge; // 'NONE' | 'VERIFIED' | 'SILVER' | 'GOLD'
   bio: string | null;
   yearsExperience: number | null;
-  city: { id: number; name: string } | null;   // city granularity only — no coords
+  city: { id: number; name: string } | null; // city granularity only — no coords
   rating: { average: number; count: number } | null;
   jobsCompleted: number;
   tagCounts: Record<string, number>;
   skills: { categoryId: number; nameKey: string; slug: string }[];
-  priceCards: { id: string; categoryId: number; title: string;
-                priceType: string; amountPaise: number | null; display: string | null }[];
+  priceCards: {
+    id: string;
+    categoryId: number;
+    title: string;
+    priceType: string;
+    amountPaise: number | null;
+    display: string | null;
+  }[];
   memberSince: string;
 }
 ```
@@ -358,21 +390,21 @@ invites brigading.
 
 `authenticate` + `requireRoles('technician')`.
 
-| Method | Path | Body |
-|---|---|---|
-| GET | `/providers/me` | — |
-| PATCH | `/providers/me` | `updateProviderProfileSchema` |
-| POST | `/providers/me/skills` | `{ categoryId, experienceNote? }` → **201** |
-| DELETE | `/providers/me/skills/:categoryId` | — |
-| POST | `/providers/me/photo/upload-url` | `{ contentType, sizeBytes }` → **201** |
-| POST | `/providers/me/photo/:photoId/confirm` | — |
-| GET | `/providers/me/photo` | — |
-| POST | `/providers/me/price-cards` | `createPriceCardSchema` → **201** |
-| PATCH | `/providers/me/price-cards/:id` | `updatePriceCardSchema` |
-| DELETE | `/providers/me/price-cards/:id` | — |
-| POST | `/providers/me/availability` | `createAvailabilitySchema` → **201** |
-| PATCH | `/providers/me/availability/:id` | `updateAvailabilitySchema` |
-| DELETE | `/providers/me/availability/:id` | — |
+| Method | Path                                   | Body                                        |
+| ------ | -------------------------------------- | ------------------------------------------- |
+| GET    | `/providers/me`                        | —                                           |
+| PATCH  | `/providers/me`                        | `updateProviderProfileSchema`               |
+| POST   | `/providers/me/skills`                 | `{ categoryId, experienceNote? }` → **201** |
+| DELETE | `/providers/me/skills/:categoryId`     | —                                           |
+| POST   | `/providers/me/photo/upload-url`       | `{ contentType, sizeBytes }` → **201**      |
+| POST   | `/providers/me/photo/:photoId/confirm` | —                                           |
+| GET    | `/providers/me/photo`                  | —                                           |
+| POST   | `/providers/me/price-cards`            | `createPriceCardSchema` → **201**           |
+| PATCH  | `/providers/me/price-cards/:id`        | `updatePriceCardSchema`                     |
+| DELETE | `/providers/me/price-cards/:id`        | —                                           |
+| POST   | `/providers/me/availability`           | `createAvailabilitySchema` → **201**        |
+| PATCH  | `/providers/me/availability/:id`       | `updateAvailabilitySchema`                  |
+| DELETE | `/providers/me/availability/:id`       | —                                           |
 
 ```ts
 // POST /providers/me/price-cards — .strict()
@@ -392,7 +424,9 @@ invites brigading.
 ```
 
 ### 5.3 Photo moderation — ops
+
 `/api/v1/admin/provider-photos` · `requireRoles('ops','admin')`
+
 - `GET /reported` → `{ photos }`
 - `POST /:photoId/decide` — `{ decision: 'remove'|'keep'; note? }` (note required to remove)
 
@@ -406,34 +440,50 @@ invites brigading.
 ### 6.1 The state machine
 
 ```ts
-BOOKING_STATUSES = ['REQUESTED','ACCEPTED','REJECTED','EXPIRED','EN_ROUTE','ARRIVED',
-                    'IN_PROGRESS','WORK_DONE','CANCELLED_BY_CUSTOMER',
-                    'CANCELLED_BY_PROVIDER','CLOSED_QUOTE_DECLINED']
+BOOKING_STATUSES = [
+  'REQUESTED',
+  'ACCEPTED',
+  'REJECTED',
+  'EXPIRED',
+  'EN_ROUTE',
+  'ARRIVED',
+  'IN_PROGRESS',
+  'WORK_DONE',
+  'CANCELLED_BY_CUSTOMER',
+  'CANCELLED_BY_PROVIDER',
+  'CLOSED_QUOTE_DECLINED',
+];
 
-TERMINAL  = ['REJECTED','EXPIRED','WORK_DONE','CANCELLED_BY_CUSTOMER',
-             'CANCELLED_BY_PROVIDER','CLOSED_QUOTE_DECLINED']
-BILLABLE  = ['WORK_DONE','CLOSED_QUOTE_DECLINED']   // where payablePaise is frozen
+TERMINAL = [
+  'REJECTED',
+  'EXPIRED',
+  'WORK_DONE',
+  'CANCELLED_BY_CUSTOMER',
+  'CANCELLED_BY_PROVIDER',
+  'CLOSED_QUOTE_DECLINED',
+];
+BILLABLE = ['WORK_DONE', 'CLOSED_QUOTE_DECLINED']; // where payablePaise is frozen
 ```
 
-| From | Event | To | Actors | Endpoint |
-|---|---|---|---|---|
-| REQUESTED | `accepted` | ACCEPTED | provider, **ops** | `POST /bookings/:id/accept` · `POST /admin/bookings/:id/accept` |
-| REQUESTED | `rejected` | REJECTED | provider | `POST /bookings/:id/reject` |
-| REQUESTED | `expired` | EXPIRED | **system** | background job, `BOOKING_REQUEST_TTL_MINUTES` default **60** |
-| REQUESTED | `cancelled_by_customer` | CANCELLED_BY_CUSTOMER | customer | `POST /bookings/:id/cancel` |
-| ACCEPTED | `en_route` | EN_ROUTE | provider | `POST /bookings/:id/en-route` |
-| ACCEPTED | `arrived` | ARRIVED | provider | via start-OTP path |
-| ACCEPTED | `cancelled_by_customer` | CANCELLED_BY_CUSTOMER | customer | `/cancel` |
-| ACCEPTED | `cancelled_by_provider` | CANCELLED_BY_PROVIDER | provider | `/cancel` |
-| EN_ROUTE | `arrived` | ARRIVED | provider | via start-OTP path |
-| EN_ROUTE | `cancelled_by_customer` | CANCELLED_BY_CUSTOMER | customer | `/cancel` |
-| EN_ROUTE | `cancelled_by_provider` | CANCELLED_BY_PROVIDER | provider | `/cancel` |
-| ARRIVED | `work_started` | IN_PROGRESS | provider, system | `POST /bookings/:id/start` |
-| IN_PROGRESS | `work_done` | WORK_DONE | provider | `POST /bookings/:id/complete` |
-| IN_PROGRESS | `work_declined` | CLOSED_QUOTE_DECLINED | **customer** | `POST /bookings/:id/decline-work` |
+| From        | Event                   | To                    | Actors            | Endpoint                                                        |
+| ----------- | ----------------------- | --------------------- | ----------------- | --------------------------------------------------------------- |
+| REQUESTED   | `accepted`              | ACCEPTED              | provider, **ops** | `POST /bookings/:id/accept` · `POST /admin/bookings/:id/accept` |
+| REQUESTED   | `rejected`              | REJECTED              | provider          | `POST /bookings/:id/reject`                                     |
+| REQUESTED   | `expired`               | EXPIRED               | **system**        | background job, `BOOKING_REQUEST_TTL_MINUTES` default **60**    |
+| REQUESTED   | `cancelled_by_customer` | CANCELLED_BY_CUSTOMER | customer          | `POST /bookings/:id/cancel`                                     |
+| ACCEPTED    | `en_route`              | EN_ROUTE              | provider          | `POST /bookings/:id/en-route`                                   |
+| ACCEPTED    | `arrived`               | ARRIVED               | provider          | via start-OTP path                                              |
+| ACCEPTED    | `cancelled_by_customer` | CANCELLED_BY_CUSTOMER | customer          | `/cancel`                                                       |
+| ACCEPTED    | `cancelled_by_provider` | CANCELLED_BY_PROVIDER | provider          | `/cancel`                                                       |
+| EN_ROUTE    | `arrived`               | ARRIVED               | provider          | via start-OTP path                                              |
+| EN_ROUTE    | `cancelled_by_customer` | CANCELLED_BY_CUSTOMER | customer          | `/cancel`                                                       |
+| EN_ROUTE    | `cancelled_by_provider` | CANCELLED_BY_PROVIDER | provider          | `/cancel`                                                       |
+| ARRIVED     | `work_started`          | IN_PROGRESS           | provider, system  | `POST /bookings/:id/start`                                      |
+| IN_PROGRESS | `work_done`             | WORK_DONE             | provider          | `POST /bookings/:id/complete`                                   |
+| IN_PROGRESS | `work_declined`         | CLOSED_QUOTE_DECLINED | **customer**      | `POST /bookings/:id/decline-work`                               |
 
 **Nothing cancels after ARRIVED.** Once a technician is at the door, "I changed my
-mind" is a *dispute*, not a cancellation.
+mind" is a _dispute_, not a cancellation.
 
 **Non-transitioning events** (evidence only, any non-terminal status):
 `otp_failed`, `otp_locked`, `quote_sent`, `quote_withdrawn`, `quote_approved`,
@@ -445,6 +495,7 @@ throws on a log it cannot replay).
 ### 6.2 Customer endpoints
 
 **`POST /bookings`** · customer — `.strict()`
+
 ```ts
 { slotId: string;            // uuid
   categoryId: number;
@@ -452,6 +503,7 @@ throws on a log it cannot replay).
   priceCardId?: string;
   problemNote?: string }     // 1–500
 ```
+
 → **201** `{ booking: BookingDetail, message }`
 
 **`GET /bookings?side=customer|provider`** · authenticate
@@ -461,29 +513,32 @@ throws on a log it cannot replay).
 **`GET /bookings/:bookingId`** → `{ booking: BookingDetail }`
 
 **`POST /bookings/:bookingId/cancel`** · authenticate (**either side**)
+
 ```ts
 { reason: string;   // 1–40, validated against the CALLER'S OWN list
   note?: string }   // 1–500, .strict()
 ```
+
 - Customer reasons: `changed_mind | found_other | emergency | provider_delay | other`
 - Provider reasons: `emergency | vehicle_issue | wrong_skill | other`
 - Wrong list → **400** `errors.bookings.invalidReason`
 - Not a party → **404 `BOOKING_NOT_FOUND`**
 
 **`POST /bookings/:bookingId/decline-work`** · customer — `{ note?: string }` `.strict()`
+
 > "I heard the price and I don't want the work." **Separate from rejecting a
 > quotation:** a rejection invites a revision, this **ends** the job.
 > IN_PROGRESS → CLOSED_QUOTE_DECLINED. **The visit fee becomes payable.**
 
 ### 6.3 Technician endpoints — partner app
 
-| Method | Path | Body |
-|---|---|---|
-| POST | `/bookings/:id/accept` | — |
-| POST | `/bookings/:id/reject` | `{ reason: 'too_far'\|'busy'\|'wrong_skill'\|'other'; note? }` — **`note` required when `reason === 'other'`** |
-| POST | `/bookings/:id/en-route` | — |
-| POST | `/bookings/:id/start` | `{ otp: string }` `/^\d{4,8}$/` |
-| POST | `/bookings/:id/complete` | `{ otp: string }` |
+| Method | Path                     | Body                                                                                                           |
+| ------ | ------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| POST   | `/bookings/:id/accept`   | —                                                                                                              |
+| POST   | `/bookings/:id/reject`   | `{ reason: 'too_far'\|'busy'\|'wrong_skill'\|'other'; note? }` — **`note` required when `reason === 'other'`** |
+| POST   | `/bookings/:id/en-route` | —                                                                                                              |
+| POST   | `/bookings/:id/start`    | `{ otp: string }` `/^\d{4,8}$/`                                                                                |
+| POST   | `/bookings/:id/complete` | `{ otp: string }`                                                                                              |
 
 ### 6.4 The OTP handshake
 
@@ -493,12 +548,12 @@ person, often over job noise; the threat model requires physical presence).
 - **Minted together at ACCEPTANCE.**
 - Stored in **Redis only** — HMAC salted by `booking id + kind`. **Never in Postgres.**
 - **Also stored in plaintext under a separate key** — a deliberate departure from the
-  auth OTP, because the customer must be *shown* their code; there is nobody to send it to.
+  auth OTP, because the customer must be _shown_ their code; there is nobody to send it to.
 
-| Field | Who sees it | When |
-|---|---|---|
-| `startOtp` | **customer only** | from ACCEPTED |
-| `endOtp` | **customer only** | **only when `status === 'IN_PROGRESS'`** |
+| Field      | Who sees it       | When                                     |
+| ---------- | ----------------- | ---------------------------------------- |
+| `startOtp` | **customer only** | from ACCEPTED                            |
+| `endOtp`   | **customer only** | **only when `status === 'IN_PROGRESS'`** |
 
 Both are `null` for the technician, always. The technician **asks the customer to read
 the code out**.
@@ -559,7 +614,7 @@ export interface BookingDetail {
 export interface BookingEventView {
   id: string;
   eventType: BookingEventType;
-  actorType: BookingActor;       // 'customer' | 'provider' | 'system' | 'ops'
+  actorType: BookingActor; // 'customer' | 'provider' | 'system' | 'ops'
   payload: unknown;
   createdAt: string;
 }
@@ -575,6 +630,7 @@ Both params required, `to` after `from`.
 the afternoon off, is nobody else's business.
 
 **`/providers/me/slots`** · technician
+
 - `GET /` → `{ slots: OwnSlot[] }` (`OwnSlot extends PublicSlot` + `status`, `bookingId`)
 - `POST /:slotId/block` · `POST /:slotId/unblock`
 
@@ -591,14 +647,17 @@ Two mount points: `/api/v1/quotations/:quotationId/*` and
 ### 7.1 Customer side
 
 **`POST /quotations/:quotationId/approve`** · customer, no body → `{ quotation, message }`
+
 > The moment the price becomes binding. **A technician cannot approve their own number
 > on the customer's behalf** — the single most important actor rule in this module.
 
 **`POST /quotations/:quotationId/reject`** · customer — `{ reason?: string }` (1–200)
+
 > "Not at that price." **Does NOT end the booking** — the technician may answer with a
 > revision. The customer ends it with `POST /bookings/:id/decline-work`.
 
 **`GET /bookings/:bookingId/quotations`** · both parties
+
 ```ts
 export interface QuotationHistoryResponse {
   bookingId: string;
@@ -611,6 +670,7 @@ export interface QuotationHistoryResponse {
 ### 7.2 Technician side
 
 **`POST /bookings/:bookingId/quotations`** · technician → **201**
+
 > A new **version**. Never an edit — enforced by immutability triggers.
 
 ```ts
@@ -634,15 +694,16 @@ export interface QuotationHistoryResponse {
 ### 7.3 The labour split
 
 Labour is **two numbers**:
-- **agreed** — *derived from the booking snapshot, never accepted from the client.*
+
+- **agreed** — _derived from the booking snapshot, never accepted from the client._
 - **extra** — additional work found on site, which **needs a written reason the
   customer can read before approving**.
 
-| Snapshot | Rule |
-|---|---|
-| `fixed` "₹300" | agreed labour is **exactly** ₹300. Client claiming otherwise → `LabourRuleError('agreed_mismatch')` |
-| `starting_from` "₹300+" | a **floor** — may exceed, never go below → `'below_floor'` |
-| `inspection_based` / no card | no anchor, `agreed = 0`; the whole figure travels as **extra** |
+| Snapshot                     | Rule                                                                                                |
+| ---------------------------- | --------------------------------------------------------------------------------------------------- |
+| `fixed` "₹300"               | agreed labour is **exactly** ₹300. Client claiming otherwise → `LabourRuleError('agreed_mismatch')` |
+| `starting_from` "₹300+"      | a **floor** — may exceed, never go below → `'below_floor'`                                          |
+| `inspection_based` / no card | no anchor, `agreed = 0`; the whole figure travels as **extra**                                      |
 
 Rejection reasons: `below_floor | agreed_mismatch | reason_required | reason_too_short
 | negative_extra`. Reason ≥ `EXTRA_REASON_MIN_LENGTH = 10` chars, ≤ 300.
@@ -676,8 +737,12 @@ export interface QuotationView {
 }
 
 export interface QuotationItemView {
-  id: string; kind: 'part' | 'labour_extra'; description: string;
-  qty: number; unitPaise: number; lineTotalPaise: number;
+  id: string;
+  kind: 'part' | 'labour_extra';
+  description: string;
+  qty: number;
+  unitPaise: number;
+  lineTotalPaise: number;
 }
 ```
 
@@ -689,11 +754,11 @@ export interface QuotationItemView {
 > the job is priced and done under an approved quotation, and **charged** whenever the
 > customer sends the technician away or the job is billed at a flat rate.
 
-| Outcome | `basis` | `payablePaise` | `visitFeeCharged` |
-|---|---|---|---|
-| `CLOSED_QUOTE_DECLINED` | `visit_fee_only` | `visitFeePaise` | `true` |
-| `WORK_DONE` + approved quote | `approved_quotation` | quote total | **`false`** — visit fee listed at **0 with `waived: true`** rather than omitted |
-| `WORK_DONE` + `fixed` price card | `price_card` | `flat + visitFeePaise` | `true` |
+| Outcome                          | `basis`              | `payablePaise`         | `visitFeeCharged`                                                               |
+| -------------------------------- | -------------------- | ---------------------- | ------------------------------------------------------------------------------- |
+| `CLOSED_QUOTE_DECLINED`          | `visit_fee_only`     | `visitFeePaise`        | `true`                                                                          |
+| `WORK_DONE` + approved quote     | `approved_quotation` | quote total            | **`false`** — visit fee listed at **0 with `waived: true`** rather than omitted |
+| `WORK_DONE` + `fixed` price card | `price_card`         | `flat + visitFeePaise` | `true`                                                                          |
 
 ```ts
 export interface PayableBreakdown {
@@ -701,14 +766,16 @@ export interface PayableBreakdown {
   visitFeeCharged: boolean;
   components: {
     kind: 'quotation' | 'price_card' | 'visit_fee';
-    labelKey: string;      // i18n key — NEVER display text
+    labelKey: string; // i18n key — NEVER display text
     amountPaise: number;
     waived?: boolean;
   }[];
   basis: 'approved_quotation' | 'price_card' | 'visit_fee_only';
 }
 
-export interface PayableView extends PayableBreakdown { payableDisplay: string; }
+export interface PayableView extends PayableBreakdown {
+  payableDisplay: string;
+}
 ```
 
 `assertBreakdownAddsUp` runs on every terminal transition.
@@ -720,13 +787,16 @@ export interface PayableView extends PayableBreakdown { payableDisplay: string; 
 ### 8.1 The Razorpay checkout handshake
 
 **Step 1 — `POST /bookings/:bookingId/payments`** · customer
+
 ```ts
 { purpose?: 'final_bill' | 'visit_fee_upfront' }   // default 'final_bill', body optional
 ```
+
 `visit_fee_upfront` requires `COLLECT_FEE_AT_BOOKING`, else **400**
 `errors.payments.upfrontDisabled`.
 
 → **201** (new) or **200** (`reused: true`)
+
 ```ts
 export interface StartPaymentResponse {
   payment: PaymentView;
@@ -738,6 +808,7 @@ export interface StartPaymentResponse {
   reused: boolean;
 }
 ```
+
 > Calling it twice returns the **same order**, deliberately — two live orders for one
 > bill is how a customer pays twice.
 
@@ -745,12 +816,16 @@ export interface StartPaymentResponse {
 `currency: 'INR'`.
 
 **Step 3 — `POST /payments/:paymentId/checkout-callback`** · customer
+
 ```ts
 // .strict(). RAZORPAY'S OWN FIELD NAMES (snake_case).
-{ razorpay_order_id: string;    // 1–120
-  razorpay_payment_id: string;  // 1–120
-  razorpay_signature: string }  // 1–200
+{
+  razorpay_order_id: string; // 1–120
+  razorpay_payment_id: string; // 1–120
+  razorpay_signature: string;
+} // 1–200
 ```
+
 → **200** `{ payment, message: t('payments.confirming') }`
 
 > **The optimistic callback.** Verifies the signature and stamps a flag so the app can
@@ -786,31 +861,34 @@ export interface PaymentView {
 
 export interface WalletResponse {
   providerId: string;
-  payablePaise: number; payableDisplay: string;   // what we owe them
-  duesPaise: number; duesDisplay: string;         // what they owe us, commission on cash
-  netPaise: number; netDisplay: string;           // negative = they owe us more
+  payablePaise: number;
+  payableDisplay: string; // what we owe them
+  duesPaise: number;
+  duesDisplay: string; // what they owe us, commission on cash
+  netPaise: number;
+  netDisplay: string; // negative = they owe us more
   pendingPayoutPaise: number;
   payoutMinimumPaise: number;
   recentPayouts: PayoutView[];
-  ledger: WalletLedgerLine[];   // their own accounts only, no ops memos
+  ledger: WalletLedgerLine[]; // their own accounts only, no ops memos
 }
 ```
 
 ### 8.3 Ops payments — `/api/v1/admin/payments`
 
 `adminOnly = requireRoles('admin')` on the four money-moving routes.
-*The line between `ops` and `admin` is **reversibility**, not seniority.*
+_The line between `ops` and `admin` is **reversibility**, not seniority._
 
-| Method | Path | Guard | Body |
-|---|---|---|---|
-| POST | `/:paymentId/refund` | **admin** | `{ amountPaise?; reason? }` → **202** |
-| POST | `/payout-batches` | ops | — |
-| POST | `/payout-batches/:batchId/close` | ops | — |
-| GET | `/payout-batches/:batchId` | ops | — |
-| POST | `/payouts/:payoutId/paid` | **admin** | `{ utrRef: string }` (4–60, **required**) |
-| POST | `/payouts/:payoutId/failed` | **admin** | `{ note: string }` |
-| POST | `/dues/settle` | **admin** | `{ providerId; amountPaise; memo? }` |
-| GET | `/ledger/position` | ops | — |
+| Method | Path                             | Guard     | Body                                      |
+| ------ | -------------------------------- | --------- | ----------------------------------------- |
+| POST   | `/:paymentId/refund`             | **admin** | `{ amountPaise?; reason? }` → **202**     |
+| POST   | `/payout-batches`                | ops       | —                                         |
+| POST   | `/payout-batches/:batchId/close` | ops       | —                                         |
+| GET    | `/payout-batches/:batchId`       | ops       | —                                         |
+| POST   | `/payouts/:payoutId/paid`        | **admin** | `{ utrRef: string }` (4–60, **required**) |
+| POST   | `/payouts/:payoutId/failed`      | **admin** | `{ note: string }`                        |
+| POST   | `/dues/settle`                   | **admin** | `{ providerId; amountPaise; memo? }`      |
+| GET    | `/ledger/position`               | ops       | —                                         |
 
 ### 8.4 Webhook — `POST /api/v1/webhooks/razorpay` · public
 
@@ -836,20 +914,27 @@ Mounted **first**, with `express.raw({ type: '*/*', limit: '1mb' })` on `WEBHOOK
 ### 9.1 Customer side
 
 **`POST /bookings/:bookingId/coupon`** · customer
+
 ```ts
-{ code: string;                        // 3–40, /^[A-Za-z0-9_-]+$/, uppercased server-side
-  paymentMethod: 'online' | 'cash' }   // REQUIRED, not inferred
+{
+  code: string; // 3–40, /^[A-Za-z0-9_-]+$/, uppercased server-side
+  paymentMethod: 'online' | 'cash';
+} // REQUIRED, not inferred
 ```
+
 > `paymentMethod` is explicit because at the moment a coupon is applied there is usually
 > no `payments` row yet — the choice exists only in the customer's screen.
 
 ```ts
 export interface AppliedCouponView {
   code: string;
-  discountPaise: number; discountDisplay: string;
+  discountPaise: number;
+  discountDisplay: string;
   /** The bill before the coupon. What the technician is paid on. */
-  originalPayablePaise: number; originalPayableDisplay: string;
-  payablePaise: number; payableDisplay: string;
+  originalPayablePaise: number;
+  originalPayableDisplay: string;
+  payablePaise: number;
+  payableDisplay: string;
 }
 ```
 
@@ -866,15 +951,15 @@ A coupon is **refused outright once the booking's payment exists**.
 `opsRouter.use(authenticate, requireRoles('ops','admin'))`; mutations additionally
 `requireRoles('admin')`.
 
-| Method | Path | Guard |
-|---|---|---|
-| GET | `/admin/coupons` | ops |
-| GET | `/admin/coupons/stats` | ops — *declared before `/:couponId`* |
-| GET | `/admin/coupons/:couponId` | ops |
-| POST | `/admin/coupons` | **admin** |
-| PATCH | `/admin/coupons/:couponId` | **admin** |
-| POST | `/admin/coupons/:couponId/pause` | **admin** |
-| POST | `/admin/coupons/:couponId/resume` | **admin** |
+| Method | Path                              | Guard                                |
+| ------ | --------------------------------- | ------------------------------------ |
+| GET    | `/admin/coupons`                  | ops                                  |
+| GET    | `/admin/coupons/stats`            | ops — _declared before `/:couponId`_ |
+| GET    | `/admin/coupons/:couponId`        | ops                                  |
+| POST   | `/admin/coupons`                  | **admin**                            |
+| PATCH  | `/admin/coupons/:couponId`        | **admin**                            |
+| POST   | `/admin/coupons/:couponId/pause`  | **admin**                            |
+| POST   | `/admin/coupons/:couponId/resume` | **admin**                            |
 
 ```ts
 // createCouponSchema — .strict()
@@ -901,31 +986,35 @@ A coupon is **refused outright once the booking's payment exists**.
 
 `authenticate + requireRoles('technician')`.
 
-| Method | Path | Body |
-|---|---|---|
-| POST | `/verification/documents/upload-url` | `{ docType: 'id_proof'\|'certificate'\|'photo'\|'other'; contentType: 'image/jpeg'\|'image/png'\|'image/webp'\|'application/pdf'; sizeBytes: number }` |
-| POST | `/verification/documents/:documentId/confirm` | — |
-| GET | `/verification/documents` | — |
-| GET | `/verification/documents/:documentId/download-url` | — |
-| POST | `/verification/levels/:level/submit` | validated by **that level's own schema** |
-| GET | `/verification/cases` | — |
-| GET | `/verification/cases/:caseId` | — |
-| POST | `/verification/cases/:caseId/info` | `{ notes: string (1–2000); documentIds?: uuid[] }` |
+| Method | Path                                               | Body                                                                                                                                                   |
+| ------ | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| POST   | `/verification/documents/upload-url`               | `{ docType: 'id_proof'\|'certificate'\|'photo'\|'other'; contentType: 'image/jpeg'\|'image/png'\|'image/webp'\|'application/pdf'; sizeBytes: number }` |
+| POST   | `/verification/documents/:documentId/confirm`      | —                                                                                                                                                      |
+| GET    | `/verification/documents`                          | —                                                                                                                                                      |
+| GET    | `/verification/documents/:documentId/download-url` | —                                                                                                                                                      |
+| POST   | `/verification/levels/:level/submit`               | validated by **that level's own schema**                                                                                                               |
+| GET    | `/verification/cases`                              | —                                                                                                                                                      |
+| GET    | `/verification/cases/:caseId`                      | —                                                                                                                                                      |
+| POST   | `/verification/cases/:caseId/info`                 | `{ notes: string (1–2000); documentIds?: uuid[] }`                                                                                                     |
 
 `:level` is coerced int **0–3**. `sizeBytes` is declared up front because it is
 **signed into the pre-signed PUT URL** — storage then rejects a different size.
 
 ```ts
 export interface VerificationEventResponse {
-  id: string; eventType: VerificationEventType; actorType: VerificationActorType;
-  notes: string | null;   // REDACTED TO NULL FOR PROVIDERS — ops notes are internal
-  payload: unknown; createdAt: string;
+  id: string;
+  eventType: VerificationEventType;
+  actorType: VerificationActorType;
+  notes: string | null; // REDACTED TO NULL FOR PROVIDERS — ops notes are internal
+  payload: unknown;
+  createdAt: string;
 }
 ```
 
 ### 10.2 Ops
+
 - `GET /queue` — `{ status?; level?: 0–2 (**capped at 2** — references was retired);
-  cityId?; page; page_size / pageSize }`
+cityId?; page; page_size / pageSize }`
 - `GET /cases/:caseId` · `POST /cases/:caseId/review`
 - `POST /cases/:caseId/decide` — `{ decision; notes? }`; **`notes` is required when
   decision is `fail` or `request_info`** — refusing someone must be explainable.
@@ -934,12 +1023,13 @@ export interface VerificationEventResponse {
 
 ## 11. search — `/api/v1/search`
 
-**Both routes are public.** *A customer chooses a technician before they sign in, and
-forcing an account first is the fastest way to lose them.* Per-IP rate limit
+**Both routes are public.** _A customer chooses a technician before they sign in, and
+forcing an account first is the fastest way to lose them._ Per-IP rate limit
 (`SEARCH_RATE_LIMIT_PER_MINUTE`, default **30/min**) is **shared** with
 `GET /providers/:id`, `/slots` and `/reviews`.
 
 **`GET /search/providers`** — `.strict()`
+
 ```ts
 { lat: number;                  // REQUIRED, -90..90
   lng: number;                  // REQUIRED, -180..180
@@ -953,6 +1043,7 @@ forcing an account first is the fastest way to lose them.* Per-IP rate limit
   page?: number;
   page_size?: number }          // 1..25, default 10
 ```
+
 **The availability trio is all-or-nothing** — all three of `date`/`start_time`/`end_time`
 or none, otherwise a 400 on path `['date']`.
 
@@ -962,40 +1053,50 @@ or none, otherwise a 400 on path `['date']`.
 ```ts
 export interface SearchProvidersResponse {
   results: SearchResultCard[];
-  page: number; pageSize: number;
-  total: number;      // may exceed what was ranked — see `truncated`
+  page: number;
+  pageSize: number;
+  total: number; // may exceed what was ranked — see `truncated`
   truncated: boolean;
   sort: 'rank' | 'distance' | 'price_low';
-  query: { cityId; categoryId; maxDistanceKm;
-           availability: { dayOfWeek; startTime; endTime } | null };
+  query: {
+    cityId;
+    categoryId;
+    maxDistanceKm;
+    availability: { dayOfWeek; startTime; endTime } | null;
+  };
 }
 
 export interface SearchResultCard {
   providerId: string;
   displayName: string | null;
   badge: Badge;
-  rating: { average: number; count: number } | null;   // null until rated — never a fake default
+  rating: { average: number; count: number } | null; // null until rated — never a fake default
   jobsCompleted: number;
   yearsExperience: number | null;
-  distanceKm: number;                                  // rounded to 0.1 km — too coarse to triangulate
+  distanceKm: number; // rounded to 0.1 km — too coarse to triangulate
   skills: { categoryId: number; slug: string; name: string }[];
   startingPrice: { amountPaise: number; display: string } | null;
   nextAvailability: { dayOfWeek: number; startTime: string; endTime: string } | null;
-  locality: string | null;                             // human-readable area, NOT coordinates
+  locality: string | null; // human-readable area, NOT coordinates
 }
 ```
+
 **Deliberately absent:** exact coordinates, phone number, completeness internals.
 
 **`GET /search/resolve`** — `{ q: string; city_id?: number; limit?: number (1–20, def 8) }`
+
 > Free text — **in either script** — to category suggestions. Call **as the customer
 > types**, then fire `/providers` with the chosen category.
 
 ```ts
 export interface CategorySuggestion {
-  categoryId: number; slug: string; name: string; nameKey: string;
-  parentId: number | null;        // null for a cluster
+  categoryId: number;
+  slug: string;
+  name: string;
+  nameKey: string;
+  parentId: number | null; // null for a cluster
   matchReason: 'synonym_exact' | 'synonym_prefix' | 'synonym_fuzzy' | 'category_name';
-  confidence: number;             // 0..1
+  confidence: number; // 0..1
   matchedTerm: string | null;
 }
 ```
@@ -1005,25 +1106,34 @@ export interface CategorySuggestion {
 ## 12. reviews
 
 ### 12.1 Public — `GET /providers/:providerId/reviews` · public
+
 `{ page (def 1), page_size (1–50, def 10) }`
+
 ```ts
 export interface PublicReviewView {
-  id: string; stars: number; tags: string[]; text: string | null;
-  authorName: string;   // first name + initial only — full names would be a safety problem
+  id: string;
+  stars: number;
+  tags: string[];
+  text: string | null;
+  authorName: string; // first name + initial only — full names would be a safety problem
   createdAt: string;
 }
 ```
+
 **Only published `customer_to_provider` reviews.** A test asserts no
 `provider_to_customer` review can reach this response.
 
 ### 12.2 Booking-scoped — `/bookings/:bookingId/reviews` · authenticate
+
 - `GET /` → both of a booking's reviews, to its own two parties
 - `POST /` → **201**
+
 ```ts
 { stars: number;      // int 1–5
   tags: string[];     // max 5, validated against the CALLER'S direction
   text?: string }     // 1–500
 ```
+
 > Which direction it is — and therefore which tags are legal — is **derived from who the
 > caller is, never from the request body.**
 
@@ -1032,9 +1142,11 @@ export interface PublicReviewView {
   (`difficult` is the one negative tag, deliberately **internal-only**)
 
 ### 12.3 Report — `POST /reviews/:reviewId/report` · authenticate
+
 `{ reason: string }` 3–300 → **202**. Only a public customer→provider review can be reported.
 
 ### 12.4 Ops — `/api/v1/admin/reviews`
+
 `GET /reports` (oldest first, only against still-`published` reviews) ·
 `POST /:reviewId/hide` · `POST /:reviewId/unhide`
 
@@ -1043,18 +1155,24 @@ export interface PublicReviewView {
 ## 13. complaints
 
 ### 13.1 Customer/technician facing
+
 - `GET /complaints` → complaints this person raised **and** against them. Not paginated.
 - `GET /complaints/:complaintId`
 - `POST /bookings/:bookingId/complaints` · **either party, from ARRIVED onwards**
+
 ```ts
-{ category: 'overcharge'|'no_show'|'quality'|'behavior'|'cash_dispute'|'safety'|'other';
-  description: string }   // 10–1000
+{
+  category: 'overcharge' | 'no_show' | 'quality' | 'behavior' | 'cash_dispute' | 'safety' | 'other';
+  description: string;
+} // 10–1000
 ```
+
 > A **`safety`** complaint from a customer **suspends the technician before this
 > responds** — handled synchronously.
 
 ### 13.2 Ops — `/api/v1/admin/complaints`
-- `GET /` — **oldest first**. *A newest-first queue is one where the oldest is never read.*
+
+- `GET /` — **oldest first**. _A newest-first queue is one where the oldest is never read._
 - `POST /:complaintId/take-up`
 - `POST /:complaintId/resolve` — `{ note (5–1000); severity: 'minor'|'major'|'severe' }`.
   Both mandatory — `severe` suspends.
@@ -1067,6 +1185,7 @@ export interface PublicReviewView {
 ### 14.1 `GET /providers/me/trust` · technician
 
 Computed **live**, not from the last snapshot.
+
 ```ts
 { trust: {
     score: number | null;
@@ -1080,11 +1199,13 @@ Computed **live**, not from the last snapshot.
     trend: { score; badge; trigger; at }[];  // last 10 snapshots
 } }
 ```
+
 > `nextBand` reports both a score gap **and** a volume gap, because a technician told
 > "you need 70", who reaches 72 with four jobs and still sees no badge, has been misled
 > by their own app.
 
 ### 14.2 Ops — `/api/v1/admin/trust`
+
 `POST /suspend` — `{ providerId; days? (1–365); reason (3–300) }` ·
 `POST /:providerId/reinstate` — `{ reason }` · `POST /:providerId/recompute`
 
@@ -1094,25 +1215,26 @@ Computed **live**, not from the last snapshot.
 
 `router.use(authenticate)`. **Every route is scoped to the caller's own inbox.**
 
-| Method | Path | Query / body |
-|---|---|---|
-| GET | `/notifications` | `{ page; page_size?; unread_only: 'true'\|'false' }` `.strict()` |
-| GET | `/notifications/unread-count` | → `{ unread: number }` |
-| POST | `/notifications/read-all` | → `{ marked, unread: 0 }` |
-| POST | `/notifications/:notificationId/read` | → `{ id, read: true, unread }` |
+| Method | Path                                  | Query / body                                                     |
+| ------ | ------------------------------------- | ---------------------------------------------------------------- |
+| GET    | `/notifications`                      | `{ page; page_size?; unread_only: 'true'\|'false' }` `.strict()` |
+| GET    | `/notifications/unread-count`         | → `{ unread: number }`                                           |
+| POST   | `/notifications/read-all`             | → `{ marked, unread: 0 }`                                        |
+| POST   | `/notifications/:notificationId/read` | → `{ id, read: true, unread }`                                   |
 
 ```ts
 export interface NotificationView {
   id: string;
-  topic: string;                        // 'booking.accepted', 'quotation.sent', …
+  topic: string; // 'booking.accepted', 'quotation.sent', …
   title: string;
   body: string;
-  deepLink: string | null;              // 'booking/{{bookingId}}' resolved
+  deepLink: string | null; // 'booking/{{bookingId}}' resolved
   criticality: 'critical' | 'standard';
   read: boolean;
   createdAt: string;
 }
 ```
+
 **Rendered in the user's stored `preferredLanguage`, NOT `Accept-Language`** — an inbox
 that disagreed with the WhatsApp already on their phone would read as two different
 notifications.
@@ -1131,33 +1253,33 @@ enumerate real notification ids. Idempotent.
 endpoint cannot be added un-guarded. Every mutation is audited; `AUDITED_ADMIN_ROUTES`
 in `core/audit.ts` is compared against the real Express stack **in both directions** by CI.
 
-| Method | Path | Guard | Body / query |
-|---|---|---|---|
-| GET | `/admin/summary` | ops | — |
-| GET | `/admin/users` | ops | `{ ...pagination, q?, role?, status? }` |
-| GET | `/admin/users/:userId` | ops | |
-| POST | `/admin/users/:userId/block` | ops | `{ reason (3–500) }` |
-| POST | `/admin/users/:userId/unblock` | ops | `{ reason }` |
-| GET | `/admin/providers` | ops | `{ ...pagination, q?, city_id?, badge?, listed?, suspended?, pending_approval? }` |
-| GET | `/admin/providers/:providerId` | ops | |
-| POST | `/admin/providers/:providerId/approve-entry` | ops | `{ note }` |
-| GET | `/admin/bookings` | ops | `{ ...pagination, q?, status?, from?, to? }` |
-| GET | `/admin/bookings/:bookingId/timeline` | ops | events, quotes, money, what each side was told |
-| POST | `/admin/bookings/:bookingId/otp-unlock` | ops | `{ note; kind: 'start'\|'end'\|'both' }` |
-| POST | `/admin/bookings/:bookingId/accept` | ops | accepts **for** the technician the customer chose — never a reassignment |
-| POST | `/admin/bookings/:bookingId/cancel` | ops | `{ reason }` |
-| GET | `/admin/ledger/journals` | ops | |
-| GET | `/admin/ledger/journals/:journalId` | ops | |
-| GET | `/admin/ledger/position` | ops | |
-| GET/POST | `/admin/queues/outbox`, `/webhooks`, `/deliveries` + retry/discard/reprocess | ops | |
-| GET | `/admin/cities` | ops | |
-| PATCH | `/admin/cities/:cityId` | **admin** | policy about how the marketplace runs |
-| GET | `/admin/audit-logs` | ops | |
-| GET | `/admin/payout-batches` | ops | |
+| Method   | Path                                                                         | Guard     | Body / query                                                                      |
+| -------- | ---------------------------------------------------------------------------- | --------- | --------------------------------------------------------------------------------- |
+| GET      | `/admin/summary`                                                             | ops       | —                                                                                 |
+| GET      | `/admin/users`                                                               | ops       | `{ ...pagination, q?, role?, status? }`                                           |
+| GET      | `/admin/users/:userId`                                                       | ops       |                                                                                   |
+| POST     | `/admin/users/:userId/block`                                                 | ops       | `{ reason (3–500) }`                                                              |
+| POST     | `/admin/users/:userId/unblock`                                               | ops       | `{ reason }`                                                                      |
+| GET      | `/admin/providers`                                                           | ops       | `{ ...pagination, q?, city_id?, badge?, listed?, suspended?, pending_approval? }` |
+| GET      | `/admin/providers/:providerId`                                               | ops       |                                                                                   |
+| POST     | `/admin/providers/:providerId/approve-entry`                                 | ops       | `{ note }`                                                                        |
+| GET      | `/admin/bookings`                                                            | ops       | `{ ...pagination, q?, status?, from?, to? }`                                      |
+| GET      | `/admin/bookings/:bookingId/timeline`                                        | ops       | events, quotes, money, what each side was told                                    |
+| POST     | `/admin/bookings/:bookingId/otp-unlock`                                      | ops       | `{ note; kind: 'start'\|'end'\|'both' }`                                          |
+| POST     | `/admin/bookings/:bookingId/accept`                                          | ops       | accepts **for** the technician the customer chose — never a reassignment          |
+| POST     | `/admin/bookings/:bookingId/cancel`                                          | ops       | `{ reason }`                                                                      |
+| GET      | `/admin/ledger/journals`                                                     | ops       |                                                                                   |
+| GET      | `/admin/ledger/journals/:journalId`                                          | ops       |                                                                                   |
+| GET      | `/admin/ledger/position`                                                     | ops       |                                                                                   |
+| GET/POST | `/admin/queues/outbox`, `/webhooks`, `/deliveries` + retry/discard/reprocess | ops       |                                                                                   |
+| GET      | `/admin/cities`                                                              | ops       |                                                                                   |
+| PATCH    | `/admin/cities/:cityId`                                                      | **admin** | policy about how the marketplace runs                                             |
+| GET      | `/admin/audit-logs`                                                          | ops       |                                                                                   |
+| GET      | `/admin/payout-batches`                                                      | ops       |                                                                                   |
 
 **`GET /admin/audit-logs` scoping:** an `admin` sees everything; an `ops` user is
-**forced server-side** to their own actions only. *A filter the client applies is not a
-permission.* There is deliberately **no endpoint that writes an audit row** — one would
+**forced server-side** to their own actions only. _A filter the client applies is not a
+permission._ There is deliberately **no endpoint that writes an audit row** — one would
 make the whole table deniable.
 
 ---
@@ -1166,12 +1288,13 @@ make the whole table deniable.
 
 Grepped `src/modules/**` for `TODO`, `FIXME`, `not implemented`, `stub`. **There are
 none.** The only hit is a comment in `payments/gateway/fake.ts` saying the fake gateway
-is *"a **real** implementation of the contract, **not** a set of stubs."*
+is _"a **real** implementation of the contract, **not** a set of stubs."_
 
 The `index.ts` header comment ("The rest are empty routers…") is **stale** — every
 listed module now has real handlers.
 
 Two things exist in code but have **no HTTP route**:
+
 1. `refreshAdminSession` / `revokeAdminSession` in `auth/admin-session.ts` — the admin
    console cannot refresh or explicitly log out via HTTP.
 2. `GET /auth/admin-only` — an explicitly-labelled demo route whose JSDoc says delete it.

@@ -6,3 +6,13 @@ apps/api/prisma/migrations/
 
 # Phase prompts are inputs from the product owner — kept byte-for-byte as received.
 PHASE*_PROMPT.md
+
+# Flutter generated output. `.dart_tool` and `build` are produced by the
+# toolchain on every `pub get` and `flutter build`; formatting them is both
+# meaningless and a moving target that fails CI on a clean checkout.
+# Dart's own sources are formatted by `dart format`, not Prettier.
+apps/*/.dart_tool/
+apps/*/build/
+apps/*/android/
+apps/*/ios/
+**/*.dart

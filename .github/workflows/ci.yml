@@ -76,19 +76,8 @@ jobs:
           --health-timeout 3s
           --health-retries 20
 
-      # Object storage for the KYC document round-trip.
-      minio:
-        image: minio/minio:RELEASE.2025-04-22T22-12-26Z
-        env:
-          MINIO_ROOT_USER: fixbridge
-          MINIO_ROOT_PASSWORD: fixbridge-dev-secret
-        ports:
-          - 9000:9000
-        options: >-
-          --health-cmd "mc ready local"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
+      # NOTE: MinIO is deliberately NOT a service container — see the
+      # "Start MinIO" step below for why it cannot be one.
 
     env:
       NODE_ENV: test
@@ -116,6 +105,31 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+
+      # MinIO cannot be a `services:` entry.
+      #
+      # Its image has no default command: the server is started by passing
+      # `server /data`, which is what docker-compose does locally. GitHub
+      # Actions service containers support only `image`, `env`, `ports` and
+      # `options` — there is no way to supply a command — so the container
+      # started, printed its usage, exited, and the job failed at
+      # "Initialize containers" before running a single test.
+      - name: Start MinIO
+        run: |
+          docker run -d --name minio             -p 9000:9000             -e MINIO_ROOT_USER=fixbridge             -e MINIO_ROOT_PASSWORD=fixbridge-dev-secret             minio/minio:RELEASE.2025-04-22T22-12-26Z             server /data
+
+      - name: Wait for MinIO
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:9000/minio/health/live >/dev/null; then
+              echo "MinIO is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "MinIO did not become ready in 60s; its logs follow:" >&2
+          docker logs minio >&2
+          exit 1
 
       - name: Install dependencies
         run: npm ci

@@ -144,9 +144,7 @@ export default function Download() {
         {t('marketing.download.safetyNote')}
       </p>
 
-      <p className="mt-6 text-sm text-slate-500">
-        {t('marketing.download.webFallbackNote')}
-      </p>
+      <p className="mt-6 text-sm text-slate-500">{t('marketing.download.webFallbackNote')}</p>
     </div>
   );
 }

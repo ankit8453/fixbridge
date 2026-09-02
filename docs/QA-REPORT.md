@@ -1,12 +1,12 @@
 # QA Test Report — fixbridge
 
-| | |
-|---|---|
-| **Build under test** | `250b62f` (Confirm every action with a toast, on both surfaces) |
-| **Date** | 31 August 2026 |
-| **Environment** | Local — Postgres 16 (Docker), Redis 7, MinIO, API `:3001`, Web `:3000` |
-| **Method** | Black-box. Real HTTP against the running API, real browser rendering, database invariants read directly. No test imported application code. |
-| **Coverage** | 113 checks: 28 API · 22 booking lifecycle · 17 ops console · 29 UI routes · 17 data-integrity invariants |
+|                      |                                                                                                                                             |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Build under test** | `250b62f` (Confirm every action with a toast, on both surfaces)                                                                             |
+| **Date**             | 31 August 2026                                                                                                                              |
+| **Environment**      | Local — Postgres 16 (Docker), Redis 7, MinIO, API `:3001`, Web `:3000`                                                                      |
+| **Method**           | Black-box. Real HTTP against the running API, real browser rendering, database invariants read directly. No test imported application code. |
+| **Coverage**         | 113 checks: 28 API · 22 booking lifecycle · 17 ops console · 29 UI routes · 17 data-integrity invariants                                    |
 
 ---
 
@@ -16,14 +16,14 @@ Every defect below has been fixed and verified. The full API suite now passes
 **1,078 of 1,078** — the first fully green run, since DEF-003 turned out to be the
 root cause of the three failures carried for weeks as "pre-existing".
 
-| Defect | Status | Verified by |
-|---|---|---|
+| Defect                                  | Status    | Verified by                                                                                                                     |
+| --------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | DEF-003 · coupon routes unauthenticated | **Fixed** | Anonymous read now 401; create/pause/resume now 201/200/200 (were 500). Two regression tests walk every admin route anonymously |
-| DEF-001 · Redis never reconnects | **Fixed** | Retry backs off to a 5-second cap and never gives up. Three unit tests pin the policy |
-| DEF-002 · malformed JSON returns 500 | **Fixed** | Now 400 `BAD_REQUEST`. Regression test added |
-| DEF-004 · queue pagination mismatch | **Fixed** | Both `page_size` and `pageSize` accepted |
+| DEF-001 · Redis never reconnects        | **Fixed** | Retry backs off to a 5-second cap and never gives up. Three unit tests pin the policy                                           |
+| DEF-002 · malformed JSON returns 500    | **Fixed** | Now 400 `BAD_REQUEST`. Regression test added                                                                                    |
+| DEF-004 · queue pagination mismatch     | **Fixed** | Both `page_size` and `pageSize` accepted                                                                                        |
 
-Two further defects were found *while* fixing these, and are also fixed:
+Two further defects were found _while_ fixing these, and are also fixed:
 
 - **`marketing_discount` had the wrong balance sign.** The `account_balances` view
   signs balances so that positive means "holds value", naming the debit-natured
@@ -45,12 +45,12 @@ The report as originally filed follows, unchanged.
 
 The product's core trust mechanisms — the ones the marketing site makes promises about — are **sound and verified working**: the agreed price is genuinely locked, the OTP handshake genuinely gates work, phone numbers are genuinely withheld until acceptance, and money arithmetic is exact. Those held up under deliberate attempts to break them.
 
-| Severity | Count | Must fix before |
-|---|---|---|
-| **Critical** | 1 | Any public deployment |
-| **High** | 1 | Launch |
-| **Medium** | 1 | Launch |
-| **Low** | 1 | Convenient |
+| Severity     | Count | Must fix before       |
+| ------------ | ----- | --------------------- |
+| **Critical** | 1     | Any public deployment |
+| **High**     | 1     | Launch                |
+| **Medium**   | 1     | Launch                |
+| **Low**      | 1     | Convenient            |
 
 ---
 
@@ -70,15 +70,15 @@ No token, no session, no cookie.
 **Root cause** — `apps/api/src/modules/index.ts` lines 87–88:
 
 ```js
-app.use(`${API_PREFIX}/admin/coupons`, couponsOpsRouter);   // matched first
-app.use(`${API_PREFIX}/admin`,         adminRouter);        // never reached
+app.use(`${API_PREFIX}/admin/coupons`, couponsOpsRouter); // matched first
+app.use(`${API_PREFIX}/admin`, adminRouter); // never reached
 ```
 
 `adminRouter` is what calls `authenticate`. The coupon router is mounted as a **sibling before it**, so Express matches `/admin/coupons` there and the auth middleware never runs. `couponsOpsRouter` calls `requireRoles('admin')` on its mutations but never calls `authenticate` itself.
 
 The source comment asserts the opposite of what the wiring does:
 
-> *"Mounted under `/api/v1/admin`, so the admin router's `requireRoles('ops','admin')` … already apply."*
+> _"Mounted under `/api/v1/admin`, so the admin router's `requireRoles('ops','admin')` … already apply."_
 
 **Impact**
 
@@ -101,7 +101,7 @@ The source comment asserts the opposite of what the wiring does:
 
 **Root cause:** `retryStrategy` in `core/redis.ts` returns `null` after `MAX_RECONNECT_ATTEMPTS = 3` at 100 ms apart — about 300 ms. Any outage longer than that (a Docker start takes ~40 s) latches `useMock = true` for the process lifetime.
 
-**Impact:** every Redis-backed feature silently falls back to a per-process in-memory mock — OTP storage, rate limits, distributed job locks, cache. On more than one API instance this is worse than an outage: two processes hold *different* OTP maps, so a booking code issued by one is rejected by the other. Rate limits also reset to empty, removing brute-force protection on OTP verification.
+**Impact:** every Redis-backed feature silently falls back to a per-process in-memory mock — OTP storage, rate limits, distributed job locks, cache. On more than one API instance this is worse than an outage: two processes hold _different_ OTP maps, so a booking code issued by one is rejected by the other. Rate limits also reset to empty, removing brute-force protection on OTP verification.
 
 **Fix:** retry on a capped backoff indefinitely — `Math.min(attempt * 200, 5000)` — rather than returning `null`. The `ready` handler already clears `useMock`, so reconnection alone restores real Redis. The fallback itself is good design; the defect is that it is a one-way door.
 
@@ -118,7 +118,7 @@ The message blames the server for the client's mistake; 5xx rates are the usual 
 
 **Fix:** in the error handler, treat a body-parser `SyntaxError` (or any error carrying a 4xx `status`/`statusCode`) as that status.
 
-*Note: the stack trace visible in dev responses is **not** a defect — `includeStack` is dev-only and explicitly documented. Confirm it stays false in production config.*
+_Note: the stack trace visible in dev responses is **not** a defect — `includeStack` is dev-only and explicitly documented. Confirm it stays false in production config._
 
 ---
 
@@ -139,24 +139,24 @@ Every other admin list takes `page_size`. Because the schema is `.strict()`, a n
 
 ### Trust and money (the product's core promises)
 
-| Verified | Evidence |
-|---|---|
-| Agreed price is locked to the booking | Sent `labourPaise: 1000` against an agreed ₹550 — server ignored the client figure and stored **55000** |
-| A falsified agreed figure is refused | Sent `agreedLabourPaise: 999999` → **400** |
-| Extra labour without a reason is refused | → **400 QUOTATION_LABOUR_INVALID** |
-| Extra labour with a reason is accepted, and the split is visible to the customer | → **201**, `extraLabourPaise` and reason both present in the customer's view |
-| Job cannot complete while a quote awaits decision | → **4xx QUOTATION_PENDING** |
-| Technician cannot approve their own quotation | → **4xx** |
-| Quotation total = labour + parts | Exact to the paisa |
+| Verified                                                                         | Evidence                                                                                                |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Agreed price is locked to the booking                                            | Sent `labourPaise: 1000` against an agreed ₹550 — server ignored the client figure and stored **55000** |
+| A falsified agreed figure is refused                                             | Sent `agreedLabourPaise: 999999` → **400**                                                              |
+| Extra labour without a reason is refused                                         | → **400 QUOTATION_LABOUR_INVALID**                                                                      |
+| Extra labour with a reason is accepted, and the split is visible to the customer | → **201**, `extraLabourPaise` and reason both present in the customer's view                            |
+| Job cannot complete while a quote awaits decision                                | → **4xx QUOTATION_PENDING**                                                                             |
+| Technician cannot approve their own quotation                                    | → **4xx**                                                                                               |
+| Quotation total = labour + parts                                                 | Exact to the paisa                                                                                      |
 
 ### The OTP handshake
 
-| Verified | Evidence |
-|---|---|
-| Start code withheld before acceptance | `startOtp: null` |
+| Verified                                               | Evidence                                                                                                    |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| Start code withheld before acceptance                  | `startOtp: null`                                                                                            |
 | **Technician cannot read the start code from the API** | `null` on the provider view even after acceptance — the code only reaches them from the customer, in person |
-| Wrong code refused | **4xx** |
-| Correct code starts the job | **200** |
+| Wrong code refused                                     | **4xx**                                                                                                     |
+| Correct code starts the job                            | **200**                                                                                                     |
 
 ### State machine and authorization
 
@@ -184,17 +184,17 @@ OTP requests throttled per phone and per IP; admin login throttled per email and
 
 Recorded so they are not re-raised.
 
-| Observation | Finding |
-|---|---|
-| Customer token reached `/providers/me` (200) | Test-data error — both fixtures held *both* roles. Retested with a customer-only account: **403** |
-| `/providers/not-a-uuid` returns 401 not 404 | By design — the public route's path pattern only matches a 36-char uuid, so a non-uuid falls through to authenticated routes. No leak, no crash |
-| Public profile 404 for a listed provider | Fixture had `user.status = 'blocked'`. A fully eligible provider returns **200**. The uniform 404 across missing/unlisted/suspended is deliberate, so the endpoint cannot be used to discover that a technician was suspended |
-| No 429 in a 12-request burst | Local `.env` raises `OTP_MAX_PER_PHONE` to 100 for development. Limiter verified working at 115 requests. **Confirm production uses the code default (5), not the dev override** |
-| Quotation below the agreed rate accepted (201) | Correct — the server ignores the client's figure and stores the agreed amount. The customer cannot be undercharged and the technician cannot manipulate it |
-| 40 audit rows with no actor | All predate the staff-actor fix (`b22bd00`, 26 Aug). A live audited action today records `actorAdminId` correctly — verified by suspending and reinstating a technician |
-| 13 verification events with "12-digit runs" | Phone numbers (`+91` plus 10 digits). Naive regex on my part; no identity leak |
-| 2 bookings "billed above the approved quote" | Fixed-price bookings with no quotation. Payable = price card + visit fee, exactly correct, and the stored breakdown labels the basis as `price_card` |
-| Marketing `/` blank on first load | Vite dev-server cold compile. Renders 3,943 chars at 1.5 s on every subsequent load, zero JS errors. Would not occur against a production build |
+| Observation                                    | Finding                                                                                                                                                                                                                       |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Customer token reached `/providers/me` (200)   | Test-data error — both fixtures held _both_ roles. Retested with a customer-only account: **403**                                                                                                                             |
+| `/providers/not-a-uuid` returns 401 not 404    | By design — the public route's path pattern only matches a 36-char uuid, so a non-uuid falls through to authenticated routes. No leak, no crash                                                                               |
+| Public profile 404 for a listed provider       | Fixture had `user.status = 'blocked'`. A fully eligible provider returns **200**. The uniform 404 across missing/unlisted/suspended is deliberate, so the endpoint cannot be used to discover that a technician was suspended |
+| No 429 in a 12-request burst                   | Local `.env` raises `OTP_MAX_PER_PHONE` to 100 for development. Limiter verified working at 115 requests. **Confirm production uses the code default (5), not the dev override**                                              |
+| Quotation below the agreed rate accepted (201) | Correct — the server ignores the client's figure and stores the agreed amount. The customer cannot be undercharged and the technician cannot manipulate it                                                                    |
+| 40 audit rows with no actor                    | All predate the staff-actor fix (`b22bd00`, 26 Aug). A live audited action today records `actorAdminId` correctly — verified by suspending and reinstating a technician                                                       |
+| 13 verification events with "12-digit runs"    | Phone numbers (`+91` plus 10 digits). Naive regex on my part; no identity leak                                                                                                                                                |
+| 2 bookings "billed above the approved quote"   | Fixed-price bookings with no quotation. Payable = price card + visit fee, exactly correct, and the stored breakdown labels the basis as `price_card`                                                                          |
+| Marketing `/` blank on first load              | Vite dev-server cold compile. Renders 3,943 chars at 1.5 s on every subsequent load, zero JS errors. Would not occur against a production build                                                                               |
 
 ---
 
