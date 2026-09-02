@@ -158,7 +158,8 @@
       "accountBlocked": "This account has been blocked. Please contact support.",
       "adminCredentialsInvalid": "That ID or password was not accepted.",
       "adminChallengeExpired": "That sign-in attempt has expired. Please start again.",
-      "adminTooManyAttempts": "Too many attempts. Please try again shortly."
+      "adminTooManyAttempts": "Too many attempts. Please try again shortly.",
+      "otpDeliveryUnavailable": "We cannot send verification codes at the moment. Please try again shortly."
     },
     "categories": {
       "notFound": "That service is not available.",

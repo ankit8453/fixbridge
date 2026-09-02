@@ -1,3 +1,4 @@
+import { AppError } from '../../core/errors';
 import type { AppLogger } from '../../core/logger';
 
 export interface OtpMessage {
@@ -7,9 +8,12 @@ export interface OtpMessage {
 }
 
 /**
- * How an OTP reaches a human. Real SMS/WhatsApp delivery is Phase 10 — this
- * interface exists now so that phase only adds an implementation and swaps the
- * wiring, with no change to the auth service.
+ * How an OTP reaches a human.
+ *
+ * One interface, three implementations chosen by config — the same discipline
+ * as the payment gateway and the KYC adapters, and for the same reason: the
+ * thing on the other side is a third party we do not control and will want to
+ * replace.
  */
 export interface OtpTransport {
   readonly name: string;
@@ -37,14 +41,66 @@ export function createLoggerOtpTransport(logger: AppLogger): OtpTransport {
 }
 
 /**
- * Refuses to hand back a transport that prints OTPs when running in production.
- * Phase 10 replaces this with a real SMS/WhatsApp adapter.
+ * Boots, but cannot send. For a deployment standing up before its messaging
+ * credentials exist.
+ *
+ * The distinction that matters is **where it fails**. The logger transport is
+ * refused at startup because it would succeed at the wrong thing — printing a
+ * login code into a log file. This one fails at the point of use, with a
+ * message that says why, so everything that does not depend on signing in —
+ * the health check, the service catalogue, search, the TLS certificate — comes
+ * up and can be verified while the messaging side is still being arranged.
+ *
+ * It has to be asked for explicitly (`AUTH_OTP_TRANSPORT=disabled`). Nobody
+ * reaches this state by forgetting to configure something, which is the whole
+ * point: a silently sign-in-less production is worse than one that refuses to
+ * start.
  */
-export function createOtpTransport(logger: AppLogger, nodeEnv: string): OtpTransport {
+export function createDisabledOtpTransport(logger: AppLogger): OtpTransport {
+  return {
+    name: 'disabled',
+    async send({ phone }) {
+      logger.error(
+        { phone },
+        'otp requested but delivery is disabled — set AUTH_OTP_TRANSPORT once a channel is configured',
+      );
+
+      throw new AppError(503, 'OTP_DELIVERY_UNAVAILABLE', 'We cannot send codes just yet', {
+        messageKey: 'errors.auth.otpDeliveryUnavailable',
+      });
+    },
+  };
+}
+
+/**
+ * Picks the transport, and refuses the dangerous combination.
+ *
+ * `logger` in production is the one case that throws at startup rather than at
+ * send time: an app that prints login codes into its own logs is worse than an
+ * app that will not start, and the failure needs to happen where somebody is
+ * watching a deploy rather than three weeks later.
+ */
+export function createOtpTransport(
+  logger: AppLogger,
+  nodeEnv: string,
+  transport: 'logger' | 'disabled' = 'logger',
+): OtpTransport {
+  if (transport === 'disabled') {
+    if (nodeEnv === 'production') {
+      logger.warn(
+        'AUTH_OTP_TRANSPORT=disabled — the API will start, but nobody can sign in until a ' +
+          'messaging channel is configured',
+      );
+    }
+
+    return createDisabledOtpTransport(logger);
+  }
+
   if (nodeEnv === 'production') {
     throw new Error(
-      'No production OTP transport is configured. Real SMS/WhatsApp delivery arrives in Phase 10; ' +
-        'the development transport logs OTPs in plaintext and must never run in production.',
+      'No production OTP transport is configured. The development transport logs OTPs in ' +
+        'plaintext and must never run in production. Set AUTH_OTP_TRANSPORT=disabled to start ' +
+        'without sign-in while a real channel is being arranged.',
     );
   }
 

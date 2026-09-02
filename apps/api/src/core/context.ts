@@ -70,7 +70,7 @@ export function createContext(config: AppConfig = loadConfig()): AppContext {
     prisma: createPrismaClient(config, logger),
     redis,
     version: APP_VERSION,
-    otpTransport: createOtpTransport(logger, config.NODE_ENV),
+    otpTransport: createOtpTransport(logger, config.NODE_ENV, config.AUTH_OTP_TRANSPORT),
     userDenylist: createUserDenylist(redis, config, logger),
     geo: createStubGeoService(),
     storage: createS3StorageService(config, logger),

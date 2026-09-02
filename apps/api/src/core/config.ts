@@ -74,6 +74,16 @@ const baseConfigSchema = z.object({
   JWT_ACCESS_TTL_SECONDS: z.coerce.number().int().min(60).max(3_600).default(900),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
 
+  /**
+   * How a login code reaches somebody.
+   *
+   * `logger` prints it to the terminal and is refused in production. `disabled`
+   * lets the API start without being able to send at all — for a deployment
+   * standing up before its messaging credentials exist. It has to be asked for
+   * explicitly, so nobody arrives there by forgetting to configure something.
+   */
+  AUTH_OTP_TRANSPORT: z.enum(['logger', 'disabled']).default('logger'),
+
   OTP_TTL_SECONDS: z.coerce.number().int().min(60).max(1_800).default(300),
   OTP_MAX_VERIFY_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(5),
   OTP_RATE_WINDOW_SECONDS: z.coerce.number().int().min(60).max(3_600).default(900),
