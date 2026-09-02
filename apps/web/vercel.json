@@ -1,0 +1,22 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "//": "This app is a Vite SPA: every route below is resolved in the browser by the router, not by a file on disk. Without the rewrite, refreshing /en/download asks Vercel for a file at that path, finds none, and returns 404 - which is why the site worked until reloaded. Vercel checks the filesystem before applying rewrites, so real assets and the APKs still serve normally.",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "headers": [
+    {
+      "//": "Android needs the right MIME type or the browser saves the APK as a text file, and must-revalidate stops a stale build being served after a release.",
+      "source": "/downloads/(.*).apk",
+      "headers": [
+        { "key": "Content-Type", "value": "application/vnd.android.package-archive" },
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    },
+    {
+      "//": "Vite fingerprints these filenames, so a changed file gets a new name and can be cached forever.",
+      "source": "/assets/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    }
+  ]
+}

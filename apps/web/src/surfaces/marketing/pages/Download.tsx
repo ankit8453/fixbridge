@@ -14,14 +14,27 @@ import { CtaLink } from '../components/Cta';
  * a greyed "coming soon" button, an App Store badge that goes nowhere — would
  * just leave iPhone owners tapping at nothing. They are told plainly, and
  * pointed at the web app, which does everything the native one does.
- *
- * The APK links are relative paths served as static files. The version is
- * rendered from `VITE_APP_VERSION` so the page cannot claim a build that was
- * never published.
  */
+
+/**
+ * The APKs are served from GitHub Releases, not from this site.
+ *
+ * They are ~36 MB and replaced on every release, which is exactly what git is
+ * bad at — committing them would add 36 MB to the repository's history
+ * permanently, per app, per release, and Vercel would still be rebuilding the
+ * whole site to publish a binary that has nothing to do with the site.
+ * Releases are built for this, cost nothing, and carry their own version
+ * history.
+ *
+ * `/releases/latest/download/<name>` always resolves to the newest published
+ * release, so shipping a new build never requires editing this page — which
+ * means it cannot drift out of step with what is actually published.
+ */
+const RELEASES = 'https://github.com/ankit8453/fixbridge/releases';
+
 const APK = {
-  customer: '/downloads/fixbridge.apk',
-  partner: '/downloads/fixbridge-partner.apk',
+  customer: `${RELEASES}/latest/download/fixbridge.apk`,
+  partner: `${RELEASES}/latest/download/fixbridge-partner.apk`,
 } as const;
 
 const APP_VERSION = import.meta.env.VITE_APP_VERSION ?? '0.1.0';
@@ -94,7 +107,6 @@ export default function Download() {
                 the file to the browser's own downloader. */}
             <a
               href={APK.customer}
-              download
               className="inline-flex min-h-touch items-center justify-center gap-2 rounded-full bg-brand px-5 text-sm font-semibold text-brand-foreground shadow-sm transition-all hover:-translate-y-px hover:opacity-90"
             >
               <DownloadIcon />
@@ -102,7 +114,6 @@ export default function Download() {
             </a>
             <a
               href={APK.partner}
-              download
               className="inline-flex min-h-touch items-center justify-center gap-2 rounded-full border border-slate-200 px-5 text-sm font-semibold text-slate-700 transition-colors hover:border-brand hover:text-brand"
             >
               <DownloadIcon />
