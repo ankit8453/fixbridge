@@ -43,6 +43,14 @@ RUN npm ci --workspace @fixbridge/shared --workspace @fixbridge/api \
 # invalidate the dependency layer.
 COPY apps/api/ apps/api/
 
+# Node sizes its heap from the machine's memory, so on a 1 GiB VM it picks a
+# limit `tsc` exceeds part-way through this project — the build dies with
+# "Ineffective mark-compacts near heap limit", which names the symptom and not
+# the cause. Raising it past physical RAM is deliberate: the box has 2 GB of
+# swap, and a slow compile beats a failed one. On a larger machine the limit is
+# simply never reached, so this costs nothing there.
+ENV NODE_OPTIONS=--max-old-space-size=1536
+
 RUN npx --workspace @fixbridge/api prisma generate \
     && npm run build --workspace @fixbridge/api
 
