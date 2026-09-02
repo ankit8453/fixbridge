@@ -1,0 +1,41 @@
+# TLS for the API, obtained and renewed automatically.
+#
+# Caddy asks Let's Encrypt for a certificate the first time it starts, then
+# renews it on its own for as long as it runs. There is no certbot, no cron
+# entry and nothing to remember — which matters more than it sounds, because a
+# certificate that expires fourteen months from now expires on a day nobody is
+# thinking about it.
+#
+# Requirement: `api.fixbridge.me` must already resolve to this VM before the
+# container starts, or the ACME challenge fails and Caddy retries in a loop.
+
+{
+	email {$TLS_EMAIL}
+}
+
+{$API_DOMAIN} {
+	# The API container is not published to the host — this is the only route
+	# to it, and it runs over the internal Docker network.
+	reverse_proxy api:3000
+
+	encode gzip
+
+	header {
+		# HSTS. Once a browser has seen this it refuses plain HTTP to this
+		# host, which closes the downgrade window on a phone using café wifi.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# Nothing here is a browsable site, so no reason to advertise the server.
+		-Server
+	}
+
+	log {
+		output stdout
+		format console
+		# Health checks every 30 seconds would otherwise be most of the log.
+		# `docker logs` on a 1 GB box is not the place to store them.
+		level WARN
+	}
+}

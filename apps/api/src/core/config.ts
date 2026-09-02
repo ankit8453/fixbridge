@@ -311,11 +311,56 @@ const baseConfigSchema = z.object({
    * below: shipping a payments build that silently takes fake money would be
    * the worst possible failure of this phase.
    */
-  PAYMENT_GATEWAY: z.enum(['fake', 'razorpay']).default('fake'),
+  PAYMENT_GATEWAY: z.enum(['fake', 'razorpay', 'paytm']).default('fake'),
   /** Required only when `PAYMENT_GATEWAY=razorpay`. Never logged, never in code. */
   RAZORPAY_KEY_ID: z.string().min(1).optional(),
   RAZORPAY_KEY_SECRET: z.string().min(1).optional(),
   RAZORPAY_WEBHOOK_SECRET: z.string().min(1).optional(),
+
+  /* ---- Paytm. Required only when `PAYMENT_GATEWAY=paytm`. ---- */
+
+  /**
+   * Merchant ID. Public — it is sent to the client to open checkout, and is
+   * the closest thing Paytm has to Razorpay's publishable key.
+   */
+  PAYTM_MID: z.string().min(1).optional(),
+
+  /**
+   * Merchant key. **The secret.** Every checksum is derived from it, so it
+   * signs and verifies everything and must never leave the server or reach a
+   * log line.
+   */
+  PAYTM_MERCHANT_KEY: z.string().min(1).optional(),
+
+  /**
+   * The website identifier Paytm issues alongside the MID. Staging is
+   * `WEBSTAGING`; production is whatever the dashboard shows, commonly
+   * `DEFAULT`. Wrong values here fail at Initiate Transaction rather than at
+   * payment, which is at least an early and obvious failure.
+   */
+  PAYTM_WEBSITE: z.string().min(1).default('WEBSTAGING'),
+
+  /**
+   * API host, without a trailing slash.
+   *
+   * Staging is `https://securestage.paytmpayments.com`; production is
+   * `https://secure.paytmpayments.com`. Note this is the newer
+   * `paytmpayments.com` domain — older guides still show `securegw.paytm.in`.
+   *
+   * A host rather than a `staging: boolean` because the two differ only by
+   * hostname, and a boolean invites a build that is "not staging" without
+   * anyone checking what that actually points at.
+   */
+  PAYTM_HOST: z.string().url().default('https://securestage.paytmpayments.com'),
+
+  /**
+   * Where Paytm sends the customer back to after payment.
+   *
+   * Paytm posts the result here as a form. It is **not** treated as proof of
+   * anything — see the adapter — but it has to exist and be reachable, and
+   * Paytm validates it against the merchant configuration.
+   */
+  PAYTM_CALLBACK_URL: z.string().url().optional(),
   /** The platform's cut when no `commission_config` row applies. 1200 = 12%. */
   COMMISSION_DEFAULT_BPS: z.coerce.number().int().min(0).max(10_000).default(1_200),
   /**

@@ -1,0 +1,201 @@
+# Production stack for a single small VM.
+#
+#     docker compose -f docker-compose.prod.yml up -d
+#
+# Everything runs on one box: Postgres, Redis, the API, and Caddy in front of
+# them doing TLS. That is a deliberate choice for the pilot, not a shortcut —
+# Azure's managed Postgres and Redis together cost more per month than the VM
+# and the whole rest of the stack, and at this volume they buy nothing the VM
+# cannot do. Moving to managed services later is a connection-string change.
+#
+# Differences from `docker-compose.yml`, which is for a developer's laptop:
+#
+#   * **No published database ports.** Postgres and Redis listen only on the
+#     internal Docker network. On a public VM, `ports: 5432:5432` is an open
+#     database, and it will be found within hours.
+#   * **No MinIO.** KYC documents go to Cloudflare R2, which is S3-compatible,
+#     free to 10 GB, and not this VM's disk to lose.
+#   * **Passwords come from the environment** with no defaults. A missing value
+#     fails the container rather than quietly starting with `fixbridge`.
+#   * **Memory limits.** Sized for a 1 GiB VM: 320M Postgres + 96M Redis +
+#     300M API + 48M Caddy leaves roughly 250M for the kernel and sshd. Without
+#     limits an unbounded Postgres takes what it wants and the OOM killer
+#     reaps Node instead — the one process whose death nobody notices until a
+#     customer cannot book. **A swap file is required**, see deploy/README.md.
+name: fixbridge
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: fixbridge-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    # Tuned down from the defaults, which assume a machine with room to spare.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - max_connections=40
+      - -c
+      - effective_cache_size=256MB
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 320M
+
+  redis:
+    image: redis:7-alpine
+    container_name: fixbridge-redis
+    restart: unless-stopped
+    # `appendonly` because Redis holds live OTPs and rate-limit counters. Losing
+    # them on a restart would sign everyone out mid-verification; 60 seconds of
+    # replay risk is the better trade.
+    #
+    # `maxmemory-policy noeviction` is deliberate and important: the default
+    # would silently evict keys under pressure, and an evicted OTP is a customer
+    # who cannot sign in with a code we told them was valid. Better to fail the
+    # write loudly.
+    command:
+      - redis-server
+      - --appendonly
+      - 'yes'
+      - --maxmemory
+      - 96mb
+      - --maxmemory-policy
+      - noeviction
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 12
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: runtime
+    image: fixbridge-api:latest
+    container_name: fixbridge-api
+    restart: unless-stopped
+    env_file:
+      # `format: raw` disables Compose's variable interpolation for this file.
+      #
+      # Without it, a secret containing a `$` is silently mangled: Compose
+      # treats `$MBG` in ADMIN_PASSWORD as a variable reference, finds nothing,
+      # and substitutes an empty string — so the container receives a password
+      # four characters shorter than the one in the file, with no error. That
+      # is a locked-out admin console that looks like a wrong password.
+      #
+      # Requires Compose v2.30+. Check with `docker compose version`.
+      - path: apps/api/.env
+        format: raw
+    environment:
+      NODE_ENV: production
+      # Container names, not localhost: these resolve on the Docker network.
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    # Not published to the host. Caddy reaches it over the Docker network, so
+    # the only port open to the internet is 443.
+    expose:
+      - '3000'
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'node -e "fetch(''http://127.0.0.1:3000/health'').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"',
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+
+  # Migrations and the production seed. Runs to completion and exits, so it is
+  # in the `tools` profile and never starts with `up`.
+  #
+  #     docker compose -f docker-compose.prod.yml run --rm migrate
+  #     docker compose -f docker-compose.prod.yml run --rm migrate npm run seed:production
+  #     docker compose -f docker-compose.prod.yml run --rm migrate npm run bootstrap:admin
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: migrate
+    image: fixbridge-migrate:latest
+    profiles: [tools]
+    env_file:
+      # `format: raw` disables Compose's variable interpolation for this file.
+      #
+      # Without it, a secret containing a `$` is silently mangled: Compose
+      # treats `$MBG` in ADMIN_PASSWORD as a variable reference, finds nothing,
+      # and substitutes an empty string — so the container receives a password
+      # four characters shorter than the one in the file, with no error. That
+      # is a locked-out admin console that looks like a wrong password.
+      #
+      # Requires Compose v2.30+. Check with `docker compose version`.
+      - path: apps/api/.env
+        format: raw
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  # TLS and the only door into this box.
+  #
+  # Caddy obtains and renews a Let's Encrypt certificate on its own, with no
+  # cron job and no certbot — it needs the domain to already point here, and
+  # then it is finished. That is the whole reason it is preferred over nginx:
+  # one less thing to remember in fourteen months.
+  caddy:
+    image: caddy:2-alpine
+    container_name: fixbridge-caddy
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN, e.g. api.fixbridge.me}
+      TLS_EMAIL: ${TLS_EMAIL:?set TLS_EMAIL for Let's Encrypt expiry notices}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+    deploy:
+      resources:
+        limits:
+          memory: 48M
+
+volumes:
+  postgres-data:
+  redis-data:
+  caddy-data:
+  caddy-config:

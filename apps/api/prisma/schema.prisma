@@ -1438,6 +1438,7 @@ enum PaymentMethod {
 enum PaymentGatewayName {
   fake
   razorpay
+  paytm
 
   @@map("payment_gateway_name")
 }
