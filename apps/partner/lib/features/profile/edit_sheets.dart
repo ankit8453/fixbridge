@@ -333,11 +333,14 @@ class _AvailabilitySheetState extends State<AvailabilitySheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
+      // `sheetBottom`, not a constant: a fixed inset leaves Save sitting under
+      // the gesture bar on a phone with no physical buttons, which is most of
+      // them. The two sheets above this one already do it; this one was missed.
+      padding: EdgeInsets.fromLTRB(
         AppSpacing.xl,
         AppSpacing.sm,
         AppSpacing.xl,
-        AppSpacing.xl,
+        AppSpacing.sheetBottom(context),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

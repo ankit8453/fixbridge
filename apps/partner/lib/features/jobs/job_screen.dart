@@ -790,11 +790,13 @@ class _CashSheet extends StatelessWidget {
     final payable = booking.payable;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
+      // Same reason as every other sheet: a constant inset puts the button
+      // under the gesture bar on a phone with no physical buttons.
+      padding: EdgeInsets.fromLTRB(
         AppSpacing.xl,
         AppSpacing.sm,
         AppSpacing.xl,
-        AppSpacing.xl,
+        AppSpacing.sheetBottom(context),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
