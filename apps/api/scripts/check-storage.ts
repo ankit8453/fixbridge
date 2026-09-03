@@ -31,6 +31,25 @@ function ok(message: string): void {
   console.log(`  ok    ${message}`);
 }
 
+/**
+ * Node's `fetch` reports almost every transport problem as the single word
+ * "fetch failed" and hides the reason one level down in `cause` — DNS, TLS,
+ * a refused connection and a header the client rejected all look identical
+ * from the outside. Unwrap the chain, or the diagnostic is no diagnostic.
+ */
+function explain(error: unknown): string {
+  const parts: string[] = [];
+  let current: unknown = error;
+
+  for (let depth = 0; current instanceof Error && depth < 5; depth += 1) {
+    const code = (current as NodeJS.ErrnoException).code;
+    parts.push(`${current.name}: ${current.message}${code ? ` (${code})` : ''}`);
+    current = (current as { cause?: unknown }).cause;
+  }
+
+  return parts.join('\n  caused by  ') || String(error);
+}
+
 async function main(): Promise<void> {
   const config = loadConfig();
   const logger = createLogger(config);
@@ -65,10 +84,25 @@ async function main(): Promise<void> {
    * sent headers disagree — which is the single most common way an S3-
    * compatible provider differs from S3, and the reason this check exists.
    */
+  /**
+   * `Content-Length` is deliberately not sent here, though the API returns it.
+   *
+   * It is a forbidden header for browsers: a browser silently drops it and
+   * sets the true length itself, so the web uploader passing `requiredHeaders`
+   * verbatim works. Node's fetch instead rejects the request outright rather
+   * than deferring to its own body length — so sending it here would fail on
+   * a path no real client takes, and hide whatever the true answer is. The
+   * length is still signed into the URL, so storage enforces it regardless.
+   */
+  const { 'Content-Length': _length, ...sendHeaders } = upload.requiredHeaders;
+
   const put = await fetch(upload.url, {
     method: 'PUT',
-    headers: upload.requiredHeaders,
+    headers: sendHeaders,
     body,
+  }).catch((cause: unknown) => {
+    throw new Error(`could not reach storage to upload:
+  ${explain(cause)}`);
   });
 
   if (!put.ok) {
@@ -133,7 +167,7 @@ async function main(): Promise<void> {
 
 main().catch((error: unknown) => {
   console.error(`\nFAILED while ${step}:`);
-  console.error(error instanceof Error ? error.message : error);
+  console.error(explain(error));
   console.error(
     '\nIf this is the first run against a new bucket, check in order: the ' +
       'endpoint includes the account id, the bucket name matches exactly, the ' +
