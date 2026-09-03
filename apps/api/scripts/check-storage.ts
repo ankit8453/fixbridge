@@ -1,3 +1,4 @@
+import { request as httpsRequest } from 'node:https';
 import { loadConfig } from '../src/core/config';
 import { createLogger } from '../src/core/logger';
 import { createS3StorageService } from '../src/core/storage';
@@ -50,6 +51,37 @@ function explain(error: unknown): string {
   return parts.join('\n  caused by  ') || String(error);
 }
 
+/** What the signature actually covers. A mismatch here is the usual culprit. */
+function signedHeaders(url: string): string {
+  return new URL(url).searchParams.get('X-Amz-SignedHeaders') ?? '(none)';
+}
+
+/**
+ * A PUT with the headers exactly as given — including `Content-Length`, which
+ * `fetch` forbids and every real client sends.
+ */
+function rawPut(
+  url: string,
+  headers: Record<string, string>,
+  body: Buffer,
+): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const request = httpsRequest(url, { method: 'PUT', headers }, (response) => {
+      const chunks: Buffer[] = [];
+      response.on('data', (chunk: Buffer) => chunks.push(chunk));
+      response.on('end', () =>
+        resolve({
+          status: response.statusCode ?? 0,
+          body: Buffer.concat(chunks).toString('utf8'),
+        }),
+      );
+    });
+
+    request.on('error', reject);
+    request.end(body);
+  });
+}
+
 async function main(): Promise<void> {
   const config = loadConfig();
   const logger = createLogger(config);
@@ -79,36 +111,26 @@ async function main(): Promise<void> {
 
   step = 'uploading through the signed URL';
   /**
-   * The headers go on **verbatim**, exactly as both clients do it. If this
-   * fails with 403 while the credentials are fine, the signed headers and the
-   * sent headers disagree — which is the single most common way an S3-
-   * compatible provider differs from S3, and the reason this check exists.
-   */
-  /**
-   * `Content-Length` is deliberately not sent here, though the API returns it.
+   * Sent exactly as the phone sends it, through `node:https` rather than
+   * `fetch`.
    *
-   * It is a forbidden header for browsers: a browser silently drops it and
-   * sets the true length itself, so the web uploader passing `requiredHeaders`
-   * verbatim works. Node's fetch instead rejects the request outright rather
-   * than deferring to its own body length — so sending it here would fail on
-   * a path no real client takes, and hide whatever the true answer is. The
-   * length is still signed into the URL, so storage enforces it regardless.
+   * That is the whole point of this step. `fetch` refuses to let a caller set
+   * `Content-Length` and computes its own, so a check written with `fetch`
+   * quietly tests a request no real client makes — and passes while both apps
+   * fail. Dio on the phone and XHR in the browser both put the issued headers
+   * on verbatim, so this does too.
    */
-  const { 'Content-Length': _length, ...sendHeaders } = upload.requiredHeaders;
+  console.log(`        signed headers: ${signedHeaders(upload.url)}`);
 
-  const put = await fetch(upload.url, {
-    method: 'PUT',
-    headers: sendHeaders,
-    body,
-  }).catch((cause: unknown) => {
-    throw new Error(`could not reach storage to upload:
-  ${explain(cause)}`);
-  });
+  const put = await rawPut(upload.url, upload.requiredHeaders, body);
 
-  if (!put.ok) {
+  if (put.status >= 300) {
     throw new Error(
-      `storage refused the upload: ${put.status} ${put.statusText}\n` +
-        `${(await put.text().catch(() => '')).slice(0, 400)}`,
+      [
+        `storage refused the upload: ${put.status}`,
+        `        sent: ${JSON.stringify(upload.requiredHeaders)}`,
+        `        ${put.body.slice(0, 400).replace(/\s+/g, ' ')}`,
+      ].join('\n'),
     );
   }
   ok(`uploaded ${body.byteLength} bytes`);
