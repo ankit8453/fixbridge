@@ -161,6 +161,28 @@ class BookingRepository {
     return PaymentOrder.fromJson(json);
   }
 
+  /// Says the customer will pay in cash.
+  ///
+  /// **Only the customer chooses.** The technician can confirm holding the
+  /// money afterwards, but cannot decide how they were paid — before this
+  /// split, both sides had independent buttons and a card payment could race a
+  /// cash one on the same job.
+  ///
+  /// Safe to call twice: the API returns the existing choice rather than
+  /// erroring, which on a bad connection is the common case.
+  Future<void> chooseCash(String bookingId) async {
+    await _api.post<Map<String, dynamic>>('/bookings/$bookingId/payments/cash-choice');
+  }
+
+  /// Undoes that, to pay online instead.
+  ///
+  /// Refused once the technician has confirmed — the money is in somebody's
+  /// hand by then. Until then it has to be possible, or a customer whose
+  /// technician has already left is stuck with a bill they cannot settle.
+  Future<void> undoCashChoice(String bookingId) async {
+    await _api.delete<Map<String, dynamic>>('/bookings/$bookingId/payments/cash-choice');
+  }
+
   /// Hands the gateway's signed result back for verification.
   ///
   /// **This does not mean paid.** It verifies the signature and stamps a flag

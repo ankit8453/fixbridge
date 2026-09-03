@@ -467,15 +467,32 @@ class _Slots extends StatelessWidget {
     );
   }
 
+  /// The weekday and the date, always — matching the website.
+  ///
+  /// This used to read "Today", "Tomorrow", then a bare "5/9". Two problems.
+  /// A day heading of "5/9" does not read as a date at a glance, and nothing
+  /// past tomorrow named its weekday at all — so somebody booking for the
+  /// weekend had no way to tell which chip was Saturday. "Today" still leads,
+  /// because that is genuinely the most useful thing to say about today, but
+  /// the date now comes with it.
   static String _dayLabel(DateTime dt) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final day = DateTime(dt.year, dt.month, dt.day);
     final diff = day.difference(today).inDays;
+
+    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+
+    final date = '${dt.day} ${months[dt.month - 1]}';
+
     return switch (diff) {
-      0 => 'Today',
-      1 => 'Tomorrow',
-      _ => '${dt.day}/${dt.month}',
+      0 => 'Today, $date',
+      1 => 'Tomorrow, $date',
+      _ => '${weekdays[dt.weekday - 1]}, $date',
     };
   }
 }

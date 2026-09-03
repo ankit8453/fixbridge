@@ -202,6 +202,66 @@ class AgreedLabour {
 
 /// A booking, in full. The app's centre of gravity — this one object drives
 /// eleven different shapes of the detail screen.
+/// How this bill is being settled, as far as anyone has said.
+///
+/// One state rather than a set of flags. "Unpaid, cash chosen, paid" are
+/// mutually exclusive, and a screen driven by independent booleans eventually
+/// shows two of them at once — which is exactly how a customer ended up being
+/// offered "Pay now" on a job the technician had already collected cash for.
+enum SettlementState {
+  /// No bill frozen yet, or nothing was owed.
+  nothingDue,
+
+  /// A bill exists and the customer has not picked how to pay.
+  awaitingChoice,
+
+  /// The customer chose cash. The technician has not confirmed holding it.
+  cashChosen,
+
+  /// A gateway order is open and unpaid.
+  onlinePending,
+
+  /// Settled, by either rail.
+  paid,
+}
+
+class Settlement {
+  const Settlement({required this.state, this.method, this.paidAt});
+
+  final SettlementState state;
+
+  /// `online`, `cash`, or null before anyone has chosen.
+  final String? method;
+  final DateTime? paidAt;
+
+  bool get isPaid => state == SettlementState.paid;
+  bool get wasCash => method == 'cash';
+
+  /// True only while the technician's confirmation is the missing step. The
+  /// one condition under which they are offered a payment action at all.
+  bool get awaitsTechnician => state == SettlementState.cashChosen;
+
+  static const nothingDue = Settlement(state: SettlementState.nothingDue);
+
+  /// Falls back to [nothingDue] when the field is absent, so an older API
+  /// leaves both apps quiet rather than offering the wrong button.
+  static Settlement fromJson(Map<String, dynamic>? json) {
+    if (json == null) return nothingDue;
+
+    return Settlement(
+      state: switch (json['state'] as String?) {
+        'awaiting_choice' => SettlementState.awaitingChoice,
+        'cash_chosen' => SettlementState.cashChosen,
+        'online_pending' => SettlementState.onlinePending,
+        'paid' => SettlementState.paid,
+        _ => SettlementState.nothingDue,
+      },
+      method: json['method'] as String?,
+      paidAt: DateTime.tryParse(json['paidAt'] as String? ?? '')?.toLocal(),
+    );
+  }
+}
+
 class Booking {
   const Booking({
     required this.id,
@@ -217,6 +277,7 @@ class Booking {
     required this.approvedQuotation,
     required this.payablePaise,
     required this.payable,
+    required this.settlement,
     required this.address,
     required this.counterpart,
     required this.startOtp,
@@ -248,6 +309,9 @@ class Booking {
   /// Frozen at the terminal transition; null before then.
   final int? payablePaise;
   final Payable? payable;
+
+  /// Where the money is. Drives every payment control on both sides.
+  final Settlement settlement;
 
   final BookingAddress? address;
   final Counterpart counterpart;
@@ -300,6 +364,9 @@ class Booking {
       payablePaise: asPaiseOrNull(json['payablePaise']),
       payable:
           Payable.fromJson((json['payable'] as Map?)?.cast<String, dynamic>()),
+      settlement: Settlement.fromJson(
+        (json['settlement'] as Map?)?.cast<String, dynamic>(),
+      ),
       address: BookingAddress.fromJson(json['address']),
       counterpart: Counterpart.fromJson(
           (json['counterpart'] as Map?)?.cast<String, dynamic>()),

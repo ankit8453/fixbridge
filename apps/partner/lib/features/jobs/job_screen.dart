@@ -431,6 +431,11 @@ class _AddressCard extends StatelessWidget {
     final text = map?['addressText'] as String? ?? '';
     final landmark = map?['landmark'] as String?;
 
+    // The snapshot carries the customer's real coordinates. Using them beats
+    // any text search, and the text is only a fallback for an older booking.
+    final lat = (map?['lat'] as num?)?.toDouble();
+    final lng = (map?['lng'] as num?)?.toDouble();
+
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -455,7 +460,17 @@ class _AddressCard extends StatelessWidget {
             label: 'Open in Maps',
             kind: AppButtonKind.ghost,
             icon: Icons.map_outlined,
-            onPressed: () => _openMaps(context, [text, landmark].join(' ')),
+            onPressed: () => _openMaps(
+              context,
+              lat: lat,
+              lng: lng,
+              // `join` on a list holding a null writes the word "null" into
+              // the query — which is what opened a maps search for "null".
+              address: [text, landmark]
+                  .whereType<String>()
+                  .where((part) => part.isNotEmpty)
+                  .join(', '),
+            ),
           ),
         ],
       ),
@@ -581,7 +596,17 @@ class _ApprovedQuoteCard extends StatelessWidget {
       );
 }
 
-class _PaymentCard extends ConsumerWidget {
+/// Getting paid, from the technician's side.
+///
+/// **The technician never chooses the method.** They confirm cash, and only
+/// once the customer has said that is how they are paying. Before this, both
+/// sides had a payment button the moment a bill was frozen — so a customer
+/// could pay by card while the technician marked the same job cash, and
+/// nothing said which was true.
+///
+/// Everything here reads from `booking.settlement`, one state from the API,
+/// rather than from a set of independent flags that can contradict each other.
+class _PaymentCard extends StatelessWidget {
   const _PaymentCard({
     required this.booking,
     required this.busy,
@@ -593,79 +618,104 @@ class _PaymentCard extends ConsumerWidget {
   final VoidCallback onCash;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final payments = ref.watch(jobPaymentsProvider(booking.id));
+  Widget build(BuildContext context) {
+    final settlement = booking.settlement;
     final payable = booking.payable;
 
-    return payments.maybeWhen(
-      data: (list) {
-        final settled = list.any((p) => p.isCaptured as bool);
+    if (settlement.isPaid) {
+      return _Settled(wasCash: settlement.wasCash);
+    }
 
-        if (settled) {
-          final cash = list.any(
-            (p) => (p.isCaptured as bool) && (p.isCash as bool),
-          );
-          return AppCard(
-            color: AppColors.greenSoft,
-            borderColor: AppColors.greenSoft,
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.check_circle_rounded,
-                  size: 18,
-                  color: AppColors.green,
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Text(
-                    cash
-                        ? 'Paid in cash. Our commission has been added to what '
-                            'you owe us.'
-                        : 'Paid online. It will appear in your next payout.',
-                    style: AppType.meta.copyWith(color: AppColors.ink),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
+    final amount = payable == null
+        ? '—'
+        : Paise.show(payable.payableDisplay, payable.payablePaise);
 
-        return AppCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
+              Text('To collect', style: AppType.cardTitle),
+              const Spacer(),
+              Text(amount, style: AppType.amountLarge.copyWith(fontSize: 22)),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+
+          switch (settlement.state) {
+            // The customer has the choice in front of them. Nothing for the
+            // technician to do but wait — and saying so is better than an
+            // inert button, which invites a tap that would be a guess.
+            SettlementState.awaitingChoice => Text(
+                'Waiting for ${booking.counterpart.displayName} to choose how '
+                'to pay. Ask them to open the app.',
+                style: AppType.caption.copyWith(color: AppColors.grey),
+              ),
+
+            SettlementState.onlinePending => Text(
+                'They are paying online. Nothing for you to do — it will '
+                'appear in your next payout.',
+                style: AppType.caption.copyWith(color: AppColors.grey),
+              ),
+
+            // The one state where the technician acts.
+            SettlementState.cashChosen => Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('To collect', style: AppType.cardTitle),
-                  const Spacer(),
                   Text(
-                    payable == null
-                        ? '—'
-                        : Paise.show(
-                            payable.payableDisplay,
-                            payable.payablePaise,
-                          ),
-                    style: AppType.amountLarge.copyWith(fontSize: 22),
+                    'They chose to pay cash. Confirm only once the money is '
+                    'actually in your hand.',
+                    style: AppType.caption.copyWith(color: AppColors.grey),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  AppButton(
+                    label: 'I have the cash',
+                    onPressed: busy ? null : onCash,
                   ),
                 ],
               ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                'If they pay online you do nothing. Only record cash if they '
-                'actually handed it to you.',
+
+            _ => Text(
+                'Nothing to collect on this job.',
                 style: AppType.caption.copyWith(color: AppColors.grey),
               ),
-              const SizedBox(height: AppSpacing.md),
-              AppButton(
-                label: 'They paid me in cash',
-                kind: AppButtonKind.ghost,
-                onPressed: busy ? null : onCash,
-              ),
-            ],
+          },
+        ],
+      ),
+    );
+  }
+}
+
+class _Settled extends StatelessWidget {
+  const _Settled({required this.wasCash});
+
+  final bool wasCash;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      color: AppColors.greenSoft,
+      borderColor: AppColors.greenSoft,
+      child: Row(
+        children: [
+          const Icon(
+            Icons.check_circle_rounded,
+            size: 18,
+            color: AppColors.green,
           ),
-        );
-      },
-      orElse: () => const Shimmer(height: 110, radius: 20),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Text(
+              wasCash
+                  ? 'Paid in cash. Our commission has been added to what you '
+                      'owe us.'
+                  : 'Paid online. It will appear in your next payout.',
+              style: AppType.meta.copyWith(color: AppColors.ink),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -686,7 +736,12 @@ class _Details extends StatelessWidget {
               'Agreed rate',
               Paise.format(booking.agreedLabour.amountPaise!),
             ),
-          _row('Visit fee', Paise.format(booking.visitFeePaise)),
+          // Only when there is one. It was drawn unconditionally, so a job
+          // with no visit fee still showed a "Visit fee" line — and a fee the
+          // customer is not being charged is worse than a missing row: the
+          // technician quotes from this screen.
+          if (booking.visitFeePaise > 0)
+            _row('Visit fee', Paise.format(booking.visitFeePaise)),
         ],
       ),
     );
@@ -1025,15 +1080,38 @@ Future<void> _call(BuildContext context, String phone) async {
   }
 }
 
-/// Hands the address to whatever maps app is installed.
-Future<void> _openMaps(BuildContext context, String address) async {
-  final query = Uri.encodeComponent(address.trim());
-  final uri = Uri.parse('geo:0,0?q=$query');
+/// Opens the customer's location in whatever maps app is installed.
+///
+/// Coordinates first. The booking snapshot holds the exact point the customer
+/// picked, and a text search for "Surtalai, near the bus stop" lands a
+/// technician somewhere in the right neighbourhood at best — which on a job
+/// where they are being timed is not good enough.
+///
+/// The text is kept as the query on the pin so the maps app has something to
+/// label it with, and as the whole fallback for a booking made before
+/// coordinates were captured.
+Future<void> _openMaps(
+  BuildContext context, {
+  required double? lat,
+  required double? lng,
+  required String address,
+}) async {
+  final label = Uri.encodeComponent(address.trim());
+  final hasPoint = lat != null && lng != null;
+
+  final uri = hasPoint
+      // `geo:lat,lng?q=lat,lng(label)` drops a pin on the point itself. Giving
+      // `q` the coordinates rather than the text matters: with text there, most
+      // maps apps search for it and ignore the point entirely.
+      ? Uri.parse('geo:$lat,$lng?q=$lat,$lng($label)')
+      : Uri.parse('geo:0,0?q=$label');
 
   if (await canLaunchUrl(uri)) {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
     return;
   }
+
+  // Nothing to copy but the text — coordinates in a clipboard help nobody.
   await Clipboard.setData(ClipboardData(text: address));
   if (context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(

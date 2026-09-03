@@ -89,6 +89,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                 busy: _busy,
                 onCancel: () => _cancel(b),
                 onPay: () => _pay(b),
+                onChooseCash: () => _chooseCash(b),
+                onUndoCash: () => _undoCash(b),
               ),
             ],
           ),
@@ -308,8 +310,36 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
   void _pay(Booking b) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Payment is the next thing being built.')),
+      const SnackBar(content: Text('Online payment is not switched on yet.')),
     );
+  }
+
+  /// Chooses cash. Confirmed a step first, because this is what tells the
+  /// technician to expect money — and an accidental tap sends them asking for
+  /// notes the customer never meant to hand over.
+  Future<void> _chooseCash(Booking b) async {
+    final ok = await _confirm(
+      title: 'Pay in cash?',
+      message: 'Your technician will be told to collect it, and will confirm '
+          'here once it is in their hand. You can switch back to paying '
+          'online until then.',
+      confirmLabel: 'Yes, cash',
+    );
+    if (!ok) return;
+
+    await _run(() async {
+      await ref.read(bookingRepositoryProvider).chooseCash(b.id);
+      await ref.read(bookingProvider(widget.bookingId).notifier).refresh();
+    });
+  }
+
+  /// Takes the cash choice back. Unconfirmed only — the API refuses once the
+  /// technician has said they hold the money.
+  Future<void> _undoCash(Booking b) async {
+    await _run(() async {
+      await ref.read(bookingRepositoryProvider).undoCashChoice(b.id);
+      await ref.read(bookingProvider(widget.bookingId).notifier).refresh();
+    });
   }
 
   // ── Small dialogs ──────────────────────────────────────────────────────
@@ -735,12 +765,16 @@ class _Footer extends StatelessWidget {
     required this.busy,
     required this.onCancel,
     required this.onPay,
+    required this.onChooseCash,
+    required this.onUndoCash,
   });
 
   final Booking booking;
   final bool busy;
   final VoidCallback onCancel;
   final VoidCallback onPay;
+  final VoidCallback onChooseCash;
+  final VoidCallback onUndoCash;
 
   @override
   Widget build(BuildContext context) {
@@ -753,13 +787,46 @@ class _Footer extends StatelessWidget {
     }
     if (booking.pendingQuotation != null) return const SizedBox.shrink();
 
+    final settlement = booking.settlement;
+
     Widget? action;
-    if (status.isBillable && booking.payable != null) {
-      action = AppButton(
-        label:
-            'Pay ${Paise.show(booking.payable!.payableDisplay, booking.payable!.payablePaise)}',
-        kind: AppButtonKind.accent,
-        onPressed: onPay,
+
+    // Driven by the settlement state, not by "is there a bill".
+    //
+    // The old condition was `isBillable && payable != null`, which stayed true
+    // forever — so after the technician recorded cash the customer was still
+    // being asked to pay on a job that was already settled. There was nothing
+    // in the response to tell it otherwise.
+    if (settlement.isPaid) {
+      // Stated, not silent. "Did that go through?" is the question this
+      // screen exists to answer at this moment.
+      action = _PaidNote(wasCash: settlement.wasCash);
+    } else if (settlement.state == SettlementState.cashChosen) {
+      action = _CashChosenNote(busy: busy, onUndo: onUndoCash);
+    } else if (status.isBillable && booking.payable != null) {
+      final amount = Paise.show(
+        booking.payable!.payableDisplay,
+        booking.payable!.payablePaise,
+      );
+
+      // Both rails, side by side, and the customer picks. Online leads because
+      // it needs no second party to confirm it.
+      action = Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppButton(
+            label: 'Pay $amount now',
+            kind: AppButtonKind.accent,
+            onPressed: busy ? null : onPay,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          AppButton(
+            label: 'Pay cash to the technician',
+            kind: AppButtonKind.ghost,
+            onPressed: busy ? null : onChooseCash,
+          ),
+        ],
       );
     } else if (status.canCustomerCancel) {
       // Disappears entirely from ARRIVED onward, rather than sitting there
@@ -846,6 +913,78 @@ class _Skeleton extends StatelessWidget {
         Shimmer(height: 74, radius: 20),
         SizedBox(height: AppSpacing.xl),
         Shimmer(height: 150, radius: 20),
+      ],
+    );
+  }
+}
+
+
+/// Settled. Which rail matters, because the two feel different to a customer.
+class _PaidNote extends StatelessWidget {
+  const _PaidNote({required this.wasCash});
+
+  final bool wasCash;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Icon(
+          Icons.check_circle_rounded,
+          size: 20,
+          color: AppColors.green,
+        ),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
+          child: Text(
+            wasCash ? 'Paid in cash. Thank you.' : 'Paid. Thank you.',
+            style: AppType.bodyMedium,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Cash chosen, waiting on the technician to say they have it.
+///
+/// The undo is the important part. A customer whose technician has already
+/// left would otherwise be holding a bill they cannot settle by any route,
+/// with a support call as the only way out.
+class _CashChosenNote extends StatelessWidget {
+  const _CashChosenNote({required this.busy, required this.onUndo});
+
+  final bool busy;
+  final VoidCallback onUndo;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            const Icon(
+              Icons.payments_outlined,
+              size: 20,
+              color: AppColors.grey,
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Text(
+                'Hand the money to your technician. They will confirm it here.',
+                style: AppType.meta.copyWith(color: AppColors.grey),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        AppButton(
+          label: 'Pay online instead',
+          kind: AppButtonKind.ghost,
+          onPressed: busy ? null : onUndo,
+        ),
       ],
     );
   }
