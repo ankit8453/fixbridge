@@ -114,7 +114,10 @@ abstract final class DeviceLocation {
   /// instead. Nothing about the booking depends on this string.
   static Future<String?> describe(double lat, double lng) async {
     try {
-      final places = await placemarkFromCoordinates(lat, lng)
+      // geocoding 5 moved this from a top-level function onto a class. The
+      // instance is cheap and holds nothing worth keeping between calls.
+      final places = await Geocoding()
+          .placemarkFromCoordinates(lat, lng)
           .timeout(const Duration(seconds: 6));
       if (places.isEmpty) return null;
 
