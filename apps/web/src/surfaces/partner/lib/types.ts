@@ -473,3 +473,35 @@ export interface AgreedLabour {
   priceType: 'fixed' | 'starting_from' | 'inspection_based' | null;
   amountPaise: number | null;
 }
+
+/**
+ * Where a technician's money goes.
+ *
+ * The account number and PAN arrive already masked — the API never returns
+ * them whole, not even to the person they belong to. There is deliberately
+ * nowhere in this type to put a full one.
+ */
+export interface PayoutDetailResponse {
+  method: 'bank' | 'upi';
+  /** `••••••7890`, or null when paid by UPI. */
+  accountNumberMasked: string | null;
+  ifsc: string | null;
+  accountHolder: string | null;
+  /** Shown in full — a UPI handle is what you give people so they can pay you. */
+  upiId: string | null;
+  /** `ABCDE••••F`, or null when no PAN has been given. */
+  panMasked: string | null;
+  updatedAt: string;
+}
+
+/** What the form sends. Mirrors the API's discriminated union exactly. */
+export type PayoutDetailInput =
+  | {
+      method: 'bank';
+      accountNumber: string;
+      confirmAccountNumber: string;
+      ifsc: string;
+      accountHolder: string;
+      pan?: string;
+    }
+  | { method: 'upi'; upiId: string; pan?: string };

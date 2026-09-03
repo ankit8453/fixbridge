@@ -23,6 +23,7 @@ import {
   type Tone,
 } from '../components/ui';
 import { formatPaise } from '../../../lib/money';
+import { PayoutDetailPanel } from '../components/PayoutDetailPanel';
 import { fetchWallet } from '../lib/api';
 import { partnerKeys } from '../lib/query-keys';
 import type { WalletLedgerLine } from '../lib/types';
@@ -113,6 +114,12 @@ export default function Earnings() {
                 tone={wallet.pendingPayoutPaise > 0 ? 'warning' : 'neutral'}
               />
             </Grid>
+
+            {/* Directly under the numbers, not in a settings page. The moment
+                somebody has money owing is the only moment this form is worth
+                filling in — buried elsewhere, the first they learn it exists is
+                a payout run that skipped them. */}
+            <PayoutDetailPanel />
 
             {/* Only shown when money is actually owed — an explanation of a
                 zero balance is noise on the one screen that must stay scannable. */}

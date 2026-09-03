@@ -497,6 +497,28 @@
       "statusRemoved": "Taken down",
       "statusRemovedHint": "Please add a different photo.",
       "tooLarge": "That photo is too large. Please choose one under 5 MB."
+    },
+    "payout": {
+      "title": "Where your money goes",
+      "currentLabel": "Payouts are sent to",
+      "missing": "We cannot pay you until you tell us where to send it.",
+      "add": "Add payout details",
+      "change": "Change",
+      "warning": "Check this carefully. Money sent to a wrong number cannot be brought back.",
+      "methodUpi": "UPI",
+      "methodUpiCaption": "Fastest",
+      "methodBank": "Bank account",
+      "methodBankCaption": "Any amount",
+      "accountNumber": "Account number",
+      "confirmAccountNumber": "Type the account number again",
+      "ifsc": "IFSC code",
+      "accountHolder": "Name on the account",
+      "upiId": "UPI ID",
+      "upiHint": "The same ID people use to send you money on any UPI app.",
+      "pan": "PAN (optional)",
+      "panHint": "Needed later for tax. You can add it another time.",
+      "panKeep": "A PAN is already saved. Leave this blank to keep it.",
+      "mismatch": "The two account numbers do not match."
     }
   }
 }

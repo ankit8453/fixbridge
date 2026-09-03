@@ -24,6 +24,7 @@ export const partnerKeys = {
   booking: (id: string) => ['partner', 'booking', id] as const,
   payments: (bookingId: string) => ['partner', 'payments', bookingId] as const,
   wallet: ['partner', 'wallet'] as const,
+  payoutDetail: ['partner', 'payout-detail'] as const,
   trust: ['partner', 'trust'] as const,
   slots: (from: string, to: string) => ['partner', 'slots', from, to] as const,
   notifications: (page: number, unreadOnly: boolean) =>

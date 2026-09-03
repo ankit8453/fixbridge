@@ -5,6 +5,8 @@ import type {
   NotificationsResponse,
   OwnSlot,
   PaymentView,
+  PayoutDetailInput,
+  PayoutDetailResponse,
   PhotoUploadUrlResponse,
   ProfilePhoto,
   ProviderPriceCardResponse,
@@ -265,6 +267,19 @@ export const fetchWallet = (): Promise<{ wallet: WalletResponse }> =>
 
 export const fetchTrust = (): Promise<{ trust: TrustResponse }> =>
   apiRequest('/api/v1/providers/me/trust');
+
+/**
+ * `payoutDetail` is null when nothing has been saved — a 200, not a 404.
+ * A technician who has not been paid yet has legitimately never seen the form.
+ */
+export const fetchPayoutDetail = (): Promise<{ payoutDetail: PayoutDetailResponse | null }> =>
+  apiRequest('/api/v1/providers/me/payout-details');
+
+/** A full replace: switching bank to UPI must not leave the old account behind. */
+export const savePayoutDetail = (
+  input: PayoutDetailInput,
+): Promise<{ payoutDetail: PayoutDetailResponse }> =>
+  apiRequest('/api/v1/providers/me/payout-details', { method: 'PUT', body: input });
 
 /* -------------------------------------------------------------------------- */
 /* Notifications                                                             */
