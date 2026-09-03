@@ -5,11 +5,13 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import '../../data/models/money.dart';
+import '../../data/models/payout_detail.dart';
 import '../../data/models/wallet.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/states.dart';
 import '../home/partner_providers.dart';
 import '../jobs/job_status_ui.dart';
+import 'payout_detail_sheet.dart';
 
 /// The money screen.
 ///
@@ -65,6 +67,8 @@ class WalletScreen extends ConsumerWidget {
                 Text('Money', style: AppType.title),
                 const SizedBox(height: AppSpacing.lg),
                 _BalanceCard(wallet: w),
+                const SizedBox(height: AppSpacing.md),
+                const _PayoutDestinationCard(),
                 if (w.belowMinimum) ...[
                   const SizedBox(height: AppSpacing.md),
                   _MinimumNote(minimum: w.payoutMinimumPaise),
@@ -435,6 +439,91 @@ class _LedgerRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Where the next payout lands, or a prompt if nobody has said yet.
+///
+/// Sits directly under the balance on purpose. The moment a technician has
+/// money owing is the moment this matters, and burying it in a settings screen
+/// means the first they learn of it is a payout run that skipped them.
+class _PayoutDestinationCard extends ConsumerWidget {
+  const _PayoutDestinationCard();
+
+  Future<void> _edit(BuildContext context, PayoutDetail? existing) async {
+    await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      builder: (_) => PayoutDetailSheet(existing: existing),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final detail = ref.watch(payoutDetailProvider);
+
+    return detail.when(
+      // Silent while loading and silent on error. This card is an aid, not the
+      // screen's job — a failed side request must not put an error where a
+      // technician is looking for their balance.
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (value) => AppCard(
+        child: InkWell(
+          onTap: () => _edit(context, value),
+          borderRadius: AppRadius.tileR,
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Row(
+              children: [
+                Icon(
+                  value == null
+                      ? Icons.error_outline_rounded
+                      : value.isBank
+                          ? Icons.account_balance_rounded
+                          : Icons.qr_code_rounded,
+                  size: 20,
+                  color: value == null ? AppColors.amberText : AppColors.grey,
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        value == null
+                            ? 'Tell us where to send your money'
+                            : 'Payouts go to',
+                        style: AppType.bodyMedium,
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        value == null
+                            ? 'We cannot pay you until you add this'
+                            : value.destination,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppType.caption.copyWith(
+                          color: value == null
+                              ? AppColors.amberText
+                              : AppColors.greyLight,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 20,
+                  color: AppColors.greyLight,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

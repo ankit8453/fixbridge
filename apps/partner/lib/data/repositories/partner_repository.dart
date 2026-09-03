@@ -11,6 +11,7 @@ import '../models/payment.dart';
 import '../models/profile_photo.dart';
 import '../models/quotation.dart';
 import '../models/trust.dart';
+import '../models/payout_detail.dart';
 import '../models/wallet.dart';
 
 /// Everything a technician does.
@@ -346,6 +347,57 @@ class PartnerRepository {
   Future<Wallet> wallet() async {
     final json = await _api.get<Map<String, dynamic>>('/providers/me/wallet');
     return Wallet.fromJson((json['wallet'] as Map).cast<String, dynamic>());
+  }
+
+  /// Where the next payout goes, or null if nobody has said yet.
+  ///
+  /// Null is a normal answer, not a failure — the form is asked for before the
+  /// first payout rather than at signup, so a technician who has not earned
+  /// anything yet has legitimately never seen it.
+  Future<PayoutDetail?> payoutDetail() async {
+    final json =
+        await _api.get<Map<String, dynamic>>('/providers/me/payout-details');
+    return PayoutDetail.fromJson(
+      (json['payoutDetail'] as Map?)?.cast<String, dynamic>(),
+    );
+  }
+
+  /// Replaces the payout details outright.
+  ///
+  /// A full replace, matching the API: switching from bank to UPI must not
+  /// leave the old account number behind in fields nobody reads any more.
+  /// [confirmAccountNumber] is sent rather than only checked on the phone,
+  /// because a wrong-but-valid account number pays a stranger and there is no
+  /// undo — the server compares them too.
+  Future<PayoutDetail> savePayoutDetail({
+    required String method,
+    String? accountNumber,
+    String? confirmAccountNumber,
+    String? ifsc,
+    String? accountHolder,
+    String? upiId,
+    String? pan,
+  }) async {
+    final json = await _api.put<Map<String, dynamic>>(
+      '/providers/me/payout-details',
+      body: {
+        'method': method,
+        if (method == 'bank') ...{
+          'accountNumber': accountNumber,
+          'confirmAccountNumber': confirmAccountNumber,
+          'ifsc': ifsc,
+          'accountHolder': accountHolder,
+        },
+        if (method == 'upi') 'upiId': upiId,
+        // Omitted entirely when blank. Sending an empty string would fail the
+        // format check on a field the technician deliberately left alone.
+        if (pan != null && pan.isNotEmpty) 'pan': pan,
+      },
+    );
+
+    return PayoutDetail.fromJson(
+      (json['payoutDetail'] as Map).cast<String, dynamic>(),
+    )!;
   }
 
   // ── Standing ───────────────────────────────────────────────────────────

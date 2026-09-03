@@ -9,6 +9,7 @@ import '../../data/models/partner_profile.dart';
 import '../../data/models/profile_photo.dart';
 import '../../data/models/trust.dart';
 import '../../data/models/verification.dart';
+import '../../data/models/payout_detail.dart';
 import '../../data/models/wallet.dart';
 import '../auth/auth_controller.dart';
 
@@ -28,6 +29,11 @@ final profilePhotoProvider = FutureProvider<ProfilePhoto?>((ref) async {
 
 final walletProvider = FutureProvider<Wallet>((ref) async {
   return ref.watch(partnerRepositoryProvider).wallet();
+});
+
+/// Where the next payout goes. Null until the technician has said.
+final payoutDetailProvider = FutureProvider<PayoutDetail?>((ref) async {
+  return ref.watch(partnerRepositoryProvider).payoutDetail();
 });
 
 final trustProvider = FutureProvider<Trust>((ref) async {

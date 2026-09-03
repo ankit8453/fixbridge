@@ -54,13 +54,47 @@ export function findDocumentsByIds(
   return prisma.providerDocument.findMany({ where: { providerId, id: { in: ids } } });
 }
 
+/**
+ * Documents that actually exist.
+ *
+ * `awaiting_upload` rows are excluded, because they are not documents — they
+ * are the record of somebody having been *offered* an upload URL. One is
+ * written before the bytes are sent and only becomes real on confirm, so a
+ * failed or abandoned upload leaves one behind with nothing underneath it.
+ *
+ * Including them put a row in the ops verification queue for every attempt a
+ * technician made: the same file, the same name, several times over, each one
+ * needing to be opened and judged before ops could tell they were empty.
+ */
 export function listDocuments(
   prisma: PrismaClient,
   providerId: string,
 ): Promise<ProviderDocument[]> {
   return prisma.providerDocument.findMany({
-    where: { providerId },
+    where: { providerId, status: { not: 'awaiting_upload' } },
     orderBy: { createdAt: 'desc' },
+  });
+}
+
+/**
+ * Drops any upload URL issued for this slot and never used.
+ *
+ * Called just before a new one is issued. Without it, every retry — and there
+ * are retries, because uploads fail on bad networks — left another row behind
+ * for ops to wade through.
+ *
+ * It can orphan an object in storage: an upload that landed but was never
+ * confirmed loses the row that pointed at it. That is the right trade. A
+ * forgotten object costs a fraction of a rupee and is swept by a bucket
+ * lifecycle rule; a forgotten row costs somebody's afternoon.
+ */
+export function clearUnusedUploads(
+  prisma: PrismaClient,
+  providerId: string,
+  docType: ProviderDocumentType,
+): Promise<{ count: number }> {
+  return prisma.providerDocument.deleteMany({
+    where: { providerId, docType, status: 'awaiting_upload' },
   });
 }
 

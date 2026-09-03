@@ -254,6 +254,19 @@ class ApiClient {
     );
   }
 
+  /// A full replace. Used where a partial update would leave stale fields
+  /// behind — payout details, where switching bank to UPI must not keep the
+  /// old account number.
+  Future<T> put<T>(String path, {Object? body, bool auth = true}) {
+    return _send<T>(
+      () => _dio.put<T>(
+        path,
+        data: body,
+        options: Options(extra: {'skipAuth': !auth}),
+      ),
+    );
+  }
+
   Future<T> patch<T>(String path, {Object? body, bool auth = true}) {
     return _send<T>(
       () => _dio.patch<T>(

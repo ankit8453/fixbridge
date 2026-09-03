@@ -100,6 +100,17 @@ export async function requestUploadUrl(
     );
   }
 
+  // Every call to this endpoint used to leave a row behind, so a technician on
+  // a poor connection generated one per attempt and ops saw the same document
+  // listed five times. Only the newest offer for a slot is worth keeping.
+  const discarded = await repo.clearUnusedUploads(context.prisma, providerId, input.docType);
+  if (discarded.count > 0) {
+    context.logger.info(
+      { providerId, docType: input.docType, discarded: discarded.count },
+      'discarded unused upload slots',
+    );
+  }
+
   const documentId = randomUUID();
   const storageKey = kycObjectKey(providerId, input.docType, documentId);
 
