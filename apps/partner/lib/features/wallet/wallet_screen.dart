@@ -463,65 +463,70 @@ class _PayoutDestinationCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final detail = ref.watch(payoutDetailProvider);
+    // Never hidden, whatever the request does.
+    //
+    // The first version drew an empty box while loading and on error, on the
+    // reasoning that a failed side request should not put an error where
+    // somebody is reading their balance. That was wrong in the way that
+    // matters: this card *is* the feature. One failed call and a technician
+    // has no way to tell us where to send their money, and no sign such a
+    // thing exists — indistinguishable from it never having been built.
+    //
+    // So an unknown answer falls through to the prompt. Tapping it opens the
+    // form, which reports its own failures properly, and the worst case is
+    // being asked for details already given.
+    final value = ref.watch(payoutDetailProvider).valueOrNull;
 
-    return detail.when(
-      // Silent while loading and silent on error. This card is an aid, not the
-      // screen's job — a failed side request must not put an error where a
-      // technician is looking for their balance.
-      loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
-      data: (value) => AppCard(
-        child: InkWell(
-          onTap: () => _edit(context, value),
-          borderRadius: AppRadius.tileR,
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Row(
-              children: [
-                Icon(
-                  value == null
-                      ? Icons.error_outline_rounded
-                      : value.isBank
-                          ? Icons.account_balance_rounded
-                          : Icons.qr_code_rounded,
-                  size: 20,
-                  color: value == null ? AppColors.amberText : AppColors.grey,
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        value == null
-                            ? 'Tell us where to send your money'
-                            : 'Payouts go to',
-                        style: AppType.bodyMedium,
+    return AppCard(
+      child: InkWell(
+        onTap: () => _edit(context, value),
+        borderRadius: AppRadius.tileR,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Row(
+            children: [
+              Icon(
+                value == null
+                    ? Icons.error_outline_rounded
+                    : value.isBank
+                        ? Icons.account_balance_rounded
+                        : Icons.qr_code_rounded,
+                size: 20,
+                color: value == null ? AppColors.amberText : AppColors.grey,
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      value == null
+                          ? 'Tell us where to send your money'
+                          : 'Payouts go to',
+                      style: AppType.bodyMedium,
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      value == null
+                          ? 'We cannot pay you until you add this'
+                          : value.destination,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppType.caption.copyWith(
+                        color: value == null
+                            ? AppColors.amberText
+                            : AppColors.greyLight,
                       ),
-                      const SizedBox(height: 1),
-                      Text(
-                        value == null
-                            ? 'We cannot pay you until you add this'
-                            : value.destination,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppType.caption.copyWith(
-                          color: value == null
-                              ? AppColors.amberText
-                              : AppColors.greyLight,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  size: 20,
-                  color: AppColors.greyLight,
-                ),
-              ],
-            ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: AppColors.greyLight,
+              ),
+            ],
           ),
         ),
       ),
