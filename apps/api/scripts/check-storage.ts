@@ -1,4 +1,5 @@
-import { request as httpsRequest } from 'node:https';
+import { ListObjectsV2Command, S3Client } from '@aws-sdk/client-s3';
+import { get as httpsGet, request as httpsRequest } from 'node:https';
 import { loadConfig } from '../src/core/config';
 import { createLogger } from '../src/core/logger';
 import { createS3StorageService } from '../src/core/storage';
@@ -51,6 +52,21 @@ function explain(error: unknown): string {
   return parts.join('\n  caused by  ') || String(error);
 }
 
+/** Whether ordinary HTTPS works from here at all. */
+function reachable(url: string): Promise<string> {
+  return new Promise((resolve) => {
+    const request = httpsGet(url, { timeout: 8_000 }, (response) => {
+      response.resume();
+      resolve(`ok (${response.statusCode})`);
+    });
+    request.on('timeout', () => {
+      request.destroy();
+      resolve('timed out');
+    });
+    request.on('error', (error) => resolve(explain(error)));
+  });
+}
+
 /** What the signature actually covers. A mismatch here is the usual culprit. */
 function signedHeaders(url: string): string {
   return new URL(url).searchParams.get('X-Amz-SignedHeaders') ?? '(none)';
@@ -95,10 +111,42 @@ async function main(): Promise<void> {
   console.log('');
 
   step = 'reaching the bucket';
-  // Not `ensureBucket`: an R2 token scoped to object read/write cannot create
-  // buckets, and a check that quietly creates what it was meant to verify
-  // would pass against the wrong account.
-  await storage.exists('diagnostics/does-not-exist');
+  /**
+   * A raw `ListObjectsV2`, not `storage.exists`.
+   *
+   * `head` catches everything and answers null, on purpose — a missing object
+   * and a denied one must look the same to a caller. That makes it useless
+   * here: a TLS failure, dead credentials and an empty bucket all came back
+   * as "false", and this check happily reported the bucket reachable while
+   * nothing could reach it at all.
+   *
+   * Not `ensureBucket` either: an R2 token scoped to object read/write cannot
+   * create buckets, and a check that creates what it was meant to verify would
+   * pass against the wrong account.
+   */
+  const probe = new S3Client({
+    region: config.S3_REGION,
+    ...(config.S3_ENDPOINT ? { endpoint: config.S3_ENDPOINT } : {}),
+    forcePathStyle: config.S3_FORCE_PATH_STYLE,
+    credentials: {
+      accessKeyId: config.S3_ACCESS_KEY_ID,
+      secretAccessKey: config.S3_SECRET_ACCESS_KEY,
+    },
+  });
+
+  try {
+    await probe.send(new ListObjectsV2Command({ Bucket: config.S3_BUCKET, MaxKeys: 1 }));
+  } catch (cause) {
+    // Distinguish "this host is unreachable" from "nothing gets out of here",
+    // which need completely different fixes and look identical from inside.
+    const elsewhere = await reachable('https://api.github.com/');
+    throw new Error(
+      [
+        `could not reach the bucket: ${explain(cause)}`,
+        `        outbound HTTPS elsewhere: ${elsewhere}`,
+      ].join('\n'),
+    );
+  }
   ok('bucket is reachable and the credentials are accepted');
 
   step = 'signing an upload URL';
