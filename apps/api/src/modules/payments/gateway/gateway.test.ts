@@ -1,6 +1,9 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
+import type { AppConfig } from '../../../core/config';
+import type { AppLogger } from '../../../core/logger';
 import { createFakeGateway, parseRazorpayWebhook } from './fake';
+import { createPaymentGateway } from './index';
 
 const OPTIONS = {
   keyId: 'rzp_test_example',
@@ -163,5 +166,32 @@ describe('parseRazorpayWebhook', () => {
       orderId: 'order_9',
       amountPaise: 12_345,
     });
+  });
+});
+
+describe('createPaymentGateway — an unbuilt gateway must not become the fake', () => {
+  const logger = {
+    info: () => undefined,
+    warn: () => undefined,
+    error: () => undefined,
+    debug: () => undefined,
+  } as unknown as AppLogger;
+
+  const config = (gateway: string): AppConfig =>
+    ({ PAYMENT_GATEWAY: gateway, RAZORPAY_KEY_ID: undefined }) as unknown as AppConfig;
+
+  it('refuses a gateway that is configured but has no adapter', () => {
+    /**
+     * `paytm` is a valid `PAYMENT_GATEWAY` value — the enum and the config
+     * landed before the adapter — and the production guard only refuses the
+     * literal string `fake`. So it passed every check and fell through to the
+     * last branch, which returned an in-memory fake that reports every payment
+     * as captured. In production that marks bills paid that nobody paid.
+     */
+    expect(() => createPaymentGateway(config('paytm'), logger)).toThrow(/has no adapter/);
+  });
+
+  it('still builds the fake when the fake is what was asked for', () => {
+    expect(createPaymentGateway(config('fake'), logger).name).toBe('fake');
   });
 });

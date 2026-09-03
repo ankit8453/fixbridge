@@ -26,6 +26,28 @@ export function createPaymentGateway(config: AppConfig, logger: AppLogger): Paym
     });
   }
 
+  /**
+   * A gateway that is named but not built must never fall through to the fake.
+   *
+   * `paytm` is a valid value of `PAYMENT_GATEWAY` — the enum and the config
+   * were added ahead of the adapter — and the production guard only refuses
+   * the literal string `fake`. So setting it in production passed every check
+   * and landed here, where the last branch handed back an in-memory fake that
+   * reports every payment as captured. A live deployment would have been
+   * marking bills paid that nobody had paid.
+   *
+   * Enumerated rather than defaulted, so adding a value to the enum without an
+   * adapter fails at boot instead of silently pretending.
+   */
+  if (config.PAYMENT_GATEWAY !== 'fake') {
+    throw new Error(
+      `PAYMENT_GATEWAY=${config.PAYMENT_GATEWAY} has no adapter. ` +
+        'Cash payments do not use a gateway and are unaffected; online payments ' +
+        'cannot work until one is written. Set PAYMENT_GATEWAY=razorpay with real ' +
+        'keys, or leave online payments off.',
+    );
+  }
+
   logger.info({ gateway: 'fake' }, 'payment gateway: using the in-memory fake');
 
   return createFakeGateway({
