@@ -143,7 +143,20 @@ class AuthController extends StateNotifier<AuthState> {
     try {
       final user =
           await _ref.read(authRepositoryProvider).setPreferredLanguage(code);
-      if (mounted) state = state.copyWith(user: user);
+      if (!mounted) return;
+
+      /// Keep the name that is already on screen.
+      ///
+      /// This endpoint answers with the `users` row, whose `name` column is
+      /// **not** where a customer's display name lives — that is
+      /// `customer_profiles.display_name`, exactly as `setName` below
+      /// explains. Taking the response wholesale therefore overwrote a real
+      /// name with the null beside it, and the name vanished from the account
+      /// screen on every single language change.
+      final existing = state.user?.name;
+      state = state.copyWith(
+        user: existing == null ? user : user.withName(existing),
+      );
     } catch (_) {
       // The app language is already right; only the server copy is stale,
       // and Account can fix it later.

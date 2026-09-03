@@ -480,9 +480,9 @@ class _AddAddressSheetState extends ConsumerState<AddAddressSheet> {
               autofocus: true,
               maxLines: 2,
               maxLength: 500,
-              onChanged: (_) {
-                if (_error != null) setState(() => _error = null);
-              },
+              // Always rebuilds. Save is enabled from this field's length,
+              // so a keystroke that does not repaint leaves it disabled.
+              onChanged: (_) => setState(() => _error = null),
             ),
             const SizedBox(height: AppSpacing.md),
             AppField(

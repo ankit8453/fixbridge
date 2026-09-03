@@ -96,9 +96,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   autofocus: true,
                   maxLength: 120,
                   textCapitalization: TextCapitalization.words,
-                  onChanged: (_) {
-                    if (_error != null) setState(() => _error = null);
-                  },
+                  // Always rebuilds, not only to clear an error. The button
+                  // below is enabled from this field's contents, so a keystroke
+                  // that does not repaint leaves it disabled no matter how much
+                  // is typed — which is a dead end on a screen with one button.
+                  onChanged: (_) => setState(() => _error = null),
                   onSubmitted: (_) => _register(),
                 ),
                 const SizedBox(height: AppSpacing.xl),
