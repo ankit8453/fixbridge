@@ -77,6 +77,43 @@ export default function Earnings() {
       >
         {({ wallet }) => (
           <div className="flex flex-col gap-4 lg:gap-5">
+            {/* Earnings above the account. This is the question a technician
+                opened the screen to ask — "what did I make?" — while the tiles
+                below answer "what is owed between us", which through the
+                pilot's zero commission is nothing at all. An empty account
+                must not read as having earned nothing. */}
+            {wallet.earnings ? (
+              <Grid cols={3}>
+                <StatTile
+                  label={t('partner.earnings.earnedWeek')}
+                  value={wallet.earnings.thisWeek.grossDisplay}
+                  hint={t('partner.earnings.jobCount', {
+                    count: String(wallet.earnings.thisWeek.jobCount),
+                  })}
+                  icon={Wallet}
+                  tone="success"
+                />
+                <StatTile
+                  label={t('partner.earnings.earnedMonth')}
+                  value={wallet.earnings.thisMonth.grossDisplay}
+                  hint={t('partner.earnings.jobCount', {
+                    count: String(wallet.earnings.thisMonth.jobCount),
+                  })}
+                  icon={Banknote}
+                  tone="brand"
+                />
+                <StatTile
+                  label={t('partner.earnings.earnedAllTime')}
+                  value={wallet.earnings.allTime.grossDisplay}
+                  hint={t('partner.earnings.jobCount', {
+                    count: String(wallet.earnings.allTime.jobCount),
+                  })}
+                  icon={Receipt}
+                  tone="neutral"
+                />
+              </Grid>
+            ) : null}
+
             {/* The four numbers a technician opens this screen to read, before
                 any explanation of how they were arrived at. */}
             <Grid cols={4}>

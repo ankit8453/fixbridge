@@ -378,6 +378,43 @@ export interface WalletResponse {
   payoutMinimumPaise: number;
   recentPayouts: PayoutView[];
   ledger: WalletLedgerLine[];
+  /**
+   * What they earned, summed from the bills rather than the ledger.
+   *
+   * Optional so an older API — which does not send it — renders an empty
+   * earnings block rather than failing the whole screen.
+   */
+  earnings?: EarningsSummary;
+}
+
+export interface EarningsPeriod {
+  jobCount: number;
+  grossPaise: number;
+  grossDisplay: string;
+}
+
+export interface EarningsLine {
+  bookingId: string;
+  method: string;
+  grossPaise: number;
+  grossDisplay: string;
+  commissionPaise: number;
+  commissionDisplay: string;
+  earnedPaise: number;
+  earnedDisplay: string;
+  at: string;
+}
+
+/**
+ * The other money question. The ledger records what moves between us and the
+ * technician; at the pilot's zero commission that is nothing, so without this
+ * a technician who has finished nine jobs sees an empty page.
+ */
+export interface EarningsSummary {
+  thisWeek: EarningsPeriod;
+  thisMonth: EarningsPeriod;
+  allTime: EarningsPeriod;
+  recent: EarningsLine[];
 }
 
 export interface PaymentView {

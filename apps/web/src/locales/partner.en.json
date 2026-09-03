@@ -435,7 +435,11 @@
       "duesTitle": "You owe {{amount}}",
       "ledgerHint": "Every entry that moved your balance, newest first.",
       "noLedgerHint": "Once you finish a job, the money movement shows up here.",
-      "noPayoutsHint": "Payouts appear here after the first one is sent to your bank."
+      "noPayoutsHint": "Payouts appear here after the first one is sent to your bank.",
+      "earnedWeek": "Earned this week",
+      "earnedMonth": "Earned this month",
+      "earnedAllTime": "Earned all time",
+      "jobCount": "From {{count}} jobs"
     },
     "trust": {
       "title": "Trust score",

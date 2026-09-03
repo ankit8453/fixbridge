@@ -103,6 +103,121 @@ class LedgerLine {
 /// own week; a single "₹3,400" is not. Payouts are never reduced by dues
 /// either — the first time somebody sees a smaller transfer than they expected
 /// is the last time they trust this screen.
+/// One period's earnings. Gross, before anything is taken off.
+class EarningsPeriod {
+  const EarningsPeriod({
+    required this.jobCount,
+    required this.grossPaise,
+    required this.grossDisplay,
+  });
+
+  final int jobCount;
+  final int grossPaise;
+  final String grossDisplay;
+
+  static const zero = EarningsPeriod(
+    jobCount: 0,
+    grossPaise: 0,
+    grossDisplay: '₹0',
+  );
+
+  factory EarningsPeriod.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return zero;
+    return EarningsPeriod(
+      jobCount: (json['jobCount'] as num?)?.toInt() ?? 0,
+      grossPaise: asPaise(json['grossPaise'] ?? 0),
+      grossDisplay: json['grossDisplay'] as String? ?? '₹0',
+    );
+  }
+}
+
+/// One job's money, as the technician sees it.
+class EarningsLine {
+  const EarningsLine({
+    required this.bookingId,
+    required this.method,
+    required this.grossDisplay,
+    required this.commissionPaise,
+    required this.earnedDisplay,
+    required this.at,
+  });
+
+  final String bookingId;
+
+  /// `cash` or the gateway's method. Shown because a technician remembers
+  /// which jobs they were handed notes for.
+  final String method;
+  final String grossDisplay;
+
+  /// Zero throughout the pilot. Shown anyway when non-zero, so the number
+  /// never quietly changes meaning the month commission is switched on.
+  final int commissionPaise;
+  final String earnedDisplay;
+  final DateTime at;
+
+  bool get wasCash => method == 'cash';
+
+  factory EarningsLine.fromJson(Map<String, dynamic> json) => EarningsLine(
+        bookingId: json['bookingId'] as String? ?? '',
+        method: json['method'] as String? ?? '',
+        grossDisplay: json['grossDisplay'] as String? ?? '',
+        commissionPaise: asPaise(json['commissionPaise'] ?? 0),
+        earnedDisplay: json['earnedDisplay'] as String? ?? '',
+        at: DateTime.tryParse(json['at'] as String? ?? '')?.toLocal() ??
+            DateTime.now(),
+      );
+}
+
+/// What the technician earned, as opposed to what moves between us and them.
+///
+/// Two different questions, both on the money screen. The ledger below is the
+/// account between us — commission owed, payouts made — and through the pilot's
+/// zero commission it is correctly empty. This is the part that is never empty
+/// after a finished job.
+class Earnings {
+  const Earnings({
+    required this.thisWeek,
+    required this.thisMonth,
+    required this.allTime,
+    required this.recent,
+  });
+
+  final EarningsPeriod thisWeek;
+  final EarningsPeriod thisMonth;
+  final EarningsPeriod allTime;
+  final List<EarningsLine> recent;
+
+  static const empty = Earnings(
+    thisWeek: EarningsPeriod.zero,
+    thisMonth: EarningsPeriod.zero,
+    allTime: EarningsPeriod.zero,
+    recent: [],
+  );
+
+  /// Tolerant of the field being absent entirely, so a newer app on an older
+  /// API shows an empty earnings block rather than failing the whole screen.
+  factory Earnings.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return empty;
+
+    return Earnings(
+      thisWeek: EarningsPeriod.fromJson(
+        (json['thisWeek'] as Map?)?.cast<String, dynamic>(),
+      ),
+      thisMonth: EarningsPeriod.fromJson(
+        (json['thisMonth'] as Map?)?.cast<String, dynamic>(),
+      ),
+      allTime: EarningsPeriod.fromJson(
+        (json['allTime'] as Map?)?.cast<String, dynamic>(),
+      ),
+      recent: (json['recent'] as List?)
+              ?.map((e) =>
+                  EarningsLine.fromJson((e as Map).cast<String, dynamic>()))
+              .toList() ??
+          const [],
+    );
+  }
+}
+
 class Wallet {
   const Wallet({
     required this.payablePaise,
@@ -114,6 +229,7 @@ class Wallet {
     required this.payoutMinimumPaise,
     required this.recentPayouts,
     required this.ledger,
+    required this.earnings,
   });
 
   /// What the platform owes the technician.
@@ -135,6 +251,9 @@ class Wallet {
 
   final List<Payout> recentPayouts;
   final List<LedgerLine> ledger;
+
+  /// What they earned. Never empty after a finished job, unlike the ledger.
+  final Earnings earnings;
 
   bool get owesUs => netPaise < 0;
 
@@ -164,5 +283,8 @@ class Wallet {
                     LedgerLine.fromJson((l as Map).cast<String, dynamic>()))
                 .toList() ??
             const [],
+        earnings: Earnings.fromJson(
+          (json['earnings'] as Map?)?.cast<String, dynamic>(),
+        ),
       );
 }

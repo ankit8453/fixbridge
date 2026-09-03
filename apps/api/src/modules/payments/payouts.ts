@@ -6,6 +6,7 @@ import * as ledger from './ledger';
 import * as repo from './repository';
 import { PAYMENT_TOPICS } from './state-machine';
 import { providersWithPayoutDetails } from '../providers/payout-details';
+import { getEarnings } from './earnings';
 import type { PayoutBatchView, PayoutView, WalletResponse } from './types';
 import { writeDepsAudit, type AuditableDeps } from '../../core/audit';
 
@@ -379,10 +380,11 @@ export function toBatchView(batch: {
 export async function getWallet(deps: PayoutDeps, providerId: string): Promise<WalletResponse> {
   const { context } = deps;
 
-  const [balance, lines, payouts] = await Promise.all([
+  const [balance, lines, payouts, earnings] = await Promise.all([
     ledger.providerBalance(context.prisma, providerId),
     ledger.providerLedgerLines(context.prisma, providerId, context.config.WALLET_LEDGER_PAGE_SIZE),
     repo.listPayoutsForProvider(context.prisma, providerId, 10),
+    getEarnings(context.prisma, providerId, nowOf(deps)),
   ]);
 
   const pendingPayoutPaise = payouts
@@ -400,6 +402,7 @@ export async function getWallet(deps: PayoutDeps, providerId: string): Promise<W
     pendingPayoutPaise,
     payoutMinimumPaise: context.config.PAYOUT_MINIMUM_PAISE,
     recentPayouts: payouts.map(toPayoutView),
+    earnings,
     ledger: lines.map((line) => ({
       journalId: line.journalId,
       journalType: line.journalType,

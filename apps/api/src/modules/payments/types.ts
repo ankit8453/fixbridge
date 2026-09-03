@@ -1,3 +1,4 @@
+import type { EarningsSummary } from './earnings';
 import { z } from 'zod';
 
 /* -------------------------------------------------------------------------- */
@@ -160,4 +161,13 @@ export interface WalletResponse {
   recentPayouts: PayoutView[];
   /** Their own accounts only, and no memos — those are written for ops. */
   ledger: WalletLedgerLine[];
+  /**
+   * What they earned, summed from the bills rather than from the ledger.
+   *
+   * The two answer different questions and both belong on the screen. The
+   * ledger records what moves between us and them, which at the pilot's zero
+   * commission is nothing at all — so without this a technician who has
+   * finished nine jobs opens the money screen and sees an empty page.
+   */
+  earnings: EarningsSummary;
 }

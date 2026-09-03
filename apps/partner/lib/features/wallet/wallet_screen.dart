@@ -66,6 +66,13 @@ class WalletScreen extends ConsumerWidget {
               children: [
                 Text('Money', style: AppType.title),
                 const SizedBox(height: AppSpacing.lg),
+                // Earnings first, balance second. They answer different
+                // questions and this is the one a technician came to ask —
+                // "what did I make?" — while the balance below answers "what
+                // is owed between us", which through the pilot's zero
+                // commission is nothing at all.
+                _EarningsCard(earnings: w.earnings),
+                const SizedBox(height: AppSpacing.md),
                 _BalanceCard(wallet: w),
                 const SizedBox(height: AppSpacing.md),
                 const _PayoutDestinationCard(),
@@ -84,6 +91,23 @@ class WalletScreen extends ConsumerWidget {
                       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                       child: _PayoutRow(payout: payout),
                     ),
+                ],
+                if (w.earnings.recent.isNotEmpty) ...[
+                  const SectionHeader(title: 'Jobs you have been paid for'),
+                  AppCard(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.lg,
+                    ),
+                    child: Column(
+                      children: [
+                        for (var i = 0; i < w.earnings.recent.length; i++) ...[
+                          if (i > 0) const Divider(height: 1),
+                          _EarningsRow(line: w.earnings.recent[i]),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
                 ],
                 if (w.ledger.isNotEmpty) ...[
                   const SectionHeader(title: 'Everything that moved'),
@@ -531,5 +555,171 @@ class _PayoutDestinationCard extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+/// What the technician earned — week, month, and all of it.
+///
+/// Separate from the balance card on purpose. The balance is the account
+/// between us and them; this is their work. At zero commission the two are
+/// completely different numbers, and the balance being empty must not read as
+/// having earned nothing.
+class _EarningsCard extends StatelessWidget {
+  const _EarningsCard({required this.earnings});
+
+  final Earnings earnings;
+
+  @override
+  Widget build(BuildContext context) {
+    final week = earnings.thisWeek;
+
+    return AppCard(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Earned this week',
+              style: AppType.label.copyWith(color: AppColors.greyLight),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(week.grossDisplay, style: AppType.amountLarge),
+            const SizedBox(height: 2),
+            Text(
+              week.jobCount == 0
+                  ? 'No finished jobs yet this week'
+                  : week.jobCount == 1
+                      ? 'From 1 job'
+                      : 'From ${week.jobCount} jobs',
+              style: AppType.caption.copyWith(color: AppColors.grey),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            const Divider(height: 1),
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              children: [
+                Expanded(
+                  child: _EarningsStat(
+                    label: 'This month',
+                    value: earnings.thisMonth.grossDisplay,
+                    jobs: earnings.thisMonth.jobCount,
+                  ),
+                ),
+                Expanded(
+                  child: _EarningsStat(
+                    label: 'All time',
+                    value: earnings.allTime.grossDisplay,
+                    jobs: earnings.allTime.jobCount,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EarningsStat extends StatelessWidget {
+  const _EarningsStat({
+    required this.label,
+    required this.value,
+    required this.jobs,
+  });
+
+  final String label;
+  final String value;
+  final int jobs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: AppType.caption.copyWith(color: AppColors.greyLight)),
+        const SizedBox(height: 2),
+        Text(value, style: AppType.bodyMedium),
+        Text(
+          jobs == 1 ? '1 job' : '$jobs jobs',
+          style: AppType.caption.copyWith(color: AppColors.greyLight),
+        ),
+      ],
+    );
+  }
+}
+
+/// One paid job.
+///
+/// The commission line appears only when there is one. Through the pilot it is
+/// always zero, and a row of "₹0 commission" on every job is noise; the moment
+/// it is not zero it is the most important thing on the row.
+class _EarningsRow extends StatelessWidget {
+  const _EarningsRow({required this.line});
+
+  final EarningsLine line;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+      child: Row(
+        children: [
+          Icon(
+            line.wasCash ? Icons.payments_outlined : Icons.credit_card_outlined,
+            size: 18,
+            color: AppColors.grey,
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  line.wasCash ? 'Cash collected' : 'Paid online',
+                  style: AppType.bodyMedium,
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  _when(line.at),
+                  style: AppType.caption.copyWith(color: AppColors.greyLight),
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(line.earnedDisplay, style: AppType.bodyMedium),
+              if (line.commissionPaise > 0)
+                Text(
+                  '${line.grossDisplay} bill',
+                  style: AppType.caption.copyWith(color: AppColors.greyLight),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _when(DateTime at) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${at.day} ${months[at.month - 1]}';
   }
 }

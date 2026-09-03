@@ -28,6 +28,7 @@ void main() {
         payoutMinimumPaise: 50000,
         recentPayouts: [],
         ledger: [],
+        earnings: Earnings.empty,
       );
 
       expect(owing.owesUs, isTrue);
@@ -45,6 +46,7 @@ void main() {
         payoutMinimumPaise: 50000,
         recentPayouts: [],
         ledger: [],
+        earnings: Earnings.empty,
       );
 
       expect(owed.owesUs, isFalse);
@@ -62,6 +64,7 @@ void main() {
         payoutMinimumPaise: 50000,
         recentPayouts: [],
         ledger: [],
+        earnings: Earnings.empty,
       );
 
       // Rolls over rather than being transferred — worth saying so, because
