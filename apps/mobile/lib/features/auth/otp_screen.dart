@@ -209,11 +209,15 @@ class OtpInput extends StatefulWidget {
   State<OtpInput> createState() => _OtpInputState();
 }
 
-class _OtpInputState extends State<OtpInput> {
+class _OtpInputState extends State<OtpInput> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     widget.controller.addListener(_onChange);
+    // The highlighted box is drawn from `hasFocus`, so focus changes have to
+    // repaint or the caret sits on the wrong box — or on none.
+    widget.focusNode.addListener(_onFocusChange);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) widget.focusNode.requestFocus();
     });
@@ -221,8 +225,30 @@ class _OtpInputState extends State<OtpInput> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     widget.controller.removeListener(_onChange);
+    widget.focusNode.removeListener(_onFocusChange);
     super.dispose();
+  }
+
+  /// Reopens the keyboard after the app comes back to the foreground.
+  ///
+  /// Pulling down the notification shade to read the code is the single most
+  /// likely thing anyone does on this screen, and it backgrounds the app long
+  /// enough for the platform to tear the keyboard down. The focus node knows
+  /// nothing about that, so Flutter still believes the field is focused and
+  /// reopens nothing — the keypad is simply gone, and tapping cannot bring it
+  /// back because `requestFocus()` on an already-focused node does nothing at
+  /// all. The platform has to be asked directly.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && widget.focusNode.hasFocus) {
+      SystemChannels.textInput.invokeMethod<void>('TextInput.show');
+    }
+  }
+
+  void _onFocusChange() {
+    if (mounted) setState(() {});
   }
 
   void _onChange() {
@@ -230,36 +256,46 @@ class _OtpInputState extends State<OtpInput> {
     widget.onChanged?.call(widget.controller.text);
   }
 
+  /// Focus the field, or reopen the keyboard for one that never lost focus.
+  void _focusInput() {
+    if (widget.focusNode.hasFocus) {
+      SystemChannels.textInput.invokeMethod<void>('TextInput.show');
+    } else {
+      widget.focusNode.requestFocus();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final value = widget.controller.text;
 
-    return GestureDetector(
-      onTap: () => widget.focusNode.requestFocus(),
-      behavior: HitTestBehavior.opaque,
-      child: Stack(
-        children: [
-          // The real field, invisible but present, so the platform keyboard,
-          // paste and SMS autofill all behave normally.
-          SizedBox(
-            height: 62,
-            child: Opacity(
-              opacity: 0,
-              child: TextField(
-                controller: widget.controller,
-                focusNode: widget.focusNode,
-                keyboardType: TextInputType.number,
-                autofillHints: const [AutofillHints.oneTimeCode],
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(widget.length),
-                ],
-                showCursor: false,
-                enableInteractiveSelection: false,
-              ),
+    return Stack(
+      children: [
+        // The real field, invisible but present, so the platform keyboard,
+        // paste and SMS autofill all behave normally.
+        SizedBox(
+          height: 62,
+          child: Opacity(
+            opacity: 0,
+            child: TextField(
+              controller: widget.controller,
+              focusNode: widget.focusNode,
+              keyboardType: TextInputType.number,
+              autofillHints: const [AutofillHints.oneTimeCode],
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(widget.length),
+              ],
+              showCursor: false,
+              enableInteractiveSelection: false,
             ),
           ),
-          Positioned.fill(
+        ),
+
+        // The boxes are a picture of the field above and take no input, so
+        // they must not be in the hit-test path either.
+        Positioned.fill(
+          child: IgnorePointer(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: List.generate(widget.length, (i) {
@@ -291,8 +327,19 @@ class _OtpInputState extends State<OtpInput> {
               }),
             ),
           ),
-        ],
-      ),
+        ),
+
+        // Taps are owned here, on top of everything, rather than left to the
+        // hidden field. The field's own tap handler asks a focused node to
+        // focus again, which is exactly the no-op that strands somebody who
+        // has just come back from the notification shade.
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _focusInput,
+          ),
+        ),
+      ],
     );
   }
 }

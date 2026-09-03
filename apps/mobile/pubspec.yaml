@@ -48,6 +48,12 @@ dependencies:
   # Searching from where the customer actually is.
   geolocator: ^13.0.2
 
+  # Turning that fix into a name somebody recognises. This is the geocoder
+  # built into Android and iOS, not a paid API: the name is a courtesy label
+  # on the home screen and nothing depends on it, so it is not worth a key or
+  # a per-call cost, and it is allowed to come back empty.
+  geocoding: ^3.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

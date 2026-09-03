@@ -127,7 +127,7 @@ class AuthController extends StateNotifier<AuthState> {
   }
 
   Future<void> setLanguage(String code) async {
-    await _ref.read(localeProvider.notifier).set(code);
+    await _ref.read(localeControllerProvider.notifier).set(code);
     if (state.isSignedIn) await _syncLanguage(code);
   }
 

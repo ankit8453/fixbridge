@@ -18,8 +18,7 @@ enum LocationSource {
   /// A saved address, named and chosen. The best answer.
   address,
 
-  /// The device's own fix. Accurate, but we cannot name it without a reverse
-  /// geocoder, and there is no endpoint for that.
+  /// The device's own fix, named by the platform geocoder where it can.
   device,
 
   /// Nothing worked. Distances are being measured from the city centre and
@@ -33,6 +32,7 @@ class ResolvedLocation {
     required this.lng,
     required this.source,
     this.address,
+    this.placeName,
   });
 
   final double lat;
@@ -42,20 +42,26 @@ class ResolvedLocation {
   /// Set only when [source] is [LocationSource.address].
   final Address? address;
 
+  /// What the platform geocoder calls this point, when it can name it.
+  /// Set only when [source] is [LocationSource.device], and often null.
+  final String? placeName;
+
   bool get isGuess => source == LocationSource.fallback;
 
-  /// The short name for the header — "Home", "Current location", or an
-  /// admission that we are guessing.
+  /// The short name for the header — "Home", the neighbourhood the phone is
+  /// standing in, or an admission that we are guessing.
   String get label => switch (source) {
         LocationSource.address => address!.displayLabel,
-        LocationSource.device => 'Current location',
+        // The generic wording is the fallback, not the answer: it appears only
+        // when the geocoder had no name to give.
+        LocationSource.device => placeName ?? 'Current location',
         LocationSource.fallback => 'Set your location',
       };
 
   /// The line underneath it, where there is one worth showing.
   String? get detail => switch (source) {
         LocationSource.address => address!.shortLine,
-        LocationSource.device => null,
+        LocationSource.device => placeName == null ? null : 'Current location',
         LocationSource.fallback => 'Showing Jabalpur city centre',
       };
 }
@@ -66,6 +72,16 @@ class ResolvedLocation {
 /// the home and search screens — picking "Mummy's flat" and then opening
 /// search should not silently snap back to Home.
 final pickedAddressProvider = StateProvider<Address?>((ref) => null);
+
+/// Set when the customer explicitly asks for the device's location.
+///
+/// This has to be recorded rather than inferred from "no address is picked".
+/// The resolver prefers a saved address over a device fix — rightly, since a
+/// returning customer should never be prompted — so once Home exists, simply
+/// clearing the pick lands straight back on Home, and "Use my current
+/// location" is overruled by the very address it was chosen to override. That
+/// is the bug where the button appeared to do nothing at all.
+final useDeviceLocationProvider = StateProvider<bool>((ref) => false);
 
 /// Where to search from, and what to call it.
 ///
@@ -93,20 +109,24 @@ final resolvedLocationProvider = FutureProvider<ResolvedLocation>((ref) async {
     );
   }
 
-  // A saved address already carries coordinates — the server geocodes from the
-  // text when the phone did not supply them, so these are always resolved.
-  final addresses = await ref.watch(myAddressesProvider.future);
-  if (addresses.isNotEmpty) {
-    final chosen = addresses.firstWhere(
-      (a) => a.isDefault,
-      orElse: () => addresses.first,
-    );
-    return ResolvedLocation(
-      lat: chosen.lat,
-      lng: chosen.lng,
-      source: LocationSource.address,
-      address: chosen,
-    );
+  // Skipped entirely when the device was asked for by name, so that choice
+  // survives having a saved address.
+  if (!ref.watch(useDeviceLocationProvider)) {
+    // A saved address already carries coordinates — the server geocodes from
+    // the text when the phone did not supply them, so these are resolved.
+    final addresses = await ref.watch(myAddressesProvider.future);
+    if (addresses.isNotEmpty) {
+      final chosen = addresses.firstWhere(
+        (a) => a.isDefault,
+        orElse: () => addresses.first,
+      );
+      return ResolvedLocation(
+        lat: chosen.lat,
+        lng: chosen.lng,
+        source: LocationSource.address,
+        address: chosen,
+      );
+    }
   }
 
   // Asks, on a phone that has not been asked yet. Returns without prompting
@@ -118,6 +138,7 @@ final resolvedLocationProvider = FutureProvider<ResolvedLocation>((ref) async {
       lat: fix.lat,
       lng: fix.lng,
       source: LocationSource.device,
+      placeName: await DeviceLocation.describe(fix.lat, fix.lng),
     );
   }
 
@@ -127,6 +148,7 @@ final resolvedLocationProvider = FutureProvider<ResolvedLocation>((ref) async {
       lat: saved.$1,
       lng: saved.$2,
       source: LocationSource.device,
+      placeName: await DeviceLocation.describe(saved.$1, saved.$2),
     );
   }
 

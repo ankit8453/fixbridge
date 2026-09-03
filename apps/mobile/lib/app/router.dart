@@ -24,7 +24,7 @@ final _shellKey = GlobalKey<NavigatorState>();
 /// front of anything that writes.
 final routerProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authControllerProvider);
-  final localeChosen = ref.watch(localeProvider.notifier).hasChosen;
+  final localeChosen = ref.watch(localeChosenProvider);
 
   return GoRouter(
     navigatorKey: _rootKey,

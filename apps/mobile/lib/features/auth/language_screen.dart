@@ -49,7 +49,14 @@ class _LanguageScreenState extends ConsumerState<LanguageScreen> {
     if (choice == null) return;
 
     setState(() => _saving = true);
-    await ref.read(authControllerProvider.notifier).setLanguage(choice);
+    try {
+      await ref.read(authControllerProvider.notifier).setLanguage(choice);
+    } finally {
+      // Always. The choice is saved on the device before anything is sent to
+      // the API, so a failed sync must not leave the only button on the
+      // first screen of the app spinning with no way out.
+      if (mounted) setState(() => _saving = false);
+    }
     if (!mounted) return;
 
     if (widget.isSettings) {

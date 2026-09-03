@@ -1,3 +1,4 @@
+import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 
 /// Why a location request did not produce a location.
@@ -101,6 +102,38 @@ abstract final class DeviceLocation {
       // Includes the timeout, and the several platform errors that all mean
       // the same thing to somebody standing there waiting: no fix.
       return const LocationRefused(LocationDenial.timedOut);
+    }
+  }
+
+  /// A short place name for a point — "Surtalai", "Adhartal" — or null.
+  ///
+  /// Uses the geocoder built into the operating system, so it costs nothing
+  /// and needs no key. It is genuinely allowed to fail: a phone without Play
+  /// services, without a network, or simply standing somewhere the geocoder
+  /// has no name for returns nothing, and the caller shows the generic label
+  /// instead. Nothing about the booking depends on this string.
+  static Future<String?> describe(double lat, double lng) async {
+    try {
+      final places = await placemarkFromCoordinates(lat, lng)
+          .timeout(const Duration(seconds: 6));
+      if (places.isEmpty) return null;
+
+      final place = places.first;
+      // Most specific first. `subLocality` is the neighbourhood, which is what
+      // somebody in Jabalpur would actually say; `locality` is the city, which
+      // is right for anyone just outside it. Street and house number are
+      // deliberately skipped — a header reading "113" helps nobody.
+      for (final candidate in [
+        place.subLocality,
+        place.locality,
+        place.subAdministrativeArea,
+      ]) {
+        final name = candidate?.trim();
+        if (name != null && name.isNotEmpty) return name;
+      }
+      return null;
+    } catch (_) {
+      return null;
     }
   }
 

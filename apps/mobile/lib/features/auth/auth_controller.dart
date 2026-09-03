@@ -153,7 +153,7 @@ class AuthController extends StateNotifier<AuthState> {
   /// Changes the language everywhere: the app now, and the account — which
   /// means WhatsApp messages and the notification inbox follow.
   Future<void> setLanguage(String code) async {
-    await _ref.read(localeProvider.notifier).set(code);
+    await _ref.read(localeControllerProvider.notifier).set(code);
     if (state.isSignedIn) await _syncLanguage(code);
   }
 

@@ -44,8 +44,11 @@ class _LocationSheetState extends ConsumerState<LocationSheet> {
           .read(sessionStoreProvider)
           .setLastLocation(result.lat, result.lng);
       if (!mounted) return;
-      // Clearing the pick lets the resolver fall through to the fresh fix.
+      // Both halves matter. Clearing the pick drops any address chosen by
+      // hand; setting the flag is what stops the resolver preferring a saved
+      // address over the fix that was just taken.
       ref.read(pickedAddressProvider.notifier).state = null;
+      ref.read(useDeviceLocationProvider.notifier).state = true;
       ref.invalidate(resolvedLocationProvider);
       Navigator.pop(context);
       return;
@@ -122,6 +125,8 @@ class _LocationSheetState extends ConsumerState<LocationSheet> {
                       line: a.shortLine,
                       onTap: () {
                         ref.read(pickedAddressProvider.notifier).state = a;
+                        ref.read(useDeviceLocationProvider.notifier).state =
+                            false;
                         ref.invalidate(resolvedLocationProvider);
                         Navigator.pop(context);
                       },
@@ -139,6 +144,9 @@ class _LocationSheetState extends ConsumerState<LocationSheet> {
                       builder: (_) => const AddAddressSheet(),
                     );
                     if (added == null || !context.mounted) return;
+                    // Adding an address is a statement about where you are, so
+                    // it takes precedence over an earlier "use my location".
+                    ref.read(useDeviceLocationProvider.notifier).state = false;
                     ref.invalidate(myAddressesProvider);
                     ref.invalidate(resolvedLocationProvider);
                     Navigator.pop(context);
