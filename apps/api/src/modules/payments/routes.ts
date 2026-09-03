@@ -138,7 +138,37 @@ bookingPaymentRouter.post(
   }),
 );
 
-/** The technician took notes at the door. */
+/**
+ * The customer chooses cash.
+ *
+ * Customer-only, deliberately. The technician confirms receipt below; they do
+ * not get to decide how they were paid. Before this split both sides had
+ * independent buttons and a card payment could race a cash one.
+ */
+bookingPaymentRouter.post(
+  '/cash-choice',
+  requireRoles('customer'),
+  handle(async (req, res) => {
+    const { bookingId } = bookingIdParamSchema.parse(req.params);
+    const payment = await service.declareCash(deps(req), getAuthUser(req).id, bookingId);
+
+    res.status(201).json({ payment, message: req.t('payments.cashChosen') });
+  }),
+);
+
+/** The customer changes their mind and wants to pay online after all. */
+bookingPaymentRouter.delete(
+  '/cash-choice',
+  requireRoles('customer'),
+  handle(async (req, res) => {
+    const { bookingId } = bookingIdParamSchema.parse(req.params);
+    await service.withdrawCashChoice(deps(req), getAuthUser(req).id, bookingId);
+
+    res.status(200).json({ message: req.t('payments.cashChoiceWithdrawn') });
+  }),
+);
+
+/** The technician confirms the notes are in their hand. */
 bookingPaymentRouter.post(
   '/cash',
   requireRoles('technician'),

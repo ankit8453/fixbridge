@@ -132,6 +132,15 @@ export interface BookingDetail {
   /** Frozen at the terminal transition. Null until then. */
   payablePaise: number | null;
   payable: PayableView | null;
+  /**
+   * How this bill is being settled, as far as anyone has said.
+   *
+   * Both apps need it and neither had it, which is the whole of the bug where
+   * a technician recorded cash and the customer's screen went on offering
+   * "Pay now" indefinitely — there was simply nothing in the response to say a
+   * payment existed.
+   */
+  settlement: SettlementView;
   /** The address as it was when booked. Null to a provider before acceptance. */
   address: unknown;
   counterpart: {
@@ -172,4 +181,24 @@ export interface OwnSlot extends PublicSlot {
   status: SlotStatus;
   /** Null unless the slot is booked. Lets the week view link straight to the job. */
   bookingId: string | null;
+}
+
+/**
+ * Where the money is, in the one shape both apps render from.
+ *
+ * Deliberately a state rather than a set of booleans. "Unpaid, cash chosen,
+ * paid" are mutually exclusive, and a screen driven by three independent flags
+ * eventually shows two of them at once.
+ */
+export interface SettlementView {
+  /**
+   * - `nothing_due` — no bill frozen yet, or nothing was owed.
+   * - `awaiting_choice` — a bill exists and the customer has not picked how.
+   * - `cash_chosen` — the customer chose cash; the technician has not confirmed.
+   * - `online_pending` — a gateway order is open and unpaid.
+   * - `paid` — settled, by either rail.
+   */
+  state: 'nothing_due' | 'awaiting_choice' | 'cash_chosen' | 'online_pending' | 'paid';
+  method: 'online' | 'cash' | null;
+  paidAt: string | null;
 }

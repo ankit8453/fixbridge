@@ -31,6 +31,7 @@ import type {
   CancelBookingInput,
   CreateBookingInput,
   RejectBookingInput,
+  SettlementView,
   SubmitOtpInput,
 } from './types';
 
@@ -871,6 +872,53 @@ const PHONE_VISIBLE_FROM: readonly BookingStatus[] = [
   'WORK_DONE',
 ];
 
+/**
+ * Reduces the booking's payments to the one state both apps render from.
+ *
+ * A `created` cash payment means the customer has chosen and the technician has
+ * not confirmed; a `created` online one means a gateway order is open. That
+ * distinction is the whole reason the technician's "Got the cash" button can
+ * exist without racing the customer's "Pay now".
+ */
+export function toSettlementView(
+  status: BookingStatus,
+  payablePaise: number | null,
+  payments: { method: string; status: string; capturedAt: Date | null }[],
+): SettlementView {
+  const settled = payments.find(
+    (payment) =>
+      payment.status === 'captured' ||
+      payment.status === 'refunded' ||
+      payment.status === 'partially_refunded',
+  );
+
+  if (settled) {
+    return {
+      state: 'paid',
+      method: settled.method as 'online' | 'cash',
+      paidAt: settled.capturedAt?.toISOString() ?? null,
+    };
+  }
+
+  // No bill yet, or an ending that owed nothing. Neither app should offer to
+  // collect anything.
+  if (!isBillableBooking(status) || payablePaise === null || payablePaise <= 0) {
+    return { state: 'nothing_due', method: null, paidAt: null };
+  }
+
+  const open = payments.find((payment) => payment.status === 'created');
+
+  if (open) {
+    return {
+      state: open.method === 'cash' ? 'cash_chosen' : 'online_pending',
+      method: open.method as 'online' | 'cash',
+      paidAt: null,
+    };
+  }
+
+  return { state: 'awaiting_choice', method: null, paidAt: null };
+}
+
 async function toDetail(
   deps: BookingDeps,
   booking: repo.BookingWithEvents,
@@ -880,10 +928,22 @@ async function toDetail(
   const { context } = deps;
   const store = createBookingOtpStore(context.redis, context.config);
 
-  const [customer, providerProfile, quotationRows, providerPhoto] = await Promise.all([
+  const [customer, providerProfile, quotationRows, providerPhoto, payments] = await Promise.all([
     context.prisma.user.findUnique({
       where: { id: booking.customerId },
-      select: { phone: true, name: true },
+      select: {
+        phone: true,
+        name: true,
+        /**
+         * The name a customer actually set.
+         *
+         * `users.name` is not it — a customer's display name lives on their
+         * profile, which is why the technician's screen read "Waiting for  to
+         * approve" with a hole in the middle. Same column mix-up that made the
+         * name vanish on every language change.
+         */
+        customerProfile: { select: { displayName: true } },
+      },
     }),
     context.prisma.providerProfile.findUnique({
       where: { userId: booking.providerId },
@@ -894,6 +954,12 @@ async function toDetail(
     // The technician's live photo, for the customer who has to open the door to
     // them. Null whenever they have not uploaded one, or ops took it down.
     providerRepo.findApprovedProfilePhoto(context.prisma, booking.providerId),
+    // Who has said what about paying. Both apps drive their buttons off this.
+    context.prisma.payment.findMany({
+      where: { bookingId: booking.id, purpose: 'final_bill' },
+      select: { method: true, status: true, capturedAt: true },
+      orderBy: { createdAt: 'desc' },
+    }),
   ]);
 
   const quotations = quotationRows.map(toQuotationView);
@@ -924,11 +990,28 @@ async function toDetail(
   const startOtp =
     side === 'customer' && revealPhones ? await store.peek(booking.id, 'start') : null;
 
-  // The end code is the customer's sign-off, so it appears only once work is
-  // actually under way. Revealing it at acceptance would let it be handed over
-  // before anything had been done.
+  /**
+   * The end code is the customer's sign-off on the *price* as much as the work,
+   * so it waits for the price to be settled.
+   *
+   * It used to appear the moment work started — which put it on screen
+   * immediately after the start code, before anyone had discussed what the job
+   * would cost. A customer reading it out then has signed off on a bill that
+   * does not exist yet, and the technician can close the job at whatever
+   * number they like afterwards.
+   *
+   * Settled means: a quote was approved, or the booking's own agreed rate
+   * stands with nothing awaiting a decision.
+   */
+  const pendingQuote = quotations.find((quote) => quote.status === 'sent') ?? null;
+  const approvedQuote = quotations.find((quote) => quote.status === 'approved') ?? null;
+  const priceSettled =
+    pendingQuote === null && (approvedQuote !== null || booking.priceCardAmountPaise !== null);
+
   const endOtp =
-    side === 'customer' && status === 'IN_PROGRESS' ? await store.peek(booking.id, 'end') : null;
+    side === 'customer' && status === 'IN_PROGRESS' && priceSettled
+      ? await store.peek(booking.id, 'end')
+      : null;
 
   return {
     id: booking.id,
@@ -944,18 +1027,22 @@ async function toDetail(
       amountPaise: booking.priceCardAmountPaise,
     },
     quotations,
-    pendingQuotation: quotations.find((quote) => quote.status === 'sent') ?? null,
-    approvedQuotation: quotations.find((quote) => quote.status === 'approved') ?? null,
+    pendingQuotation: pendingQuote,
+    approvedQuotation: approvedQuote,
     // Frozen at the terminal transition. Null until then — and forever, on an
     // ending that owed nothing.
     payablePaise: booking.payablePaise,
     payable: booking.payableBreakdown
       ? toPayableView(booking.payablePaise ?? 0, booking.payableBreakdown)
       : null,
+    settlement: toSettlementView(status, booking.payablePaise, payments),
     // Snapshot, not the live address — the technician needs where they were sent.
     address: side === 'customer' || revealPhones ? booking.addressSnapshot : null,
     counterpart: {
-      name: side === 'customer' ? (providerProfile?.displayName ?? null) : (customer?.name ?? null),
+      name:
+        side === 'customer'
+          ? (providerProfile?.displayName ?? null)
+          : (customer?.customerProfile?.displayName ?? customer?.name ?? null),
       phone: counterpartPhone
         ? revealPhones
           ? counterpartPhone

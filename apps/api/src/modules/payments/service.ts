@@ -621,6 +621,103 @@ async function providerOf(deps: PaymentDeps, bookingId: string | null): Promise<
 /* -------------------------------------------------------------------------- */
 
 /**
+ * The customer says they will pay in cash.
+ *
+ * **Only the customer chooses the method.** That is the whole point of this
+ * function existing. Before it, the moment a bill was frozen the customer got
+ * "Pay now" and the technician got "Got the cash", independently, with nothing
+ * between them — so a customer could pay by card while the technician marked
+ * it cash, and the job was settled twice with no way to tell which was true.
+ * The technician now cannot act at all until this has been called.
+ *
+ * It writes a real `created` cash payment rather than a flag on the booking, so
+ * it occupies the booking's payment slot exactly as an online order does. That
+ * is what makes double payment impossible rather than merely unlikely: the same
+ * `findLivePayment` check that stops two online orders stops this too.
+ */
+export async function declareCash(
+  deps: PaymentDeps,
+  customerId: string,
+  bookingId: string,
+): Promise<PaymentView> {
+  const { context } = deps;
+  const booking = await loadBillable(deps, bookingId, customerId, 'customer');
+
+  const existing = await repo.findLivePayment(context.prisma, bookingId, 'final_bill');
+
+  if (existing) {
+    // Already chosen. Returning it rather than erroring makes a double tap
+    // harmless, which on a bad connection is the common case.
+    if (existing.method === 'cash' && existing.status === 'created') {
+      return toPaymentView(existing);
+    }
+
+    throw new AppError(409, 'PAYMENT_ALREADY_SETTLED', 'This booking already has a payment', {
+      messageKey: 'errors.payments.alreadySettled',
+      details: { status: existing.status, method: existing.method },
+    });
+  }
+
+  const commissionBps = await resolveCommissionForBooking(deps, booking.cityId, booking.categoryId);
+
+  const created = await context.prisma.payment.create({
+    data: {
+      bookingId,
+      purpose: 'final_bill',
+      method: 'cash',
+      // The full bill. Cash is always handed over at the pre-discount amount,
+      // and the coupon is dropped when the technician confirms.
+      amountPaise: booking.payablePaise,
+      commissionBpsSnapshot: commissionBps,
+      // Chosen, not collected. Nothing has moved and nothing is in the ledger
+      // until the technician says the notes are in their hand.
+      status: 'created',
+    },
+  });
+
+  context.logger.info({ bookingId, paymentId: created.id }, 'customer chose to pay in cash');
+
+  return toPaymentView(created);
+}
+
+/**
+ * The customer changes their mind and wants to pay online after all.
+ *
+ * Necessary rather than tidy: without it, a customer who taps cash and then
+ * finds the technician has already left is stuck with a bill they cannot
+ * settle, and the only way out is a support call.
+ *
+ * Refuses once the technician has confirmed. At that point the money is
+ * genuinely in somebody's hand and un-choosing it would be a lie.
+ */
+export async function withdrawCashChoice(
+  deps: PaymentDeps,
+  customerId: string,
+  bookingId: string,
+): Promise<void> {
+  const { context } = deps;
+  await loadBillable(deps, bookingId, customerId, 'customer');
+
+  const existing = await repo.findLivePayment(context.prisma, bookingId, 'final_bill');
+
+  if (!existing || existing.method !== 'cash' || existing.status !== 'created') {
+    throw new AppError(409, 'NO_CASH_CHOICE', 'There is no unconfirmed cash choice to undo', {
+      messageKey: 'errors.payments.noCashChoice',
+    });
+  }
+
+  // `failed` rather than deleted: the row is the record that cash was chosen
+  // and abandoned, which is exactly what somebody will ask about later. There
+  // is no reason column on a payment, so the booking event carries the why.
+  await context.prisma.payment.update({
+    where: { id: existing.id },
+    data: { status: 'failed' },
+  });
+
+  context.logger.info({ bookingId, paymentId: existing.id }, 'customer withdrew the cash choice');
+}
+
+/**
  * The technician took notes at the door.
  *
  * This is the Jabalpur reality and pretending otherwise would just push the
@@ -650,14 +747,38 @@ export async function recordCashCollected(
 
   const existing = await repo.findLivePayment(context.prisma, bookingId, 'final_bill');
 
-  if (existing) {
+  /**
+   * The customer must have chosen cash first.
+   *
+   * A technician can confirm receipt; they cannot decide how they were paid.
+   * Before this check both sides had independent buttons, so a customer paying
+   * by card while the technician marked cash settled the same job twice with
+   * nothing to say which was true. Now the technician's button does not even
+   * appear until `declareCash` has written the row this reads.
+   */
+  if (!existing) {
+    throw new AppError(409, 'CASH_NOT_CHOSEN', 'The customer has not chosen to pay in cash', {
+      messageKey: 'errors.payments.cashNotChosen',
+    });
+  }
+
+  if (existing.method !== 'cash') {
+    throw new AppError(409, 'PAYMENT_IS_ONLINE', 'This customer is paying online', {
+      messageKey: 'errors.payments.payingOnline',
+      details: { status: existing.status },
+    });
+  }
+
+  if (existing.status !== 'created') {
     throw new AppError(409, 'PAYMENT_ALREADY_SETTLED', 'This booking already has a payment', {
       messageKey: 'errors.payments.alreadySettled',
       details: { status: existing.status, method: existing.method },
     });
   }
 
-  const commissionBps = await resolveCommissionForBooking(deps, booking.cityId, booking.categoryId);
+  // The rate frozen when the customer chose, not today's config — the choice
+  // and the confirmation can be minutes apart and must agree.
+  const commissionBps = existing.commissionBpsSnapshot;
   const split = splitCommission(booking.payablePaise, commissionBps);
   const at = nowOf(deps);
 
@@ -679,16 +800,23 @@ export async function recordCashCollected(
        */
       const dropped = await coupons.dropCouponForCash(tx, bookingId);
 
-      const created = await tx.payment.create({
+      /**
+       * Captures the row the customer created, rather than making a second one.
+       *
+       * One payment per bill, from choice through to settlement, so the history
+       * reads as what happened: chosen at 4:02, confirmed at 4:05. Creating a
+       * new row here would leave the customer's choice orphaned as `created`
+       * forever and put two cash payments on one booking.
+       *
+       * Cash is captured the moment it is handed over — there is no webhook to
+       * wait for and no second source of truth to disagree with.
+       */
+      const created = await tx.payment.update({
+        where: { id: existing.id },
         data: {
-          bookingId,
-          purpose: 'final_bill',
-          method: 'cash',
-          // The full bill. Cash is always collected at the pre-discount amount.
+          // Re-stated in case the bill was refrozen between choice and
+          // confirmation. The amount that matters is the one being handed over.
           amountPaise: booking.payablePaise,
-          commissionBpsSnapshot: commissionBps,
-          // Cash is captured the moment it is handed over. There is no webhook
-          // to wait for, and no second source of truth to disagree with.
           status: 'captured',
           capturedAt: at,
         },

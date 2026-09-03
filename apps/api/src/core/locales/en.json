@@ -103,7 +103,9 @@
     "cashRecorded": "Cash payment recorded. The customer has been told.",
     "refundRequested": "Refund started. It reaches the customer in 5–7 working days.",
     "payoutPaid": "Payout marked as paid.",
-    "duesSettled": "Dues cleared."
+    "duesSettled": "Dues cleared.",
+    "cashChosen": "Cash chosen. Your technician will confirm when they have it.",
+    "cashChoiceWithdrawn": "You can pay online now"
   },
   "verification": {
     "uploadUrlIssued": "Ready to upload.",
@@ -243,7 +245,10 @@
       "payoutNotFound": "We could not find that payout.",
       "payoutNotPending": "That payout has already been dealt with.",
       "batchNotFound": "We could not find that payout batch.",
-      "batchIncomplete": "Some payouts in this batch are still pending."
+      "batchIncomplete": "Some payouts in this batch are still pending.",
+      "cashNotChosen": "The customer has not chosen to pay in cash yet",
+      "payingOnline": "This customer is paying online",
+      "noCashChoice": "There is no unconfirmed cash choice to undo"
     },
     "quotations": {
       "notFound": "We could not find that estimate.",
