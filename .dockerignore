@@ -1,0 +1,54 @@
+# What never belongs in a Docker build context.
+#
+# There was no such file until now, and two things followed from that.
+#
+# **Secrets were baked into the image.** `COPY apps/api/ apps/api/` copied
+# `apps/api/.env` — the admin password, the database password, the messaging
+# token — into a layer, where it stayed for the life of the image. Anyone who
+# could read the image could read them.
+#
+# It also broke config in a way that took an afternoon to trace: the API loads
+# `.env` with dotenv, real environment variables win over it, and Compose only
+# sets variables the *current* `.env` names. A key dropped from the live file
+# but still present-and-empty in the baked one therefore came back as an empty
+# string — which fails `min(1)` where absent would have passed — and the error
+# named a variable that was not in the file anybody was looking at.
+#
+# Rebuild after adding this, and rotate anything that was in a published image.
+
+.env
+.env.*
+!.env.example
+
+.git
+.github
+.gitignore
+
+node_modules
+**/node_modules
+
+# Build outputs. Rebuilt inside the image; copying them in only invites a stale
+# `dist` shadowing a fresh compile.
+dist
+**/dist
+apps/api/dist
+packages/shared/dist
+
+# The Flutter apps are not part of the API image, and their build directories
+# hold hundreds of megabytes — including release APKs. Sending those to the
+# daemon on every build is why the context takes so long to upload on a 1 GiB
+# box with no memory to spare.
+apps/mobile
+apps/partner
+
+# The web app is deployed on Vercel, not here.
+apps/web/dist
+apps/web/node_modules
+
+# Local-only.
+*.log
+.DS_Store
+.vscode
+.idea
+coverage
+**/coverage
