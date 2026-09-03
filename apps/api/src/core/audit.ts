@@ -48,6 +48,14 @@ export const AUDIT_ACTIONS = {
   providerRecompute: 'provider.recompute',
   providerApproveEntry: 'provider.approve_entry',
   providerPhotoDecide: 'provider.photo_decide',
+  /**
+   * Written when a technician changes where their money goes — by themselves,
+   * not by ops. It is here because it is the one self-service field that
+   * redirects money, so it is what an attacker holding a stolen session would
+   * change, and what ops will need a history of when somebody says a payment
+   * went to the wrong place.
+   */
+  providerPayoutDetailUpdated: 'provider.payout_details_update',
 
   bookingOtpUnlock: 'booking.otp_unlock',
   bookingOpsAccept: 'booking.ops_accept',

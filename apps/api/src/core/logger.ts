@@ -20,7 +20,24 @@ export function createLogger(config: AppConfig): AppLogger {
       level: (label) => ({ level: label }),
     },
     redact: {
-      paths: ['req.headers.authorization', 'req.headers.cookie', '*.password', '*.otp', '*.token'],
+      /**
+       * The last four of these are payout details. They are redacted here as
+       * well as masked at every boundary, because the boundary is the thing
+       * that gets forgotten: a `logger.error({ input })` added in a hurry
+       * while chasing a failed save is all it takes to put an account number
+       * into a log file that outlives the bug.
+       */
+      paths: [
+        'req.headers.authorization',
+        'req.headers.cookie',
+        '*.password',
+        '*.otp',
+        '*.token',
+        '*.accountNumber',
+        '*.confirmAccountNumber',
+        '*.upiId',
+        '*.pan',
+      ],
       censor: '[redacted]',
     },
     ...(prettyInDev

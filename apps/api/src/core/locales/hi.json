@@ -33,7 +33,8 @@
     "photoUploadUrlIssued": "दिए गए लिंक पर अपनी फ़ोटो अपलोड करें।",
     "photoUploaded": "फ़ोटो अपलोड हो गई। हमारी टीम जल्द ही इसकी जाँच करेगी।",
     "photoReported": "धन्यवाद। हमारी टीम इस फ़ोटो की जाँच करेगी।",
-    "photoDecisionRecorded": "निर्णय दर्ज कर लिया गया।"
+    "photoDecisionRecorded": "निर्णय दर्ज कर लिया गया।",
+    "payoutDetailsSaved": "भुगतान विवरण सहेजा गया"
   },
   "bookings": {
     "requested": "आपकी बुकिंग भेज दी गई है। कारीगर जल्द ही पक्का करेगा।",
@@ -289,6 +290,9 @@
     "badRequest": "हम आपकी भेजी जानकारी समझ नहीं पाए। कृपया दोबारा कोशिश करें।",
     "releases": {
       "unknownApp": "यह ऐप हमें पहचान में नहीं आया।"
+    },
+    "payoutDetails": {
+      "accountMismatch": "खाता संख्या मेल नहीं खा रही है"
     }
   },
   "common": {

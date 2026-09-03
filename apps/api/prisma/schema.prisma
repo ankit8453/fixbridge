@@ -501,6 +501,7 @@ model ProviderProfile {
   stats             ProviderStats?
   payouts           Payout[]
   trustSnapshots    TrustScoreSnapshot[]
+  payoutDetail      ProviderPayoutDetail?
 
   @@index([cityId, isListed])
   @@index([suspendedUntil])
@@ -997,7 +998,6 @@ model Quotation {
   /**
    * What the customer already agreed to, copied from the booking's price
    * snapshot rather than accepted from the technician's app.
-   *
    * Zero when the booking had no anchor (`inspection_based`, or no price card
    * at all) -- an estimate is not an agreement, so there is nothing to lock to.
    */
@@ -1005,7 +1005,6 @@ model Quotation {
 
   /**
    * Additional work found on site, which the customer has not agreed to yet.
-   *
    * Separate from the agreed portion because they are different promises: one
    * is the price somebody chose this technician on, the other is a request.
    * Charging it requires `extraLabourReason`, enforced in
@@ -1023,7 +1022,6 @@ model Quotation {
   /**
    * True when the extra exceeded the cap (the smaller of the agreed amount or
    * ₹5,000) and ops should look at it.
-   *
    * Deliberately a flag rather than a refusal: blocking a genuinely large job
    * would push the transaction off-platform, where nobody is protected.
    */
@@ -1553,6 +1551,58 @@ enum PayoutBatchStatus {
   @@map("payout_batch_status")
 }
 
+/// How a technician wants to be paid.
+enum PayoutMethod {
+  bank
+  upi
+
+  @@map("payout_method")
+}
+
+/// Where a technician's money goes, and the PAN it is reported under.
+///
+/// Separate from `ProviderProfile` rather than six more columns on it, for one
+/// reason: this is the only table in the system holding an instrument that can
+/// receive money, and a boundary you can point at is easier to protect than a
+/// convention. Nothing selects it by accident, the ops read of it is audited,
+/// and a future "who can see bank details" question has a single answer.
+///
+/// **Collected before the first payout, not at signup.** A technician can
+/// register, get verified and finish jobs without ever seeing this form; what
+/// they cannot do is be paid, and `buildPayoutBatch` skips them with a reason
+/// that says exactly that rather than drafting a transfer nobody can make.
+model ProviderPayoutDetail {
+  userId String       @id @map("user_id") @db.Uuid
+  method PayoutMethod
+
+  /// Bank fields. Present together or not at all — enforced in the service,
+  /// since a partial set is worse than none: it looks answered and cannot pay.
+  ///
+  /// The account number is stored whole, unlike the identity numbers in
+  /// verification which are kept to four digits. It has to be: a person has to
+  /// type it into a banking screen to move the money. It is redacted from logs,
+  /// never returned to any client in full, and never leaves this table.
+  accountNumber String? @map("account_number") @db.VarChar(20)
+  ifsc          String? @db.VarChar(11)
+  accountHolder String? @map("account_holder") @db.VarChar(120)
+
+  /// UPI. The whole alternative — many technicians in Jabalpur have a UPI ID
+  /// and no account number they can recite.
+  upiId String? @map("upi_id") @db.VarChar(120)
+
+  /// Stored whole, for the same reason as the account number: a TDS return
+  /// needs the real PAN, not its last four digits. Optional until the
+  /// threshold makes it not.
+  pan String? @db.VarChar(10)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  provider ProviderProfile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@map("provider_payout_details")
+}
+
 enum PayoutStatus {
   pending
   paid
@@ -1697,7 +1747,6 @@ model KycAccessLog {
   @@map("kyc_access_logs")
 }
 
-
 // ---------------------------------------------------------------------------
 // Provider profile photo (public-facing, moderated)
 // ---------------------------------------------------------------------------
@@ -1738,16 +1787,16 @@ model ProviderProfilePhoto {
   /// automatic takedown on report count is a griefing tool.
   reportCount Int @default(0) @map("report_count")
 
-  reviewedAt DateTime? @map("reviewed_at") @db.Timestamptz(3)
+  reviewedAt    DateTime? @map("reviewed_at") @db.Timestamptz(3)
   /// The staff reviewer — admin_users, not users (see the audit log's dual columns).
-  reviewedById String? @map("reviewed_by_id") @db.Uuid
+  reviewedById  String?   @map("reviewed_by_id") @db.Uuid
   /// Ops' reason, verbatim. Only ever set when the photo was removed.
-  rejectionNote String? @map("rejection_note") @db.VarChar(500)
+  rejectionNote String?   @map("rejection_note") @db.VarChar(500)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  provider   User       @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  reviewedBy AdminUser? @relation(fields: [reviewedById], references: [id], onDelete: SetNull)
+  provider   User                         @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  reviewedBy AdminUser?                   @relation(fields: [reviewedById], references: [id], onDelete: SetNull)
   reports    ProviderProfilePhotoReport[]
 
   @@index([providerId, createdAt(sort: Desc)])
@@ -1762,8 +1811,8 @@ model ProviderProfilePhoto {
 /// report the same photo fifty times and manufacture an ops emergency. The
 /// count on the photo row is derived from these, never incremented blind.
 model ProviderProfilePhotoReport {
-  id       String @id @default(uuid()) @db.Uuid
-  photoId  String @map("photo_id") @db.Uuid
+  id         String  @id @default(uuid()) @db.Uuid
+  photoId    String  @map("photo_id") @db.Uuid
   /// The customer who reported it. Nullable for DPDP erasure — the report
   /// survives the person, like every other record in this system.
   reporterId String? @map("reporter_id") @db.Uuid

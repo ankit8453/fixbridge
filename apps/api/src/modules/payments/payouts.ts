@@ -5,6 +5,7 @@ import { formatPaise } from '../search/service';
 import * as ledger from './ledger';
 import * as repo from './repository';
 import { PAYMENT_TOPICS } from './state-machine';
+import { providersWithPayoutDetails } from '../providers/payout-details';
 import type { PayoutBatchView, PayoutView, WalletResponse } from './types';
 import { writeDepsAudit, type AuditableDeps } from '../../core/audit';
 
@@ -39,7 +40,11 @@ export interface BatchResult {
   payoutCount: number;
   totalPaise: number;
   /** Technicians left out, and why. Ops need to see this, not guess at it. */
-  skipped: { providerId: string; reason: 'below_minimum' | 'net_negative'; netPaise: number }[];
+  skipped: {
+    providerId: string;
+    reason: 'below_minimum' | 'net_negative' | 'no_payout_details';
+    netPaise: number;
+  }[];
 }
 
 /**
@@ -96,12 +101,40 @@ export async function buildPayoutBatch(
     payable.push({ providerId: balance.providerId, amountPaise: balance.netPaise });
   }
 
-  if (payable.length === 0) {
+  /**
+   * Nobody is drafted without somewhere to send the money.
+   *
+   * This is the whole of "before the first payout, not at signup": a technician
+   * can register, get verified and finish jobs without ever filling that form,
+   * and only discovers it matters when there is money waiting. Drafting them
+   * into a batch anyway would produce a line an ops person cannot action and
+   * cannot mark paid, which then blocks closing the batch for everyone else.
+   *
+   * Skipped, not failed — the balance stays exactly where it is and they are
+   * picked up by the next run the moment they fill it in.
+   */
+  const withDetails = await providersWithPayoutDetails(
+    context.prisma,
+    payable.map((row) => row.providerId),
+  );
+
+  const drafted = payable.filter((row) => {
+    if (withDetails.has(row.providerId)) return true;
+
+    skipped.push({
+      providerId: row.providerId,
+      reason: 'no_payout_details',
+      netPaise: row.amountPaise,
+    });
+    return false;
+  });
+
+  if (drafted.length === 0) {
     context.logger.info({ skipped: skipped.length }, 'payout run: nobody to pay');
     return { batchId: null, payoutCount: 0, totalPaise: 0, skipped };
   }
 
-  const totalPaise = payable.reduce((sum, row) => sum + row.amountPaise, 0);
+  const totalPaise = drafted.reduce((sum, row) => sum + row.amountPaise, 0);
 
   const batch = await context.prisma.$transaction(async (tx) => {
     // The ops audit row, in the same transaction as the decision it records.
@@ -115,11 +148,11 @@ export async function buildPayoutBatch(
         createdById,
         windowEnd,
         totalPaise,
-        payoutCount: payable.length,
+        payoutCount: drafted.length,
       },
     });
 
-    for (const row of payable) {
+    for (const row of drafted) {
       await tx.payout.create({
         data: { batchId: created.id, providerId: row.providerId, amountPaise: row.amountPaise },
       });
@@ -129,11 +162,11 @@ export async function buildPayoutBatch(
   });
 
   context.logger.info(
-    { batchId: batch.id, payoutCount: payable.length, totalPaise, skipped: skipped.length },
+    { batchId: batch.id, payoutCount: drafted.length, totalPaise, skipped: skipped.length },
     'payout batch drafted',
   );
 
-  return { batchId: batch.id, payoutCount: payable.length, totalPaise, skipped };
+  return { batchId: batch.id, payoutCount: drafted.length, totalPaise, skipped };
 }
 
 /* -------------------------------------------------------------------------- */

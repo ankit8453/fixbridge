@@ -4,6 +4,12 @@ import { authenticate, getAuthUser } from '../../core/middleware/authenticate';
 import { requireRoles } from '../../core/middleware/require-roles';
 import { AUDIT_ACTIONS, audited, auditActor } from '../../core/audit';
 import { enforceSearchRateLimit } from '../search/service';
+import {
+  getPayoutDetail,
+  payoutDetailSchema,
+  setPayoutDetail,
+  type PayoutDetailView,
+} from './payout-details';
 import { getPublicProfile } from './public-profile';
 import * as service from './service';
 import {
@@ -105,6 +111,67 @@ router.patch(
     const profile = await service.updateProfile(getContext(req), getAuthUser(req).id, input, req.t);
 
     res.status(200).json({ profile, message: req.t('providers.profileUpdated') });
+  }),
+);
+
+/* ---- payout details ---- */
+
+/**
+ * `GET /api/v1/providers/me/payout-details`
+ *
+ * 200 with `null` rather than a 404 when nothing has been saved. "You have not
+ * told us where to send your money" is a normal state for a technician who has
+ * not been paid yet, not an error, and the app renders a prompt from it.
+ *
+ * The account number comes back masked even here. Its owner already knows it,
+ * and a screen that renders it in full is one that gets photographed.
+ */
+router.get(
+  '/me/payout-details',
+  handle(async (req, res) => {
+    const detail = await getPayoutDetail(getContext(req).prisma, getAuthUser(req).id);
+    res.status(200).json({ payoutDetail: detail });
+  }),
+);
+
+/**
+ * `PUT /api/v1/providers/me/payout-details`
+ *
+ * A full replace, not a patch: switching from bank to UPI must not leave an old
+ * account number sitting in columns nobody reads any more.
+ *
+ * Audited, and deliberately so. This is the one field a technician can change
+ * that redirects money, so it is exactly the thing an attacker with a stolen
+ * session would change — and the one an ops person will need a history of when
+ * somebody says a payment went to the wrong place. The audit payload records
+ * the method and the last four digits, never the number.
+ */
+router.put(
+  '/me/payout-details',
+  handle(async (req, res) => {
+    const input = payoutDetailSchema.parse(req.body);
+    const context = getContext(req);
+    const userId = getAuthUser(req).id;
+
+    const detail = await audited<PayoutDetailView>(
+      context.prisma,
+      auditActor(req),
+      (saved) => ({
+        action: AUDIT_ACTIONS.providerPayoutDetailUpdated,
+        targetType: 'provider',
+        targetId: userId,
+        payload: {
+          method: saved.method,
+          // The mask, not the instrument. An audit log holding the account
+          // number is a second copy of it in a table more people can read.
+          destination: saved.accountNumberMasked ?? saved.upiId,
+          hasPan: saved.panMasked !== null,
+        },
+      }),
+      (tx) => setPayoutDetail(tx, userId, input),
+    );
+
+    res.status(200).json({ payoutDetail: detail, message: req.t('providers.payoutDetailsSaved') });
   }),
 );
 

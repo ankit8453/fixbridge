@@ -33,7 +33,8 @@
     "photoUploadUrlIssued": "Upload your photo to the link provided.",
     "photoUploaded": "Photo uploaded. Our team will review it shortly.",
     "photoReported": "Thank you. Our team will look into this photo.",
-    "photoDecisionRecorded": "Decision recorded."
+    "photoDecisionRecorded": "Decision recorded.",
+    "payoutDetailsSaved": "Payout details saved"
   },
   "bookings": {
     "requested": "Request sent. The technician will confirm shortly.",
@@ -289,6 +290,9 @@
     "badRequest": "We could not read what you sent. Please try again.",
     "releases": {
       "unknownApp": "We do not recognise that app."
+    },
+    "payoutDetails": {
+      "accountMismatch": "The account numbers do not match"
     }
   },
   "common": {
