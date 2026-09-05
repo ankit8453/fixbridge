@@ -151,6 +151,7 @@ class _JobScreenState extends ConsumerState<JobScreen> {
           booking: b,
           busy: _busy,
           onCash: () => _recordCash(b),
+          onNotPaid: () => _reportNotPaid(b),
         ),
       ],
     ];
@@ -272,6 +273,25 @@ class _JobScreenState extends ConsumerState<JobScreen> {
 
     await _run(() async {
       await ref.read(partnerRepositoryProvider).withdrawQuotation(quote.id);
+      await ref.read(jobProvider(widget.bookingId).notifier).refresh();
+    });
+  }
+
+  /// Reports that the customer chose cash and never handed it over.
+  ///
+  /// Confirmed first, because it sends the customer a message contradicting
+  /// them — a mistap here is an accusation, and the technician should mean it.
+  Future<void> _reportNotPaid(Booking b) async {
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const _NotPaidSheet(),
+    );
+    if (confirmed != true) return;
+
+    await _run(() async {
+      await ref.read(partnerRepositoryProvider).reportCashNotReceived(b.id);
+      ref.invalidate(jobPaymentsProvider(b.id));
       await ref.read(jobProvider(widget.bookingId).notifier).refresh();
     });
   }
@@ -431,10 +451,16 @@ class _AddressCard extends StatelessWidget {
     final text = map?['addressText'] as String? ?? '';
     final landmark = map?['landmark'] as String?;
 
-    // The snapshot carries the customer's real coordinates. Using them beats
-    // any text search, and the text is only a fallback for an older booking.
-    final lat = (map?['lat'] as num?)?.toDouble();
-    final lng = (map?['lng'] as num?)?.toDouble();
+    /// Coordinates, but only when the customer actually pinned them.
+    ///
+    /// An unpinned address's point comes from hashing the address text into
+    /// somewhere inside Jabalpur. It looks exactly like a real fix and is not
+    /// where anybody lives — so navigating to it takes a technician
+    /// confidently to a stranger's street, which is worse than making them
+    /// read the address. Unpinned means: search the text, and say so.
+    final isPinned = map?['isPinned'] as bool? ?? false;
+    final lat = isPinned ? (map?['lat'] as num?)?.toDouble() : null;
+    final lng = isPinned ? (map?['lng'] as num?)?.toDouble() : null;
 
     return AppCard(
       child: Column(
@@ -455,9 +481,17 @@ class _AddressCard extends StatelessWidget {
               style: AppType.meta.copyWith(color: AppColors.grey),
             ),
           ],
+          if (!isPinned) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'This address was not pinned on a map, so search results may be '
+              'approximate. Call if you cannot find it.',
+              style: AppType.caption.copyWith(color: AppColors.amberText),
+            ),
+          ],
           const SizedBox(height: AppSpacing.md),
           AppButton(
-            label: 'Open in Maps',
+            label: isPinned ? 'Open in Maps' : 'Search this address',
             kind: AppButtonKind.ghost,
             icon: Icons.map_outlined,
             onPressed: () => _openMaps(
@@ -611,11 +645,13 @@ class _PaymentCard extends StatelessWidget {
     required this.booking,
     required this.busy,
     required this.onCash,
+    required this.onNotPaid,
   });
 
   final Booking booking;
   final bool busy;
   final VoidCallback onCash;
+  final VoidCallback onNotPaid;
 
   @override
   Widget build(BuildContext context) {
@@ -672,6 +708,16 @@ class _PaymentCard extends StatelessWidget {
                   AppButton(
                     label: 'I have the cash',
                     onPressed: busy ? null : onCash,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  // The other half of letting the customer choose. Without it
+                  // the only button says the money is in your hand, so
+                  // somebody who chose cash and walked off left the technician
+                  // choosing between lying and being stuck.
+                  AppButton(
+                    label: 'They have not paid me',
+                    kind: AppButtonKind.ghost,
+                    onPressed: busy ? null : onNotPaid,
                   ),
                 ],
               ),
@@ -1116,6 +1162,58 @@ Future<void> _openMaps(
   if (context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('No maps app — address copied instead')),
+    );
+  }
+}
+
+
+/// Confirming that the money never arrived.
+///
+/// Says plainly what happens next, because the technician is usually standing
+/// in front of the customer when they tap it and needs to be able to explain
+/// it out loud.
+class _NotPaidSheet extends StatelessWidget {
+  const _NotPaidSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.xl,
+        AppSpacing.sm,
+        AppSpacing.xl,
+        AppSpacing.sheetBottom(context),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('They have not paid you?', style: AppType.heading),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'We will tell the customer the job is still unpaid and ask them to '
+            'pay again — they can pay online instead. Nobody is charged and '
+            'nothing is taken from you.',
+            style: AppType.body.copyWith(color: AppColors.grey),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'Only do this if you really have not been paid.',
+            style: AppType.meta.copyWith(color: AppColors.amberText),
+          ),
+          const SizedBox(height: AppSpacing.xl),
+          AppButton(
+            label: 'Yes, I have not been paid',
+            onPressed: () => Navigator.pop(context, true),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          AppButton(
+            label: 'Cancel',
+            kind: AppButtonKind.ghost,
+            onPressed: () => Navigator.pop(context, false),
+          ),
+        ],
+      ),
     );
   }
 }

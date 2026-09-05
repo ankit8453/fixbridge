@@ -492,11 +492,16 @@ class _AddAddressSheetState extends ConsumerState<AddAddressSheet> {
               maxLength: 200,
             ),
             const SizedBox(height: AppSpacing.md),
+            // Not a ghost button any more. This is the difference between a
+            // technician navigating to your door and being sent to roughly
+            // the right part of Jabalpur, so it should not look optional.
             AppButton(
               label: _coords == null
-                  ? 'Use my current location'
+                  ? 'Pin my location'
                   : 'Location pinned',
-              kind: AppButtonKind.ghost,
+              kind: _coords == null
+                  ? AppButtonKind.primary
+                  : AppButtonKind.ghost,
               icon: _coords == null
                   ? Icons.my_location_rounded
                   : Icons.check_rounded,
@@ -505,10 +510,16 @@ class _AddAddressSheetState extends ConsumerState<AddAddressSheet> {
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
+              // The old wording said we would "work the location out from the
+              // address", which is not what happens — without a pin the
+              // technician gets a map search, not a point. Saying so is what
+              // makes somebody tap the button.
               _coords == null
-                  ? 'Helps a technician find you. If you skip it we work the '
-                      'location out from the address above.'
-                  : 'Saved with this address.',
+                  ? 'Stand at the address and tap this. Without it your '
+                      'technician has to search for the address instead, which '
+                      'is slower and sometimes wrong.'
+                  : 'Saved with this address. Your technician can navigate '
+                      'straight here.',
               style: AppType.caption.copyWith(
                 color: _coords == null ? AppColors.grey : AppColors.green,
               ),

@@ -326,6 +326,17 @@ class PartnerRepository {
   /// Any coupon on the booking is dropped server-side, and the full
   /// pre-discount amount is collected: the discount comes out of commission,
   /// which only works when the money actually passes through us.
+  /// Says the cash never arrived.
+  ///
+  /// Charges nobody. It hands the choice back to the customer and tells them,
+  /// which is the outcome worth steering towards when somebody has turned up
+  /// and not been paid. Refused once the technician has already confirmed.
+  Future<void> reportCashNotReceived(String bookingId) async {
+    await _api.post<Map<String, dynamic>>(
+      '/bookings/$bookingId/payments/cash-not-received',
+    );
+  }
+
   Future<Payment> recordCash(String bookingId, {String? note}) async {
     final json = await _api.post<Map<String, dynamic>>(
       '/bookings/$bookingId/payments/cash',
