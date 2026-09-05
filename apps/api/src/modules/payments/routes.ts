@@ -168,6 +168,27 @@ bookingPaymentRouter.delete(
   }),
 );
 
+/**
+ * The technician says the cash never arrived.
+ *
+ * The other half of letting the customer choose. Without it, a customer could
+ * tap "pay cash" and walk away and the technician's only button was one that
+ * says the money is in their hand — so the honest options were to lie or to
+ * leave the job unsettled with no explanation attached to it.
+ *
+ * Charges nobody. It hands the choice back to the customer and tells them so.
+ */
+bookingPaymentRouter.post(
+  '/cash-not-received',
+  requireRoles('technician'),
+  handle(async (req, res) => {
+    const { bookingId } = bookingIdParamSchema.parse(req.params);
+    await service.reportCashNotReceived(deps(req), getAuthUser(req).id, bookingId);
+
+    res.status(200).json({ message: req.t('payments.cashNotReceived') });
+  }),
+);
+
 /** The technician confirms the notes are in their hand. */
 bookingPaymentRouter.post(
   '/cash',

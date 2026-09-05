@@ -45,6 +45,7 @@ export interface AddressRow {
   cityId: number;
   lat: number;
   lng: number;
+  isPinned: boolean;
   isDefault: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -64,6 +65,7 @@ const ADDRESS_SELECT = {
   cityId: true,
   lat: true,
   lng: true,
+  isPinned: true,
   isDefault: true,
   createdAt: true,
   updatedAt: true,
@@ -106,6 +108,8 @@ export interface InsertAddressInput {
   landmark: string | null;
   cityId: number;
   location: GeoPoint;
+  /// Whether `location` is a device fix rather than a guess from the text.
+  isPinned: boolean;
   isDefault: boolean;
 }
 
@@ -128,6 +132,7 @@ export interface UpdateAddressFields {
   landmark?: string | null;
   cityId?: number;
   location?: GeoPoint;
+  isPinned?: boolean;
 }
 
 /**

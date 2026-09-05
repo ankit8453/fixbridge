@@ -85,6 +85,7 @@ export const PAYMENT_TOPICS = {
   captured: 'payment.captured',
   failed: 'payment.failed',
   cashRecorded: 'payment.cash_recorded',
+  cashNotReceived: 'payment.cash_not_received',
   refunded: 'payment.refunded',
   duesSettled: 'payment.dues_settled',
   payoutPaid: 'payout.paid',

@@ -231,6 +231,27 @@ export const NOTIFICATION_ROUTES: Record<string, NotificationRoute> = {
     ],
   },
 
+  /**
+   * The technician says the cash never arrived.
+   *
+   * Goes to the customer, but **not** over SMS — unlike the collection notice
+   * it mirrors. That one buys the ability to dispute a charge, which has to
+   * reach a phone with no data. This one charges nothing: it hands the choice
+   * back, and the ordinary case is a mistap while both people are still
+   * standing next to each other. WhatsApp and the inbox reach that person.
+   */
+  [PAYMENT_TOPICS.cashNotReceived]: {
+    criticality: 'critical',
+    audiences: [
+      {
+        role: 'customer',
+        channels: ['in_app', 'whatsapp'],
+        template: 'paymentCashNotReceived',
+        deepLink: BOOKING_LINK,
+      },
+    ],
+  },
+
   [PAYMENT_TOPICS.payoutPaid]: {
     criticality: 'standard',
     audiences: [

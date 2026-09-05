@@ -123,6 +123,15 @@ export const TEMPLATES = {
     stem: 'payment.cashRecorded',
     params: ['amount'],
   },
+  /**
+   * The mirror of the above, and it needs the same reach for the opposite
+   * reason: nothing has been charged, and the customer has to know the bill is
+   * back in their hands before they walk away thinking it is settled.
+   */
+  paymentCashNotReceived: {
+    stem: 'payment.cashNotReceived',
+    params: ['amount'],
+  },
   payoutPaid: {
     stem: 'payout.paid',
     params: ['amount', 'utr'],

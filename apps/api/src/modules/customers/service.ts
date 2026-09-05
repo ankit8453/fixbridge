@@ -71,6 +71,9 @@ function toAddressResponse(row: repo.AddressRow): AddressResponse {
     landmark: row.landmark,
     cityId: row.cityId,
     location: { lat: row.lat, lng: row.lng },
+    /// False when the point was derived from the text rather than measured.
+    /// Anything navigating to it must treat it as approximate.
+    isPinned: row.isPinned,
     isDefault: row.isDefault,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -82,11 +85,23 @@ function toAddressResponse(row: repo.AddressRow): AddressResponse {
  * otherwise the address text and landmark go to the geocoder. There is no
  * "address without coordinates" state to handle later.
  */
+/**
+ * Where an address actually is — and whether we know that or guessed it.
+ *
+ * The two cases produce identical-looking coordinates and are not remotely
+ * equivalent. A device fix is the customer's doorstep. A geocode, with the
+ * stub currently wired in, is the address text **hashed** into a point inside
+ * Jabalpur: plausible, precise-looking, and not where anybody lives. Handing
+ * that to a technician as a map pin sends them confidently to a stranger's
+ * street, which is what happened.
+ *
+ * So the origin travels with the point and every consumer has to face it.
+ */
 async function resolveLocation(
   context: AppContext,
   supplied: { lat?: number; lng?: number },
   text: { addressText: string; landmark: string | null; cityId: number },
-): Promise<GeoPoint> {
+): Promise<GeoPoint & { isPinned: boolean }> {
   if (supplied.lat !== undefined && supplied.lng !== undefined) {
     const point = { lat: supplied.lat, lng: supplied.lng };
 
@@ -97,14 +112,16 @@ async function resolveLocation(
       });
     }
 
-    return point;
+    return { ...point, isPinned: true };
   }
 
-  return context.geo.geocode({
+  const geocoded = await context.geo.geocode({
     addressText: text.addressText,
     landmark: text.landmark,
     cityId: text.cityId,
   });
+
+  return { ...geocoded, isPinned: false };
 }
 
 function addressNotFound(addressId: string): AppError {
@@ -180,6 +197,7 @@ export async function createAddress(
       landmark,
       cityId,
       location,
+      isPinned: location.isPinned,
       isDefault,
     });
   });
@@ -216,7 +234,7 @@ export async function updateAddress(
     ...(input.addressText !== undefined ? { addressText } : {}),
     ...(input.landmark !== undefined ? { landmark } : {}),
     ...(input.cityId !== undefined ? { cityId } : {}),
-    ...(location !== undefined ? { location } : {}),
+    ...(location !== undefined ? { location, isPinned: location.isPinned } : {}),
   });
 
   if (!row) throw addressNotFound(addressId);

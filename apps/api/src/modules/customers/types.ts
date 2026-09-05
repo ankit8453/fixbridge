@@ -80,6 +80,15 @@ export interface AddressResponse {
   landmark: string | null;
   cityId: number;
   location: GeoPoint;
+  /**
+   * Whether `location` was measured or guessed.
+   *
+   * False means it was derived from the address text — currently by hashing it
+   * into a point inside Jabalpur, which looks like a coordinate and is not
+   * where anybody lives. Anything that navigates to it must search the text
+   * instead and say it is approximate.
+   */
+  isPinned: boolean;
   isDefault: boolean;
   createdAt: string;
   updatedAt: string;

@@ -105,7 +105,8 @@
     "payoutPaid": "Payout marked as paid.",
     "duesSettled": "Dues cleared.",
     "cashChosen": "Cash chosen. Your technician will confirm when they have it.",
-    "cashChoiceWithdrawn": "You can pay online now"
+    "cashChoiceWithdrawn": "You can pay online now",
+    "cashNotReceived": "Reported. The customer has been asked to pay again."
   },
   "verification": {
     "uploadUrlIssued": "Ready to upload.",
@@ -377,6 +378,10 @@
       "cashRecorded": {
         "title": "Cash payment recorded",
         "body": "Your technician recorded {{amount}} in cash. If that is wrong, raise a complaint in the app."
+      },
+      "cashNotReceived": {
+        "title": "Cash not received",
+        "body": "Your technician says they have not been paid the {{amount}}. Nothing has been charged — open the app to pay."
       }
     },
     "payout": {

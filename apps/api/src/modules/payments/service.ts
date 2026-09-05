@@ -718,6 +718,64 @@ export async function withdrawCashChoice(
 }
 
 /**
+ * The technician says the cash never arrived.
+ *
+ * The other half of letting the customer choose. Without it a customer could
+ * tap "pay cash" and walk away, and the technician had no button at all except
+ * one that says the money is in their hand — so the honest options were to lie
+ * or to leave the job sitting unsettled forever with no explanation attached.
+ *
+ * What it does **not** do is charge anybody or move a paisa. It withdraws the
+ * choice, which puts the customer back in front of both options — including
+ * paying online, which is the outcome worth steering towards when somebody has
+ * turned up and not been paid. The refusal is recorded on the booking so it is
+ * not merely the technician's word later.
+ *
+ * Refused once confirmed, exactly like the customer's own undo: after that the
+ * money genuinely moved and this would be a retraction, not a report.
+ */
+export async function reportCashNotReceived(
+  deps: PaymentDeps,
+  providerId: string,
+  bookingId: string,
+): Promise<void> {
+  const { context } = deps;
+  await loadBillable(deps, bookingId, providerId, 'provider');
+
+  const existing = await repo.findLivePayment(context.prisma, bookingId, 'final_bill');
+
+  if (!existing || existing.method !== 'cash' || existing.status !== 'created') {
+    throw new AppError(409, 'NO_CASH_CHOICE', 'There is no unconfirmed cash payment to report', {
+      messageKey: 'errors.payments.noCashChoice',
+    });
+  }
+
+  await context.prisma.$transaction(async (tx) => {
+    await tx.payment.update({ where: { id: existing.id }, data: { status: 'failed' } });
+
+    /**
+     * Both sides are told, and the customer's copy is the point.
+     *
+     * A technician marking this while the customer is still standing there is
+     * the ordinary case — a mistap, or they meant to pay online. The message
+     * is what turns that into "oh, let me pay properly" rather than a dispute
+     * three days later.
+     */
+    await enqueueOutbox(tx, {
+      topic: PAYMENT_TOPICS.cashNotReceived,
+      aggregateType: 'booking',
+      aggregateId: bookingId,
+      payload: { paymentId: existing.id, amountPaise: existing.amountPaise },
+    });
+  });
+
+  context.logger.info(
+    { bookingId, paymentId: existing.id },
+    'technician reported cash was not received',
+  );
+}
+
+/**
  * The technician took notes at the door.
  *
  * This is the Jabalpur reality and pretending otherwise would just push the

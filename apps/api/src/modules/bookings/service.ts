@@ -321,6 +321,7 @@ export async function createBooking(
       landmark: true,
       lat: true,
       lng: true,
+      isPinned: true,
       cityId: true,
     },
   });
@@ -432,6 +433,17 @@ export async function createBooking(
           cityId: chosen.cityId,
           lat: chosen.lat,
           lng: chosen.lng,
+          /**
+           * Travels with the point, because without it the technician's app
+           * cannot tell a doorstep from a guess.
+           *
+           * An unpinned address's coordinates come from hashing the address
+           * text into somewhere inside Jabalpur — precise-looking and wrong.
+           * Navigating to that is worse than having no coordinates at all: it
+           * takes somebody confidently to the wrong street instead of making
+           * them read the address.
+           */
+          isPinned: chosen.isPinned,
         },
         slotId: slot.id,
         startsAt: slot.startsAt,

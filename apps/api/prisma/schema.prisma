@@ -396,6 +396,17 @@ model Address {
   /// model no longer needs raw SQL for an ordinary insert.
   lat         Float        @db.DoublePrecision
   lng         Float        @db.DoublePrecision
+  /// Whether [lat]/[lng] came from a real device fix or were invented.
+  ///
+  /// This has to be recorded, because the two are indistinguishable once
+  /// stored and are not remotely equivalent. When a customer does not pin
+  /// their address, the geocoder derives a point by **hashing the address
+  /// text** into somewhere inside Jabalpur — a plausible-looking coordinate
+  /// that is not where anybody lives. A technician handed that as a map pin
+  /// drives confidently to a stranger's street.
+  ///
+  /// False means "search the text instead, and say it is approximate".
+  isPinned    Boolean      @default(false) @map("is_pinned")
   isDefault   Boolean      @default(false) @map("is_default")
   createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
