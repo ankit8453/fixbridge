@@ -223,10 +223,28 @@ export async function updateAddress(
   // the pin would keep pointing at the old house.
   const textChanged = addressText !== existing.addressText || landmark !== existing.landmark;
 
-  const location =
-    coordinatesSupplied || textChanged
-      ? await resolveLocation(context, input, { addressText, landmark, cityId })
-      : undefined;
+  let location = await (coordinatesSupplied || textChanged
+    ? resolveLocation(context, input, { addressText, landmark, cityId })
+    : Promise.resolve(undefined));
+
+  /**
+   * Re-sending the stored coordinates does not make them real.
+   *
+   * Both edit forms seed their state from the address they are editing, so an
+   * unpinned address's guessed point comes straight back on the next save —
+   * and `resolveLocation` marks anything supplied as pinned. Without this, a
+   * customer correcting a typo in their landmark would silently promote a
+   * geocoder's guess into "this is their doorstep", which is precisely the
+   * confusion the flag exists to prevent.
+   */
+  if (
+    location?.isPinned === true &&
+    !existing.isPinned &&
+    location.lat === existing.lat &&
+    location.lng === existing.lng
+  ) {
+    location = { ...location, isPinned: false };
+  }
 
   const row = await repo.updateAddress(context.prisma, userId, addressId, {
     ...(input.label !== undefined ? { label: input.label } : {}),

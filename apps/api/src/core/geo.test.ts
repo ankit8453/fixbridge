@@ -24,82 +24,51 @@ function inBounds(point: { lat: number; lng: number }): boolean {
 }
 
 describe('stub geocoder', () => {
-  it('is deterministic — the same address always returns the same point', async () => {
-    const first = await geo.geocode(request('212 Shastri Nagar', 'near Gupta Kirana'));
-    const second = await geo.geocode(request('212 Shastri Nagar', 'near Gupta Kirana'));
+  /**
+   * It answers the city centre for everything, and that is the point.
+   *
+   * The version before it hashed the address text into a distinct point inside
+   * Jabalpur — deterministic, well spread, six decimal places, and a lie. The
+   * coordinate was indistinguishable from a GPS fix and pointed at a street the
+   * customer had never heard of, and the partner app navigated to it.
+   *
+   * These tests pin the honest behaviour, so a future "improvement" that makes
+   * the guesses look more realistic has to delete an assertion that says why
+   * not to.
+   */
+  it('answers the city centre, whatever the address says', async () => {
+    for (const address of ['212 Shastri Nagar', 'Vijay Nagar', '113 Surtalai']) {
+      expect(await geo.geocode(request(address))).toEqual(JABALPUR_CENTRE);
+    }
+  });
+
+  it('gives two different addresses the *same* point', async () => {
+    // Precisely what the old one avoided. Distinct points implied knowledge
+    // that does not exist; one shared point is visibly a fallback.
+    const first = await geo.geocode(request('212 Shastri Nagar'));
+    const second = await geo.geocode(request('Somewhere else entirely'));
 
     expect(first).toEqual(second);
   });
 
-  it('stays deterministic across many repeats', async () => {
-    const results = await Promise.all(
-      Array.from({ length: 25 }, () => geo.geocode(request('Wright Town main road'))),
-    );
+  it('ignores the landmark, rather than folding it into a fake seed', async () => {
+    const withLandmark = await geo.geocode(request('212 Shastri Nagar', 'near Gupta Kirana'));
+    const without = await geo.geocode(request('212 Shastri Nagar'));
 
-    expect(new Set(results.map((point) => `${point.lat},${point.lng}`)).size).toBe(1);
+    expect(withLandmark).toEqual(without);
   });
 
-  it('always lands inside the Jabalpur bounding box', async () => {
-    const addresses = [
-      'Adhartal water tank',
-      'Shop 4, Napier Town',
-      'x',
-      'a very long address line that goes on and on and on for quite a while indeed',
-      '।।।',
-      '123 456 789',
-    ];
-
-    for (const address of addresses) {
-      const point = await geo.geocode(request(address));
-      expect(inBounds(point), `${address} → ${JSON.stringify(point)}`).toBe(true);
-    }
-  });
-
-  it('gives different addresses different points', async () => {
-    const a = await geo.geocode(request('Wright Town'));
-    const b = await geo.geocode(request('Adhartal'));
-
-    expect(a).not.toEqual(b);
-  });
-
-  it('spreads points around rather than clustering on one spot', async () => {
-    const points = await Promise.all(
-      Array.from({ length: 40 }, (_, index) => geo.geocode(request(`address number ${index}`))),
-    );
-
-    expect(new Set(points.map((point) => `${point.lat},${point.lng}`)).size).toBe(points.length);
-  });
-
-  it('folds the landmark into the seed', async () => {
-    const withLandmark = await geo.geocode(request('Same street', 'near the temple'));
-    const withoutLandmark = await geo.geocode(request('Same street'));
-
-    expect(withLandmark).not.toEqual(withoutLandmark);
-  });
-
-  it('treats a missing landmark and an empty one as the same input', async () => {
-    expect(await geo.geocode(request('Same street', null))).toEqual(
-      await geo.geocode(request('Same street', '   ')),
-    );
-  });
-
-  it('ignores case and surrounding whitespace', async () => {
-    expect(await geo.geocode(request('  WRIGHT Town  '))).toEqual(
-      await geo.geocode(request('wright town')),
-    );
-  });
-
-  it('rounds to six decimal places', async () => {
-    const point = await geo.geocode(request('precision check'));
-
-    expect(point.lat).toBe(Math.round(point.lat * 1e6) / 1e6);
-    expect(point.lng).toBe(Math.round(point.lng * 1e6) / 1e6);
+  it('lands inside Jabalpur, so distances stay sane', async () => {
+    // Search measures from whatever this returns. A fallback outside the city
+    // would put every unpinned customer kilometres from every technician.
+    expect(inBounds(await geo.geocode(request('anything at all')))).toBe(true);
   });
 
   it('identifies itself as a stub, so nothing mistakes it for real geocoding', () => {
     expect(geo.name).toBe('stub');
   });
 });
+
 
 describe('isValidLatLng', () => {
   it('accepts real coordinates', () => {

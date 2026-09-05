@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 
 export interface GeoPoint {
   lat: number;
@@ -49,16 +48,6 @@ export function isValidLatLng(point: GeoPoint): boolean {
   );
 }
 
-/** Reads `bytes` bytes of the digest at `offset` as a fraction in [0, 1). */
-function fractionAt(digest: Buffer, offset: number): number {
-  return digest.readUInt32BE(offset) / 0x1_0000_0000;
-}
-
-function round6(value: number): number {
-  // ~11 cm of precision; more digits would be false confidence from a hash.
-  return Math.round(value * 1e6) / 1e6;
-}
-
 /**
  * Deterministic fake geocoder: the same text always yields the same point, and
  * every point lands inside the city bounds.
@@ -67,20 +56,34 @@ function round6(value: number): number {
  * re-running the seed gets the same map every time. It is emphatically not a
  * real geocoder: nothing here understands streets.
  */
+/**
+ * Geocoding, until there is real geocoding.
+ *
+ * It answers the **city centre**, and says so. That is deliberately a worse
+ * answer than it could easily give, and the reason is worth stating.
+ *
+ * The previous version hashed the address text into a point inside Jabalpur's
+ * bounding box, so every address got a distinct, six-decimal-place coordinate.
+ * It was tidy, deterministic and testable, and it was a lie: the number looked
+ * exactly like a GPS fix and pointed at a street the customer had never heard
+ * of. Nothing downstream could tell the two apart, so a technician was handed
+ * that pin and drove to it.
+ *
+ * A city centre cannot be mistaken for a doorstep. Search still works — every
+ * unpinned customer is measured from the same known point rather than from
+ * somewhere invented — and the `isPinned` flag stored beside it tells every
+ * consumer to search the address text instead of navigating.
+ *
+ * Replace this with Ola Maps and the flag stops mattering. Until then, being
+ * uselessly honest beats being convincingly wrong.
+ */
 export function createStubGeoService(): GeoService {
   return {
+    // Named so nothing mistakes it for real geocoding, in a log or a test.
     name: 'stub',
 
-    async geocode({ addressText, landmark }) {
-      const seed = `${addressText.trim().toLowerCase()}|${(landmark ?? '').trim().toLowerCase()}`;
-      const digest = createHash('sha256').update(seed).digest();
-
-      const { minLat, maxLat, minLng, maxLng } = JABALPUR_BOUNDS;
-
-      return {
-        lat: round6(minLat + fractionAt(digest, 0) * (maxLat - minLat)),
-        lng: round6(minLng + fractionAt(digest, 4) * (maxLng - minLng)),
-      };
+    async geocode() {
+      return { ...JABALPUR_CENTRE };
     },
   };
 }
