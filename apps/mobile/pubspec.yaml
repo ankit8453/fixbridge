@@ -57,16 +57,6 @@ dependencies:
   flutter_map: ^7.0.2
   latlong2: ^0.9.1
 
-  # Turning that fix into a name somebody recognises. This is the geocoder
-  # built into Android and iOS, not a paid API: the name is a courtesy label
-  # on the home screen and nothing depends on it, so it is not worth a key or
-  # a per-call cost, and it is allowed to come back empty.
-  #
-  # 5.x and not 3.x. The 3.x Android plugin pins itself to compileSdk 33 while
-  # depending on AndroidX libraries that require 34 or later, so it cannot be
-  # built at all — the release fails in `checkReleaseAarMetadata` with fifteen
-  # copies of the same complaint. The Dart API is unchanged between the two.
-  geocoding: ^5.0.0
 
 dev_dependencies:
   flutter_test:

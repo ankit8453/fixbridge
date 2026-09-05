@@ -5,13 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_error.dart';
-import '../../core/location.dart';
-import '../location/map_picker_screen.dart';
 import '../../core/providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import '../../data/models/address.dart';
+import '../location/map_picker_screen.dart';
 import '../../data/models/money.dart';
 import '../../data/models/provider.dart';
 import '../../shared/widgets/app_button.dart';
@@ -378,7 +377,6 @@ class _AddAddressSheetState extends ConsumerState<AddAddressSheet> {
 
   ({double lat, double lng})? _coords;
   String? _geoNote;
-  bool _locating = false;
 
   @override
   void dispose() {
@@ -506,34 +504,25 @@ class _AddAddressSheetState extends ConsumerState<AddAddressSheet> {
               maxLength: 200,
             ),
             const SizedBox(height: AppSpacing.md),
-            // Not a ghost button any more. This is the difference between a
-            // technician navigating to your door and being sent to roughly
-            // the right part of Jabalpur, so it should not look optional.
+            // Primary, and re-openable once set. This is the difference
+            // between a technician arriving at the door and arriving in
+            // roughly the right part of Jabalpur.
             AppButton(
-              label: _coords == null
-                  ? 'Pin my location'
-                  : 'Location pinned',
+              label: _coords == null ? 'Set location on map' : 'Change location',
               kind: _coords == null
                   ? AppButtonKind.primary
                   : AppButtonKind.ghost,
               icon: _coords == null
-                  ? Icons.my_location_rounded
+                  ? Icons.map_outlined
                   : Icons.check_rounded,
-              loading: _locating,
-              onPressed: _coords == null ? _locate : null,
+              onPressed: _locate,
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              // The old wording said we would "work the location out from the
-              // address", which is not what happens — without a pin the
-              // technician gets a map search, not a point. Saying so is what
-              // makes somebody tap the button.
               _coords == null
-                  ? 'Stand at the address and tap this. Without it your '
-                      'technician has to search for the address instead, which '
-                      'is slower and sometimes wrong.'
-                  : 'Saved with this address. Your technician can navigate '
-                      'straight here.',
+                  ? 'Drop a pin on the exact spot. You can do this for any '
+                      'address, not just where you are standing now.'
+                  : 'Pinned. Your technician can navigate straight here.',
               style: AppType.caption.copyWith(
                 color: _coords == null ? AppColors.grey : AppColors.green,
               ),
@@ -549,7 +538,12 @@ class _AddAddressSheetState extends ConsumerState<AddAddressSheet> {
             AppButton(
               label: 'Save address',
               loading: _saving,
-              onPressed: _address.text.trim().length < 5 ? null : _save,
+              // A pin is required. The whole point of the picker is that there
+              // is no longer a path where the server has to guess, and leaving
+              // one open means most addresses would still take it.
+              onPressed: _address.text.trim().length < 5 || _coords == null
+                  ? null
+                  : _save,
             ),
           ],
         ),

@@ -9,6 +9,7 @@ import '../../core/theme/app_typography.dart';
 import '../../shared/widgets/app_button.dart';
 import '../provider/provider_providers.dart';
 import '../provider/book_sheet.dart';
+import 'location_permission_sheet.dart';
 import 'location_providers.dart';
 
 /// Choosing where "near me" means.
@@ -30,13 +31,30 @@ class _LocationSheetState extends ConsumerState<LocationSheet> {
   bool _locating = false;
   LocationRefused? _refusal;
 
+  /// "Use my current location", from the header sheet.
+  ///
+  /// A deliberate tap, so this is a legitimate place to ask — but the
+  /// explanation still goes first. The system prompt runs out after two
+  /// refusals for the life of the install, and one spent without a reason
+  /// attached is one that gets refused.
   Future<void> _useDevice() async {
+    final state = await DeviceLocation.permissionState();
+    if (!mounted) return;
+
+    if (state != LocationPermissionState.granted) {
+      final wants = await LocationPermissionSheet.ask(
+        context,
+        blocked: state == LocationPermissionState.blocked,
+      );
+      if (!wants || !mounted) return;
+    }
+
     setState(() {
       _locating = true;
       _refusal = null;
     });
 
-    final result = await DeviceLocation.current();
+    final result = await DeviceLocation.requestAndGet();
     if (!mounted) return;
 
     if (result is LocationFound) {

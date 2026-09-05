@@ -349,13 +349,15 @@
       "landmarkField": "Landmark",
       "landmarkHint": "e.g. behind Gupta Kirana — this is how a technician will actually find you.",
       "landmarkPrefix": "Landmark",
-      "coordsExplanation": "There is no map pin yet — tap the location button to use where you are right now, or leave it blank and we will estimate a location from the address.",
+      "coordsExplanation": "Drop a pin on the exact spot so your technician can find you. You can do this for any address, not just where you are now.",
       "useMyLocation": "Use my location",
-      "locationCaptured": "Location captured ✓",
+      "locationCaptured": "Pinned. Your technician can navigate straight here.",
       "edit": "Edit",
       "makeDefault": "Make default",
       "delete": "Delete",
-      "confirmDelete": "Delete this address?"
+      "confirmDelete": "Delete this address?",
+      "setOnMap": "Set location on map",
+      "changeLocation": "Change location"
     },
     "notifications": {
       "title": "Notifications",
@@ -382,6 +384,18 @@
       "shortcutsLabel": "Shortcuts",
       "manageAddressesHint": "Saved places a technician can be sent to",
       "myComplaintsHint": "Issues you have raised and where they stand"
+    }
+  },
+  "customer": {
+    "address": {
+      "map": {
+        "searchHint": "Search an area — Vijay Nagar, Surtalai",
+        "hint": "Move the map so the pin sits on the door",
+        "finding": "Finding the area…",
+        "outsideArea": "Outside our area. FixBridge only works in Jabalpur for now.",
+        "confirm": "Confirm this location",
+        "useMyLocation": "Use my location"
+      }
     }
   }
 }

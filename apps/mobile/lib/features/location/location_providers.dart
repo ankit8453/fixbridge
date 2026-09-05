@@ -66,6 +66,25 @@ class ResolvedLocation {
       };
 }
 
+/// Names a point, through our own API.
+///
+/// The naming moved off the phone and onto the server: the free geocoder
+/// behind it allows the whole application one request per second, and only a
+/// server can hold a queue that means anything across every phone. It also
+/// caches, so the second customer standing in Surtalai costs nothing.
+///
+/// Never throws. A header that cannot name a place says "Current location",
+/// which is worse copy and a perfectly usable screen — this must not be able
+/// to stop the home screen loading.
+Future<String?> _nameOf(Ref ref, double lat, double lng) async {
+  try {
+    final name = await ref.read(geoRepositoryProvider).reverse(lat, lng);
+    return name.label;
+  } catch (_) {
+    return null;
+  }
+}
+
 /// A saved address the customer picked by hand, overriding the default.
 ///
 /// Held here rather than in the widget so the choice survives moving between
@@ -129,16 +148,23 @@ final resolvedLocationProvider = FutureProvider<ResolvedLocation>((ref) async {
     }
   }
 
-  // Asks, on a phone that has not been asked yet. Returns without prompting
-  // once the answer is a permanent no, so this cannot nag.
-  final fix = await DeviceLocation.current();
+  /// Reads an existing grant. **Never prompts.**
+  ///
+  /// This runs as part of loading the home screen, and a permission dialog
+  /// fired from a data fetch arrives with nothing explaining it — which is the
+  /// version people refuse. Refusing twice ends the app's ability to ask for
+  /// the life of the install, so a prompt spent here is a prompt spent badly.
+  ///
+  /// The ask happens in the map picker instead, behind a screen that says what
+  /// it is for. Until then this quietly falls through to the last known fix.
+  final fix = await DeviceLocation.currentIfAllowed();
   if (fix is LocationFound) {
     await store.setLastLocation(fix.lat, fix.lng);
     return ResolvedLocation(
       lat: fix.lat,
       lng: fix.lng,
       source: LocationSource.device,
-      placeName: await DeviceLocation.describe(fix.lat, fix.lng),
+      placeName: await _nameOf(ref, fix.lat, fix.lng),
     );
   }
 
@@ -148,7 +174,7 @@ final resolvedLocationProvider = FutureProvider<ResolvedLocation>((ref) async {
       lat: saved.$1,
       lng: saved.$2,
       source: LocationSource.device,
-      placeName: await DeviceLocation.describe(saved.$1, saved.$2),
+      placeName: await _nameOf(ref, saved.$1, saved.$2),
     );
   }
 

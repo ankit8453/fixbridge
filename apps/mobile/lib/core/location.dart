@@ -1,4 +1,3 @@
-import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 
 /// Why a location request did not produce a location.
@@ -58,20 +57,86 @@ class LocationRefused extends LocationResult {
       reason == LocationDenial.serviceOff;
 }
 
+/// Where the app stands with the permission, before asking for anything.
+///
+/// This exists because the system prompt is a **finite resource**. Android
+/// stops showing it after two denials, for the life of the install — so an app
+/// that spends both without explaining itself is locked out permanently, and
+/// the customer is left panning a map by hand forever.
+enum LocationPermissionState {
+  /// Already granted. Read the fix; prompt nobody.
+  granted,
+
+  /// Not granted, and the system will still show a prompt. One of the two.
+  canAsk,
+
+  /// Denied twice, or blocked by policy. Only the settings screen can undo it.
+  blocked,
+
+  /// Location is off for the whole phone. Nothing to do with our permission.
+  serviceOff,
+}
+
 /// Reading the device's location.
 ///
 /// Every caller must handle refusal — there is always a manual fallback, and
 /// nothing in either app is allowed to become unusable because somebody said
 /// no to a permission prompt.
+///
+/// **Asking and reading are separate on purpose.** [currentIfAllowed] never
+/// prompts, and is what background and data-loading paths use; [requestAndGet]
+/// prompts, and belongs only behind a screen that has just explained why.
+/// Android's own guidance is to ask in context, at the moment the feature is
+/// used — and since the prompt runs out after two refusals, firing it from a
+/// list that happens to be loading spends a chance the customer never saw.
 abstract final class DeviceLocation {
   const DeviceLocation._();
 
-  /// A single fix, asking for permission if it has not been asked yet.
+  /// Where we stand, without asking for anything.
+  static Future<LocationPermissionState> permissionState() async {
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      return LocationPermissionState.serviceOff;
+    }
+
+    return switch (await Geolocator.checkPermission()) {
+      LocationPermission.always ||
+      LocationPermission.whileInUse =>
+        LocationPermissionState.granted,
+      LocationPermission.deniedForever => LocationPermissionState.blocked,
+      _ => LocationPermissionState.canAsk,
+    };
+  }
+
+  /// A fix, **only if permission already exists**. Never prompts.
   ///
-  /// [medium] accuracy on purpose: this positions somebody to within a
-  /// block, which is all a five-kilometre service radius needs, and it
-  /// returns far faster and on far less battery than a GPS-grade fix.
-  static Future<LocationResult> current({
+  /// What every automatic path uses: the home screen resolving where "near me"
+  /// means, a search refreshing. A prompt fired from one of those arrives with
+  /// no explanation attached to it, which is the version people refuse.
+  static Future<LocationResult> currentIfAllowed({
+    Duration timeout = const Duration(seconds: 12),
+  }) async {
+    final state = await permissionState();
+
+    return switch (state) {
+      LocationPermissionState.granted => _read(timeout),
+      LocationPermissionState.serviceOff =>
+        const LocationRefused(LocationDenial.serviceOff),
+      LocationPermissionState.blocked =>
+        const LocationRefused(LocationDenial.deniedForever),
+      LocationPermissionState.canAsk =>
+        const LocationRefused(LocationDenial.denied),
+    };
+  }
+
+  /// Asks, then reads.
+  ///
+  /// Call this **only** from somewhere that has just told the customer what
+  /// the location is for. One of two chances is spent here.
+  ///
+  /// [medium] accuracy on purpose: this positions somebody to within a block,
+  /// which is all a five-kilometre service radius needs, and it returns far
+  /// faster and on far less battery than a GPS-grade fix.
+  static Future<LocationResult> requestAndGet({
     Duration timeout = const Duration(seconds: 12),
   }) async {
     if (!await Geolocator.isLocationServiceEnabled()) {
@@ -90,6 +155,10 @@ abstract final class DeviceLocation {
       return const LocationRefused(LocationDenial.denied);
     }
 
+    return _read(timeout);
+  }
+
+  static Future<LocationResult> _read(Duration timeout) async {
     try {
       final position = await Geolocator.getCurrentPosition(
         locationSettings: LocationSettings(
@@ -102,41 +171,6 @@ abstract final class DeviceLocation {
       // Includes the timeout, and the several platform errors that all mean
       // the same thing to somebody standing there waiting: no fix.
       return const LocationRefused(LocationDenial.timedOut);
-    }
-  }
-
-  /// A short place name for a point — "Surtalai", "Adhartal" — or null.
-  ///
-  /// Uses the geocoder built into the operating system, so it costs nothing
-  /// and needs no key. It is genuinely allowed to fail: a phone without Play
-  /// services, without a network, or simply standing somewhere the geocoder
-  /// has no name for returns nothing, and the caller shows the generic label
-  /// instead. Nothing about the booking depends on this string.
-  static Future<String?> describe(double lat, double lng) async {
-    try {
-      // geocoding 5 moved this from a top-level function onto a class. The
-      // instance is cheap and holds nothing worth keeping between calls.
-      final places = await Geocoding()
-          .placemarkFromCoordinates(lat, lng)
-          .timeout(const Duration(seconds: 6));
-      if (places.isEmpty) return null;
-
-      final place = places.first;
-      // Most specific first. `subLocality` is the neighbourhood, which is what
-      // somebody in Jabalpur would actually say; `locality` is the city, which
-      // is right for anyone just outside it. Street and house number are
-      // deliberately skipped — a header reading "113" helps nobody.
-      for (final candidate in [
-        place.subLocality,
-        place.locality,
-        place.subAdministrativeArea,
-      ]) {
-        final name = candidate?.trim();
-        if (name != null && name.isNotEmpty) return name;
-      }
-      return null;
-    } catch (_) {
-      return null;
     }
   }
 

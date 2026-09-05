@@ -13,6 +13,7 @@ import '../../core/theme/app_typography.dart';
 import '../../data/repositories/geo_repository.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_field.dart';
+import 'location_permission_sheet.dart';
 import 'location_providers.dart';
 
 /// The point the customer confirmed, and what it is called.
@@ -99,9 +100,34 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
 
   GeoRepository get _geo => ref.read(geoRepositoryProvider);
 
-  Future<void> _useDevice() async {
+  /// Moves the map to where the phone is, asking first if it has to.
+  ///
+  /// The order matters and is the whole point of the sheet: our own
+  /// explanation, then a tap, then the system dialog. Android only shows that
+  /// dialog twice per install before refusing forever, so it must never appear
+  /// without something in front of it saying why.
+  ///
+  /// A refusal is not an error. The map is already showing Jabalpur and the
+  /// customer can search or pan — slower, never blocked, and never nagged.
+  Future<void> _useDevice({bool userAsked = false}) async {
+    final state = await DeviceLocation.permissionState();
+    if (!mounted) return;
+
+    if (state != LocationPermissionState.granted) {
+      // Silence on the automatic open. Somebody who has not granted it gets
+      // the map on Jabalpur and the search box; the sheet appears only when
+      // they tap the locate button, which is them asking to be asked.
+      if (!userAsked) return;
+
+      final wants = await LocationPermissionSheet.ask(
+        context,
+        blocked: state == LocationPermissionState.blocked,
+      );
+      if (!wants || !mounted) return;
+    }
+
     setState(() => _locating = true);
-    final result = await DeviceLocation.current();
+    final result = await DeviceLocation.requestAndGet();
     if (!mounted) return;
 
     setState(() => _locating = false);
@@ -112,8 +138,6 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
       setState(() => _centre = point);
       _nameCentre();
     }
-    // A refusal is not an error here. The map is already showing Jabalpur and
-    // the customer can pan to their street — slower, but never blocked.
   }
 
   /// Asks what the pin is sitting on. Debounced, and only once the map settles.
@@ -263,7 +287,7 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
             child: FloatingActionButton.small(
               heroTag: 'locate',
               backgroundColor: AppColors.surface,
-              onPressed: _locating ? null : _useDevice,
+              onPressed: _locating ? null : () => _useDevice(userAsked: true),
               child: _locating
                   ? const SizedBox(
                       width: 16,

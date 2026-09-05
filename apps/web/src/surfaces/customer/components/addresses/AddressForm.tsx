@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useT } from '@/i18n/useT';
-import { getCurrentLocation, GeoError, type GeoErrorReason } from '@/surfaces/customer/data/geo';
 import { useCreateAddress, useUpdateAddress } from '@/surfaces/customer/data/addresses';
 import { ErrorState, Field, Modal, Select, TextArea, TextInput } from '@/components/ui';
 import { PinIcon, ShopButton } from '@/surfaces/customer/components/notifications/shopUi';
+import { MapPicker } from './MapPicker';
 import type { AddressResponse, AddressLabel } from '@/surfaces/customer/data/types';
 
 /**
@@ -35,23 +35,9 @@ export function AddressForm({
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
     address ? address.location : null,
   );
-  const [geoStatus, setGeoStatus] = useState<'idle' | 'requesting' | 'done'>('idle');
-  const [geoError, setGeoError] = useState<GeoErrorReason | null>(null);
+  const [picking, setPicking] = useState(false);
 
   const mutation = isEditing ? update : create;
-
-  async function handleUseLocation() {
-    setGeoStatus('requesting');
-    setGeoError(null);
-    try {
-      const location = await getCurrentLocation();
-      setCoords(location);
-      setGeoStatus('done');
-    } catch (err) {
-      setGeoError(err instanceof GeoError ? err.reason : 'unavailable');
-      setGeoStatus('idle');
-    }
-  }
 
   function handleSubmit() {
     const base = {
@@ -125,33 +111,36 @@ export function AddressForm({
           )}
         </Field>
 
-        {/* The map-less-v1 explainer and its one control, in the customer's
-            own palette — the shared kit's filled button is the partner
-            surface's indigo. */}
+        {/* The pin. Required, not offered — the whole reason the picker exists
+            is that there is no longer a path where the server has to guess,
+            and leaving one open means most addresses would still take it. */}
         <div className="rounded-xl border border-shop-line bg-shop-soft/50 p-3">
-          <p className="text-[12.5px] leading-snug text-shop-ink-soft">
-            {t('app.addresses.coordsExplanation')}
-          </p>
-          <ShopButton
-            tone="quiet"
-            size="sm"
-            className="mt-2"
-            disabled={geoStatus === 'requesting'}
-            onClick={() => void handleUseLocation()}
-          >
-            <PinIcon className="h-4 w-4" />
-            {geoStatus === 'requesting' ? t('common.loading') : t('app.addresses.useMyLocation')}
-          </ShopButton>
-          {geoStatus === 'done' && coords ? (
-            <p role="status" className="mt-1.5 text-xs font-semibold text-green-700">
-              {t('app.addresses.locationCaptured')}
-            </p>
-          ) : null}
-          {geoError ? (
-            <p role="alert" className="mt-1.5 text-xs font-semibold text-red-700">
-              {t(`app.find.geoError.${geoError}`)}
-            </p>
-          ) : null}
+          {picking ? (
+            <MapPicker
+              initial={coords}
+              onCancel={() => setPicking(false)}
+              onConfirm={(point, label) => {
+                setCoords(point);
+                setPicking(false);
+                // The neighbourhood, as a starting point for an empty address
+                // box. Never a replacement — "Surtalai" is not an address, and
+                // the technician needs the house.
+                if (!addressText.trim() && label) setAddressText(`${label}, `);
+              }}
+            />
+          ) : (
+            <>
+              <p className="text-[12.5px] leading-snug text-shop-ink-soft">
+                {coords
+                  ? t('app.addresses.locationCaptured')
+                  : t('app.addresses.coordsExplanation')}
+              </p>
+              <ShopButton tone="quiet" size="sm" className="mt-2" onClick={() => setPicking(true)}>
+                <PinIcon className="h-4 w-4" />
+                {coords ? t('app.addresses.changeLocation') : t('app.addresses.setOnMap')}
+              </ShopButton>
+            </>
+          )}
         </div>
 
         {mutation.isError ? <ErrorState error={mutation.error} /> : null}
@@ -163,7 +152,7 @@ export function AddressForm({
           <ShopButton
             tone="primary"
             className="flex-1"
-            disabled={mutation.isPending || addressText.trim().length < 5}
+            disabled={mutation.isPending || addressText.trim().length < 5 || !coords}
             onClick={handleSubmit}
           >
             {mutation.isPending ? t('common.loading') : t('common.save')}
