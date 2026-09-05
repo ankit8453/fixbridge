@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { AppContext } from '../../core/context';
 import { AppError } from '../../core/errors';
-import { isValidLatLng, type GeoPoint } from '../../core/geo';
+import { isInsideJabalpur, isValidLatLng, type GeoPoint } from '../../core/geo';
 import * as repo from './repository';
 import type {
   AddressResponse,
@@ -108,6 +108,22 @@ async function resolveLocation(
     if (!isValidLatLng(point)) {
       throw AppError.badRequest('Supplied coordinates are not a valid point', {
         messageKey: 'errors.customers.invalidLocation',
+        details: point,
+      });
+    }
+
+    /**
+     * One city, and it has to be said out loud.
+     *
+     * Every address is stamped with the default city whatever its coordinates
+     * are, so a pin dropped in Mumbai used to save happily and then return an
+     * empty technician list with no reason given. Somebody booking for a
+     * relative in another town would conclude the app was broken, which is
+     * nearly the opposite of the truth.
+     */
+    if (!isInsideJabalpur(point)) {
+      throw AppError.badRequest('That location is outside the area we serve', {
+        messageKey: 'errors.customers.outsideServiceArea',
         details: point,
       });
     }

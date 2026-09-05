@@ -2,6 +2,7 @@ import type { Express } from 'express';
 import { router as authRouter } from './auth/routes';
 import { router as categoriesRouter } from './categories/routes';
 import { router as customersRouter } from './customers/routes';
+import { router as geoRouter } from './geo/routes';
 import { router as providersRouter, photoReportRouter, photoOpsRouter } from './providers/routes';
 import {
   router as verificationRouter,
@@ -56,6 +57,9 @@ export function registerModuleRoutes(app: Express): void {
   app.use(`${API_PREFIX}/auth`, authRouter);
   app.use(`${API_PREFIX}/categories`, categoriesRouter);
   app.use(`${API_PREFIX}/customers`, customersRouter);
+  // Address-picker lookups. Server-side because Nominatim rate limits the whole
+  // application, not each caller — see the note in the module.
+  app.use(`${API_PREFIX}/geo`, geoRouter);
   // Slots live in the bookings module but hang off the providers path, which is
   // where a client looks for them. Most specific prefix first.
   // Photo reports are keyed by photo id, not provider id, so they get their own

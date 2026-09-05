@@ -10,16 +10,47 @@ export interface GeocodeRequest {
   cityId: number;
 }
 
+/** One candidate from a search box. */
+export interface PlaceSuggestion {
+  /** What to show in the list — "Vijay Nagar, Jabalpur, Madhya Pradesh". */
+  label: string;
+  point: GeoPoint;
+}
+
 /**
- * Turning human address text into coordinates.
+ * Everything the address picker needs, behind one interface.
  *
- * Behind an interface from day one so the real provider (Ola Maps) can be
- * dropped in later without touching a single caller. Nothing in the codebase
- * may depend on which implementation is wired in.
+ * Three operations, and each has exactly one caller shape:
+ *
+ *   - `search` backs the search box on the map. It answers *candidates*, not a
+ *     point, because the customer picks — this is the one place where guessing
+ *     is honest, since a person confirms the guess.
+ *   - `reverse` names a point the customer has already chosen, so the header
+ *     can say "Surtalai" instead of "Current location".
+ *   - `geocode` is the fallback for an address saved with no pin at all. It is
+ *     the only one that answers without a human in the loop, which is why the
+ *     stub deliberately gives a useless answer rather than a plausible one.
+ *
+ * Behind an interface so the provider can change without touching a caller.
+ * Nothing in the codebase may depend on which implementation is wired in.
  */
 export interface GeoService {
   readonly name: string;
   geocode(request: GeocodeRequest): Promise<GeoPoint>;
+  /** Candidates for a typed query. Empty when nothing matches — not an error. */
+  search(query: string, cityId: number): Promise<PlaceSuggestion[]>;
+  /** A human name for a point, or null when the provider has none. */
+  reverse(point: GeoPoint): Promise<string | null>;
+}
+
+/** Whether a point is inside the one city this product actually serves. */
+export function isInsideJabalpur(point: GeoPoint): boolean {
+  return (
+    point.lat >= JABALPUR_BOUNDS.minLat &&
+    point.lat <= JABALPUR_BOUNDS.maxLat &&
+    point.lng >= JABALPUR_BOUNDS.minLng &&
+    point.lng <= JABALPUR_BOUNDS.maxLng
+  );
 }
 
 /**
@@ -84,6 +115,16 @@ export function createStubGeoService(): GeoService {
 
     async geocode() {
       return { ...JABALPUR_CENTRE };
+    },
+
+    // No results rather than invented ones. An empty search box says "type an
+    // address instead"; a fabricated suggestion says "this place exists".
+    async search() {
+      return [];
+    },
+
+    async reverse() {
+      return null;
     },
   };
 }

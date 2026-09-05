@@ -11,6 +11,7 @@ import { createOtpTransport } from '../modules/auth/transport';
 import type { OtpTransport } from '../modules/auth/transport';
 import { createUserDenylist, type UserDenylist } from '../modules/auth/denylist';
 import { createStubGeoService, type GeoService } from './geo';
+import { createNominatimGeoService } from './geo-nominatim';
 import { createOutboxRegistry, type OutboxRegistry } from './outbox';
 import { createS3StorageService, type StorageService } from './storage';
 import { createDefaultAdapters, type VerificationAdapters } from '../modules/verification/adapters';
@@ -60,6 +61,29 @@ export interface AppContext {
 
 export const CONTEXT_KEY = 'appContext';
 
+/**
+ * Picks the geocoder from config.
+ *
+ * `stub` is the default so a fresh clone works with no network. It is safe as
+ * a default in a way `fake` payments are not — it answers uselessly rather
+ * than wrongly, which is exactly what it was rewritten to do.
+ */
+function createGeoService(config: AppConfig, redis: Redis, logger: AppLogger): GeoService {
+  if (config.GEO_PROVIDER === 'nominatim') {
+    return createNominatimGeoService({
+      baseUrl: config.GEO_NOMINATIM_URL,
+      // The schema guarantees this is present for this branch.
+      userAgent: config.GEO_USER_AGENT as string,
+      redis,
+      logger,
+      cacheTtlSeconds: config.GEO_CACHE_TTL_SECONDS,
+      timeoutMs: config.GEO_TIMEOUT_MS,
+    });
+  }
+
+  return createStubGeoService();
+}
+
 export function createContext(config: AppConfig = loadConfig()): AppContext {
   const logger = createLogger(config);
   const redis = createRedisClient(config, logger);
@@ -72,7 +96,7 @@ export function createContext(config: AppConfig = loadConfig()): AppContext {
     version: APP_VERSION,
     otpTransport: createOtpTransport(logger, config.NODE_ENV, config.AUTH_OTP_TRANSPORT, config),
     userDenylist: createUserDenylist(redis, config, logger),
-    geo: createStubGeoService(),
+    geo: createGeoService(config, redis, logger),
     storage: createS3StorageService(config, logger),
     adapters: createDefaultAdapters(),
     outbox: createOutboxRegistry(),

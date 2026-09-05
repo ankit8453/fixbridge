@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_error.dart';
 import '../../core/location.dart';
+import '../location/map_picker_screen.dart';
 import '../../core/providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
@@ -386,29 +387,42 @@ class _AddAddressSheetState extends ConsumerState<AddAddressSheet> {
     super.dispose();
   }
 
-  /// Pins the address to real coordinates.
+  /// Puts the address on the map.
   ///
-  /// Optional on purpose. Without it the server geocodes the address text, so
-  /// a refusal costs accuracy rather than blocking the save — and a customer
-  /// who is not at the address they are adding should not be pinning it to
-  /// where they happen to be standing.
+  /// A picker rather than "use my current location", because the two answer
+  /// different questions. Where the phone is standing is only the right answer
+  /// when the customer is at the address — and plenty are not, booking for a
+  /// parent or a shop. The picker opens on the phone's position and lets them
+  /// move it, so both cases end with a point somebody actually chose.
+  ///
+  /// Not optional any more either. Skipping it used to hand the server an
+  /// address to guess at, and the guess was navigated to.
   Future<void> _locate() async {
+    final picked = await Navigator.of(context).push<PickedPoint>(
+      MaterialPageRoute(
+        builder: (_) => MapPickerScreen(
+          initial: _coords == null
+              ? null
+              : PickedPoint(lat: _coords!.lat, lng: _coords!.lng),
+        ),
+        fullscreenDialog: true,
+      ),
+    );
+
+    if (picked == null || !mounted) return;
+
     setState(() {
-      _locating = true;
+      _coords = (lat: picked.lat, lng: picked.lng);
       _geoNote = null;
-    });
 
-    final result = await DeviceLocation.current();
-    if (!mounted) return;
-
-    setState(() {
-      _locating = false;
-      switch (result) {
-        case LocationFound(:final lat, :final lng):
-          _coords = (lat: lat, lng: lng);
-          _geoNote = null;
-        case LocationRefused(:final message):
-          _geoNote = message;
+      // The neighbourhood, offered as a starting point for an empty address
+      // box. Never a replacement for it — "Surtalai" is not an address, and a
+      // technician needs the house.
+      if (_address.text.trim().isEmpty && picked.label != null) {
+        _address.text = '${picked.label}, ';
+        _address.selection = TextSelection.fromPosition(
+          TextPosition(offset: _address.text.length),
+        );
       }
     });
   }

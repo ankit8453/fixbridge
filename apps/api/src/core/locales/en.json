@@ -174,7 +174,8 @@
     "customers": {
       "addressNotFound": "We could not find that address.",
       "addressLimitReached": "You can save up to {{limit}} addresses. Please remove one first.",
-      "invalidLocation": "Those map coordinates do not look right."
+      "invalidLocation": "Those map coordinates do not look right.",
+      "outsideServiceArea": "We do not work in that area yet. FixBridge is Jabalpur only for now."
     },
     "providers": {
       "profileNotFound": "You do not have a technician profile yet.",
@@ -299,6 +300,10 @@
     },
     "payoutDetails": {
       "accountMismatch": "The account numbers do not match"
+    },
+    "geo": {
+      "rateLimited": "Too many location lookups. Wait a moment and try again.",
+      "invalidPoint": "That is not a valid location"
     }
   },
   "common": {

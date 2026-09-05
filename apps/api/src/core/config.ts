@@ -182,6 +182,29 @@ const baseConfigSchema = z.object({
   /** Default city for endpoints that accept an optional cityId. Jabalpur = 1. */
   DEFAULT_CITY_ID: z.coerce.number().int().min(1).default(1),
 
+  /* ---- geocoding ---- */
+
+  /**
+   * `stub` answers the city centre for everything and finds nothing — useful
+   * in tests and on a clone with no network, useless to a customer.
+   * `nominatim` is OpenStreetMap's own service: free, no key, no billing
+   * account, and rate limited to one request per second for the whole app.
+   */
+  GEO_PROVIDER: z.enum(['stub', 'nominatim']).default('stub'),
+  GEO_NOMINATIM_URL: z.string().url().default('https://nominatim.openstreetmap.org'),
+  /**
+   * Required by Nominatim's usage policy, and enforced here rather than
+   * discovered through a block: it must name the app and carry a contact
+   * address, so they can reach a human before they ban an IP.
+   */
+  GEO_USER_AGENT: z.string().min(1).optional(),
+  /**
+   * A week. Addresses do not move, and every cache hit is one request further
+   * from a rate limit we do not control.
+   */
+  GEO_CACHE_TTL_SECONDS: z.coerce.number().int().min(60).default(604_800),
+  GEO_TIMEOUT_MS: z.coerce.number().int().min(500).max(20_000).default(6_000),
+
   /* ---- object storage (KYC documents) ---- */
 
   /** S3-compatible endpoint. MinIO locally; leave unset for real AWS S3. */
@@ -660,6 +683,16 @@ export const configSchema = baseConfigSchema.superRefine((config, ctx) => {
         });
       }
     }
+  }
+
+  if (config.GEO_PROVIDER === 'nominatim' && config.GEO_USER_AGENT === undefined) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['GEO_USER_AGENT'],
+      message:
+        'is required when GEO_PROVIDER=nominatim — their policy refuses anonymous ' +
+        'requests, and the first sign of trouble is a blocked IP',
+    });
   }
 
   if (config.PAYMENT_GATEWAY === 'razorpay') {

@@ -1,6 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/repositories/geo_repository.dart';
+
 import '../data/repositories/account_repository.dart';
 import '../data/repositories/auth_repository.dart';
 import '../data/repositories/booking_repository.dart';
@@ -92,6 +94,11 @@ final localeProvider =
 /// Whether the picker has been answered. Watched by the router.
 final localeChosenProvider =
     Provider<bool>((ref) => ref.watch(localeControllerProvider).chosen);
+
+/// Map lookups — search and naming a point. Server-side; see the repository.
+final geoRepositoryProvider = Provider<GeoRepository>((ref) {
+  return GeoRepository(ref.watch(apiClientProvider));
+});
 
 /// The one HTTP client.
 final apiClientProvider = Provider<ApiClient>((ref) {

@@ -174,7 +174,8 @@
     "customers": {
       "addressNotFound": "यह पता हमें नहीं मिला।",
       "addressLimitReached": "आप ज़्यादा से ज़्यादा {{limit}} पते सेव कर सकते हैं। पहले कोई एक हटाएँ।",
-      "invalidLocation": "नक़्शे की यह जगह सही नहीं लग रही।"
+      "invalidLocation": "नक़्शे की यह जगह सही नहीं लग रही।",
+      "outsideServiceArea": "हम अभी उस क्षेत्र में काम नहीं करते। FixBridge फ़िलहाल केवल जबलपुर में है।"
     },
     "providers": {
       "profileNotFound": "आपकी कारीगर प्रोफ़ाइल अभी नहीं बनी है।",
@@ -299,6 +300,10 @@
     },
     "payoutDetails": {
       "accountMismatch": "खाता संख्या मेल नहीं खा रही है"
+    },
+    "geo": {
+      "rateLimited": "बहुत ज़्यादा खोज। थोड़ी देर बाद फिर कोशिश करें।",
+      "invalidPoint": "यह मान्य स्थान नहीं है"
     }
   },
   "common": {

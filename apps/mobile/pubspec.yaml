@@ -48,6 +48,15 @@ dependencies:
   # Searching from where the customer actually is.
   geolocator: ^13.0.2
 
+  # The address map. OpenStreetMap tiles, no key and no billing account.
+  #
+  # Pure Dart — it draws tiles it fetches over HTTP and has no Android or iOS
+  # code of its own. That matters after the `geocoding` package, which pinned
+  # itself to an old Android SDK and failed the release build before compiling
+  # a line: a package with no native side cannot do that.
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+
   # Turning that fix into a name somebody recognises. This is the geocoder
   # built into Android and iOS, not a paid API: the name is a courtesy label
   # on the home screen and nothing depends on it, so it is not worth a key or
