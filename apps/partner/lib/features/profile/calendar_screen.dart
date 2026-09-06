@@ -10,6 +10,7 @@ import '../../core/theme/app_typography.dart';
 import '../../data/models/partner_profile.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/states.dart';
+import '../../l10n/app_text.dart';
 
 /// The next week's slots, with the ability to block one.
 ///
@@ -68,7 +69,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             onPressed: () => context.pop(),
           ),
         ),
-        title: const Text('Your week'),
+        title: Text(tr('profile.yourWeek')),
       ),
       body: SafeArea(
         child: slots.when(
@@ -86,12 +87,11 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           ),
           data: (list) {
             if (list.isEmpty) {
-              return const EmptyState(
+              return EmptyState(
                 icon: Icons.event_busy_outlined,
-                title: 'No hours yet',
+                title: tr('profile.noHoursYet'),
                 message:
-                    'Set the days and times you work, and bookable hours will '
-                    'appear here.',
+                    tr('profile.setTheDaysAndTimes'),
               );
             }
 
@@ -111,8 +111,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 padding: const EdgeInsets.all(AppSpacing.screenX),
                 children: [
                   Text(
-                    'Tap an hour to take it off sale. Booked hours cannot be '
-                    'changed here.',
+                    tr('profile.tapAnHourToTake'),
                     style: AppType.meta.copyWith(color: AppColors.grey),
                   ),
                   const SizedBox(height: AppSpacing.lg),
@@ -156,8 +155,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final day = DateTime(dt.year, dt.month, dt.day);
     final diff = day.difference(today).inDays;
     return switch (diff) {
-      0 => 'Today',
-      1 => 'Tomorrow',
+      0 => tr('profile.today'),
+      1 => tr('profile.tomorrow'),
       _ => '${dt.day}/${dt.month}',
     };
   }
@@ -205,7 +204,7 @@ class _SlotChip extends StatelessWidget {
           child: Column(
             children: [
               Text(
-                '$h $period',
+                tr('profile.hPeriod', {'h': h, 'period': period}),
                 style: AppType.cardTitle.copyWith(
                   fontSize: 13,
                   color: fg,
@@ -215,10 +214,10 @@ class _SlotChip extends StatelessWidget {
               const SizedBox(height: 1),
               Text(
                 booked
-                    ? 'Booked'
+                    ? tr('profile.booked')
                     : blocked
-                        ? 'Off'
-                        : 'Free',
+                        ? tr('profile.off')
+                        : tr('profile.free'),
                 style: AppType.caption.copyWith(color: fg, fontSize: 9),
               ),
             ],

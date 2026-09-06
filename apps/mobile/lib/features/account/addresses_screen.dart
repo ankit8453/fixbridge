@@ -13,6 +13,7 @@ import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/states.dart';
 import '../provider/book_sheet.dart';
 import '../provider/provider_providers.dart';
+import '../../l10n/app_text.dart';
 
 /// Saved addresses.
 ///
@@ -35,7 +36,7 @@ class AddressesScreen extends ConsumerWidget {
             onPressed: () => context.pop(),
           ),
         ),
-        title: const Text('Saved addresses'),
+        title: Text(tr('account.savedAddresses2')),
       ),
       body: SafeArea(
         child: Column(
@@ -55,12 +56,11 @@ class AddressesScreen extends ConsumerWidget {
                   onRetry: () => ref.invalidate(myAddressesProvider),
                 ),
                 data: (list) => list.isEmpty
-                    ? const EmptyState(
+                    ? EmptyState(
                         icon: Icons.place_outlined,
-                        title: 'No addresses yet',
+                        title: tr('account.noAddressesYet'),
                         message:
-                            'Add one so a technician knows where to come. You '
-                            'can save as many as you like.',
+                            tr('account.addOneSoATechnician'),
                       )
                     : ListView.separated(
                         padding: const EdgeInsets.all(AppSpacing.screenX),
@@ -84,7 +84,7 @@ class AddressesScreen extends ConsumerWidget {
                 AppSpacing.screenBottom,
               ),
               child: AppButton(
-                label: 'Add an address',
+                label: tr('account.addAnAddress'),
                 icon: Icons.add_rounded,
                 onPressed: () => _add(context, ref),
               ),
@@ -140,12 +140,12 @@ class AddressesScreen extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Remove this address?', style: AppType.heading),
+            Text(tr('account.removeThisAddress'), style: AppType.heading),
             const SizedBox(height: AppSpacing.sm),
             Text(
               // Past bookings keep their own snapshot of the address, so
               // removing it here does not rewrite history.
-              'Bookings you already made keep the address they were sent to.',
+              tr('account.bookingsYouAlreadyMadeKeep'),
               style: AppType.body.copyWith(color: AppColors.grey),
             ),
             const SizedBox(height: AppSpacing.xl),
@@ -153,7 +153,7 @@ class AddressesScreen extends ConsumerWidget {
               children: [
                 Expanded(
                   child: AppButton(
-                    label: 'Keep it',
+                    label: tr('account.keepIt'),
                     kind: AppButtonKind.ghost,
                     onPressed: () => Navigator.pop(context, false),
                   ),
@@ -161,7 +161,7 @@ class AddressesScreen extends ConsumerWidget {
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: AppButton(
-                    label: 'Remove',
+                    label: tr('account.remove'),
                     onPressed: () => Navigator.pop(context, true),
                   ),
                 ),
@@ -250,13 +250,13 @@ class _AddressCard extends StatelessWidget {
                 },
                 itemBuilder: (_) => [
                   if (!address.isDefault)
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'default',
-                      child: Text('Make default'),
+                      child: Text(tr('account.makeDefault')),
                     ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'delete',
-                    child: Text('Remove'),
+                    child: Text(tr('account.remove2')),
                   ),
                 ],
               ),

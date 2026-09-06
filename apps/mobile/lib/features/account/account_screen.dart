@@ -13,6 +13,7 @@ import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_field.dart';
 import '../../shared/widgets/avatar.dart';
 import '../auth/auth_controller.dart';
+import '../../l10n/app_text.dart';
 
 class AccountScreen extends ConsumerWidget {
   const AccountScreen({super.key});
@@ -35,14 +36,14 @@ class AccountScreen extends ConsumerWidget {
             96,
           ),
           children: [
-            Text('Account', style: AppType.title),
+            Text(tr('account.account'), style: AppType.title),
             const SizedBox(height: AppSpacing.lg),
 
             if (user == null)
               _SignedOutCard(onSignIn: () => context.push('/signin'))
             else
               _ProfileCard(
-                name: user.name ?? 'Add your name',
+                name: user.name ?? tr('account.addYourName'),
                 phone: user.phone,
                 hasName: user.name != null,
               ),
@@ -54,28 +55,28 @@ class AccountScreen extends ConsumerWidget {
             // re-renders old messages, and WhatsApp follows too.
             _SettingRow(
               icon: Icons.translate_rounded,
-              title: 'Language',
-              value: locale.languageCode == 'hi' ? 'हिन्दी' : 'English',
+              title: tr('account.language'),
+              value: locale.languageCode == 'hi' ? 'हिन्दी' : tr('account.english'),
               onTap: () => context.push('/settings/language'),
             ),
 
             if (user != null) ...[
               _SettingRow(
                 icon: Icons.badge_outlined,
-                title: 'Your name',
-                value: user.name == null ? 'Add' : 'Edit',
+                title: tr('account.yourName'),
+                value: user.name == null ? tr('account.add') : tr('account.edit'),
                 onTap: () => _editName(context, ref, user.name),
               ),
               _SettingRow(
                 icon: Icons.place_outlined,
-                title: 'Saved addresses',
-                value: 'Manage',
+                title: tr('account.savedAddresses'),
+                value: tr('account.manage'),
                 onTap: () => context.push('/account/addresses'),
               ),
               _SettingRow(
                 icon: Icons.support_agent_rounded,
-                title: 'Complaints',
-                value: 'View',
+                title: tr('account.complaints'),
+                value: tr('account.view'),
                 onTap: () => context.push('/account/complaints'),
               ),
             ],
@@ -86,7 +87,7 @@ class AccountScreen extends ConsumerWidget {
             if (user != null) ...[
               const SizedBox(height: AppSpacing.xl),
               AppButton(
-                label: 'Sign out',
+                label: tr('account.signOut'),
                 kind: AppButtonKind.ghost,
                 onPressed: () => _confirmSignOut(context, ref),
               ),
@@ -122,16 +123,16 @@ class AccountScreen extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Your name', style: AppType.heading),
+              Text(tr('account.yourName2'), style: AppType.heading),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                'The technician sees this when they accept your booking.',
+                tr('account.theTechnicianSeesThisWhen'),
                 style: AppType.meta.copyWith(color: AppColors.grey),
               ),
               const SizedBox(height: AppSpacing.lg),
               AppField(
                 controller: controller,
-                hint: 'Your name',
+                hint: tr('account.yourName3'),
                 autofocus: true,
                 maxLength: 120,
                 textCapitalization: TextCapitalization.words,
@@ -139,7 +140,7 @@ class AccountScreen extends ConsumerWidget {
               ),
               const SizedBox(height: AppSpacing.lg),
               AppButton(
-                label: 'Save',
+                label: tr('account.save'),
                 onPressed: controller.text.trim().isEmpty
                     ? null
                     : () => Navigator.pop(context, controller.text.trim()),
@@ -178,11 +179,10 @@ class AccountScreen extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Sign out?', style: AppType.heading),
+            Text(tr('account.signOut2'), style: AppType.heading),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'You will need your phone number and a code to sign back in. '
-              'Your bookings stay where they are.',
+              tr('account.youWillNeedYourPhone'),
               style: AppType.body.copyWith(color: AppColors.grey),
             ),
             const SizedBox(height: AppSpacing.xl),
@@ -190,7 +190,7 @@ class AccountScreen extends ConsumerWidget {
               children: [
                 Expanded(
                   child: AppButton(
-                    label: 'Stay',
+                    label: tr('account.stay'),
                     kind: AppButtonKind.ghost,
                     onPressed: () => Navigator.pop(context, false),
                   ),
@@ -198,7 +198,7 @@ class AccountScreen extends ConsumerWidget {
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: AppButton(
-                    label: 'Sign out',
+                    label: tr('account.signOut3'),
                     onPressed: () => Navigator.pop(context, true),
                   ),
                 ),
@@ -273,15 +273,14 @@ class _SignedOutCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('You are browsing as a guest', style: AppType.cardTitle),
+          Text(tr('account.youAreBrowsingAsA'), style: AppType.cardTitle),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            'Search and technician profiles work without an account. '
-            'You will need a number to book.',
+            tr('account.searchAndTechnicianProfilesWork'),
             style: AppType.meta.copyWith(color: AppColors.grey),
           ),
           const SizedBox(height: AppSpacing.lg),
-          AppButton(label: 'Sign in', onPressed: onSignIn),
+          AppButton(label: tr('account.signIn'), onPressed: onSignIn),
         ],
       ),
     );
@@ -357,7 +356,7 @@ class _AboutBlock extends StatelessWidget {
         ),
         const SizedBox(height: 2),
         Text(
-          'Verified technicians in Jabalpur',
+          tr('account.verifiedTechniciansInJabalpur'),
           style: AppType.caption.copyWith(color: AppColors.greyLight),
         ),
       ],

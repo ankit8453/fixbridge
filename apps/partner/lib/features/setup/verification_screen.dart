@@ -16,6 +16,7 @@ import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_field.dart';
 import '../home/partner_providers.dart';
+import '../../l10n/app_text.dart';
 
 /// Submitting one verification level.
 ///
@@ -181,7 +182,7 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
             onPressed: () => context.pop(),
           ),
         ),
-        title: Text(VerificationLevels.titles[widget.level] ?? 'Verification'),
+        title: Text(VerificationLevels.titles[widget.level] ?? tr('setup.verification2')),
       ),
       body: SafeArea(
         child: Column(
@@ -197,8 +198,7 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
                 children: [
                   Text(
                     _isReply
-                        ? 'We need a bit more before we can finish checking '
-                            'this. Add whatever was asked for.'
+                        ? tr('setup.weNeedABitMore')
                         : VerificationLevels.blurbs[widget.level] ?? '',
                     style: AppType.body.copyWith(color: AppColors.grey),
                   ),
@@ -232,7 +232,7 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
                 border: Border(top: BorderSide(color: AppColors.rule)),
               ),
               child: AppButton(
-                label: 'Submit',
+                label: tr('setup.submit'),
                 kind: AppButtonKind.accent,
                 loading: _busy,
                 onPressed: _canSubmit ? _submit : null,
@@ -249,19 +249,19 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
   List<Widget> _replyForm() => [
         AppField(
           controller: _notes,
-          label: 'Your answer',
-          hint: 'Type what was asked for',
+          label: tr('setup.yourAnswer'),
+          hint: tr('setup.typeWhatWasAskedFor'),
           autofocus: true,
           maxLines: 5,
           maxLength: 2000,
           onChanged: (_) => setState(() {}),
         ),
         const SizedBox(height: AppSpacing.lg),
-        Text('Add a photo, if that is what they need',
+        Text(tr('setup.addAPhotoIfThat'),
             style: AppType.cardTitle),
         const SizedBox(height: AppSpacing.sm),
         _UploadTile(
-          label: 'Another photo',
+          label: tr('setup.anotherPhoto'),
           done: _idDocId != null,
           busy: _busy,
           onTap: () async {
@@ -272,7 +272,7 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
       ];
 
   List<Widget> _identityForm() => [
-        Text('Which document?', style: AppType.cardTitle),
+        Text(tr('setup.whichDocument'), style: AppType.cardTitle),
         const SizedBox(height: AppSpacing.sm),
         Wrap(
           spacing: AppSpacing.sm,
@@ -289,7 +289,7 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
         const SizedBox(height: AppSpacing.lg),
         AppField(
           controller: _last4,
-          label: 'Last 4 digits only',
+          label: tr('setup.lastDigitsOnly'),
           hint: '1234',
           keyboardType: TextInputType.number,
           inputFormatters: [
@@ -320,8 +320,7 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
                   // digits and refuses the submission. A full Aadhaar number
                   // must not exist in our systems at all — so it cannot be
                   // logged, error-reported, or found in a backup.
-                  'We only ever store the last four digits. Never type the '
-                  'whole number — we will refuse it.',
+                  tr('setup.weOnlyEverStoreThe'),
                   style: AppType.meta.copyWith(color: AppColors.inkMuted),
                 ),
               ),
@@ -330,7 +329,7 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
         ),
         const SizedBox(height: AppSpacing.lg),
         _UploadTile(
-          label: 'Photo of the document',
+          label: tr('setup.photoOfTheDocument'),
           done: _idDocId != null,
           busy: _busy,
           onTap: () async {
@@ -340,7 +339,7 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
         ),
         const SizedBox(height: AppSpacing.sm),
         _UploadTile(
-          label: 'Photo of yourself',
+          label: tr('setup.photoOfYourself'),
           // docType 'photo' is the one that also satisfies the profile's
           // photoDocument completeness item — the profile picture does not.
           done: _selfieDocId != null,
@@ -369,7 +368,7 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Text(
-                  'I agree to a standard background check.',
+                  tr('setup.iAgreeToAStandard'),
                   style: AppType.bodyMedium,
                 ),
               ),
@@ -378,15 +377,14 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
         ),
         const SizedBox(height: AppSpacing.md),
         Text(
-          'Nothing to upload. Customers are letting you into their homes, so '
-          'this is the step that lets us say you have been checked.',
+          tr('setup.nothingToUploadCustomersAre'),
           style: AppType.meta.copyWith(color: AppColors.grey),
         ),
       ];
 
   List<Widget> _skillForm() => [
         _UploadTile(
-          label: 'A certificate, if you have one',
+          label: tr('setup.aCertificateIfYouHave'),
           done: _certDocId != null,
           busy: _busy,
           onTap: () async {
@@ -432,7 +430,7 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Text(
-                      'Ask us for a trade test instead',
+                      tr('setup.askUsForATrade'),
                       style: AppType.bodyMedium,
                     ),
                   ),
@@ -440,8 +438,7 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                'No certificate needed — someone will arrange a practical '
-                'test with you.',
+                tr('setup.noCertificateNeededSomeoneWill'),
                 style: AppType.meta.copyWith(color: AppColors.grey),
               ),
             ],
@@ -454,8 +451,8 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
           const SizedBox(height: AppSpacing.md),
           AppField(
             controller: _notes,
-            label: 'What work do you do?',
-            hint: 'Water tank cleaning and RO servicing, 6 years',
+            label: tr('setup.whatWorkDoYouDo'),
+            hint: tr('setup.waterTankCleaningAndRo'),
             maxLines: 3,
             maxLength: 1000,
             onChanged: (_) => setState(() {}),
@@ -505,7 +502,7 @@ class _UploadTile extends StatelessWidget {
                 Text(label, style: AppType.bodyMedium.copyWith(fontSize: 13.5)),
                 const SizedBox(height: 1),
                 Text(
-                  done ? 'Uploaded' : 'Tap to take a photo',
+                  done ? tr('setup.uploaded') : tr('setup.tapToTakeAPhoto'),
                   style: AppType.caption.copyWith(
                     color: done ? AppColors.green : AppColors.greyLight,
                   ),

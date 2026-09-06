@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import 'app_button.dart';
+import '../../l10n/app_text.dart';
 
 /// Wraps the app and interrupts it when this build is too old.
 ///
@@ -59,16 +60,15 @@ class _UpdateGateState extends ConsumerState<UpdateGate> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('A new version is ready', style: AppType.heading),
+              Text(tr('common.aNewVersionIsReady'), style: AppType.heading),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'Version ${status.latestVersion} is available. Updating takes '
-                'a moment and keeps everything working properly.',
+                tr('common.versionStatusLatestversionIsAvailable', {'latestVersion': status.latestVersion}),
                 style: AppType.body.copyWith(color: AppColors.grey),
               ),
               const SizedBox(height: AppSpacing.xl),
               AppButton(
-                label: 'Update now',
+                label: tr('common.updateNow'),
                 icon: Icons.download_rounded,
                 onPressed: () {
                   Navigator.pop(context);
@@ -77,7 +77,7 @@ class _UpdateGateState extends ConsumerState<UpdateGate> {
               ),
               const SizedBox(height: AppSpacing.sm),
               AppButton(
-                label: 'Not now',
+                label: tr('common.notNow'),
                 kind: AppButtonKind.ghost,
                 onPressed: () => Navigator.pop(context),
               ),
@@ -132,20 +132,19 @@ class _ForcedUpdate extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 Text(
-                  'Please update to continue',
+                  tr('common.pleaseUpdateToContinue'),
                   textAlign: TextAlign.center,
                   style: AppType.heading,
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  'This version is too old to work safely with our servers. '
-                  'Version ${status.latestVersion} fixes that.',
+                  tr('common.thisVersionIsTooOld', {'latestVersion': status.latestVersion}),
                   textAlign: TextAlign.center,
                   style: AppType.body.copyWith(color: AppColors.grey),
                 ),
                 const SizedBox(height: AppSpacing.xl),
                 AppButton(
-                  label: 'Download the update',
+                  label: tr('common.downloadTheUpdate'),
                   icon: Icons.download_rounded,
                   onPressed: onDownload,
                 ),

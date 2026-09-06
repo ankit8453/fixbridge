@@ -24,6 +24,7 @@ import 'review_sheet.dart';
 import 'widgets/otp_card.dart';
 import 'widgets/progress_rail.dart';
 import 'widgets/quotation_card.dart';
+import '../../l10n/app_text.dart';
 
 /// One booking, from request to paid.
 ///
@@ -53,7 +54,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
           loading: () => const _Skeleton(),
           error: (e, _) => Column(
             children: [
-              _TopBar(onBack: () => context.pop(), title: 'Booking'),
+              _TopBar(onBack: () => context.pop(), title: tr('booking.booking')),
               Expanded(
                 child: ErrorState(
                   error: e,
@@ -119,7 +120,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       // The pending price takes the whole screen's attention when it exists —
       // it is the one thing that needs a decision.
       if (b.pendingQuotation != null) ...[
-        const SectionHeader(title: 'The price'),
+        SectionHeader(title: tr('booking.thePrice')),
         QuotationCard(
           quotation: b.pendingQuotation!,
           visitFeePaise: b.visitFeePaise,
@@ -150,12 +151,12 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       ],
 
       if (b.payable != null) ...[
-        const SectionHeader(title: 'What you owe'),
+        SectionHeader(title: tr('booking.whatYouOwe')),
         _PayableCard(booking: b),
       ],
 
       if (b.approvedQuotation != null && b.pendingQuotation == null) ...[
-        const SectionHeader(title: 'Agreed price'),
+        SectionHeader(title: tr('booking.agreedPrice')),
         QuotationCard(
           quotation: b.approvedQuotation!,
           visitFeePaise: b.visitFeePaise,
@@ -172,13 +173,13 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
         ),
       ],
 
-      const SectionHeader(title: 'Details'),
+      SectionHeader(title: tr('booking.details')),
       _Details(booking: b),
 
       if (b.status.canComplain) ...[
         const SizedBox(height: AppSpacing.lg),
         AppButton(
-          label: 'Report a problem',
+          label: tr('booking.reportAProblem'),
           kind: AppButtonKind.quiet,
           onPressed: () => _complain(b),
         ),
@@ -215,8 +216,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
   Future<void> _reject(Booking b) async {
     final reason = await _askText(
-      title: 'Why not at this price?',
-      hint: 'They may send a revised price',
+      title: tr('booking.whyNotAtThisPrice'),
+      hint: tr('booking.theyMaySendARevised'),
       optional: true,
     );
     if (reason == null) return;
@@ -233,12 +234,10 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   /// the visit fee becomes payable — the technician did come out.
   Future<void> _declineWork(Booking b) async {
     final confirmed = await _confirm(
-      title: 'Do not go ahead?',
+      title: tr('booking.doNotGoAhead'),
       message:
-          'This ends the booking. You will still be charged the visit fee of '
-          '${Paise.format(b.visitFeePaise)}, because ${b.counterpart.displayName} '
-          'did come out to you.',
-      confirmLabel: 'End the booking',
+          tr('booking.thisEndsTheBookingYou', {'visitFeePaise': Paise.format(b.visitFeePaise), 'displayName': b.counterpart.displayName}),
+      confirmLabel: tr('booking.endTheBooking'),
     );
     if (!confirmed) return;
 
@@ -254,7 +253,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       context: context,
       isScrollControlled: true,
       builder: (_) => _ReasonSheet(
-        title: 'Why are you cancelling?',
+        title: tr('booking.whyAreYouCancelling'),
         options: CancelReasons.customer,
       ),
     );
@@ -273,15 +272,15 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       context: context,
       isScrollControlled: true,
       builder: (_) => _ReasonSheet(
-        title: 'What went wrong?',
+        title: tr('booking.whatWentWrong'),
         options: ComplaintCategories.all,
       ),
     );
     if (category == null) return;
 
     final description = await _askText(
-      title: 'Tell us what happened',
-      hint: 'A few sentences so we can look into it properly',
+      title: tr('booking.tellUsWhatHappened'),
+      hint: tr('booking.aFewSentencesSoWe'),
       minLength: ComplaintCategories.minDescription,
     );
     if (description == null) return;
@@ -299,8 +298,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
               category == 'safety'
                   // A safety complaint suspends the technician before the
                   // request even returns, so saying so is honest, not a boast.
-                  ? 'Reported. We have suspended them while we look into it.'
-                  : 'Reported. Someone will look at this.',
+                  ? tr('booking.reportedWeHaveSuspendedThem')
+                  : tr('booking.reportedSomeoneWillLookAt'),
             ),
           ),
         );
@@ -310,7 +309,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
   void _pay(Booking b) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Online payment is not switched on yet.')),
+      SnackBar(content: Text(tr('booking.onlinePaymentIsNotSwitched'))),
     );
   }
 
@@ -319,11 +318,9 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   /// notes the customer never meant to hand over.
   Future<void> _chooseCash(Booking b) async {
     final ok = await _confirm(
-      title: 'Pay in cash?',
-      message: 'Your technician will be told to collect it, and will confirm '
-          'here once it is in their hand. You can switch back to paying '
-          'online until then.',
-      confirmLabel: 'Yes, cash',
+      title: tr('booking.payInCash'),
+      message: tr('booking.yourTechnicianWillBeTold'),
+      confirmLabel: tr('booking.yesCash'),
     );
     if (!ok) return;
 
@@ -371,7 +368,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
               children: [
                 Expanded(
                   child: AppButton(
-                    label: 'Go back',
+                    label: tr('booking.goBack'),
                     kind: AppButtonKind.ghost,
                     onPressed: () => Navigator.pop(context, false),
                   ),
@@ -436,14 +433,14 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
               ),
               const SizedBox(height: AppSpacing.md),
               AppButton(
-                label: 'Send',
+                label: tr('booking.send'),
                 onPressed: controller.text.trim().length >= minLength
                     ? () => Navigator.pop(context, controller.text.trim())
                     : null,
               ),
               if (optional)
                 AppButton(
-                  label: 'Skip',
+                  label: tr('booking.skip'),
                   kind: AppButtonKind.quiet,
                   onPressed: () => Navigator.pop(context, ''),
                 ),
@@ -510,7 +507,7 @@ class _Counterpart extends StatelessWidget {
                 Text(
                   // Masked until the booking is accepted; both sides genuinely
                   // need to reach each other once a visit is agreed.
-                  c.phone ?? 'Number shown once they accept',
+                  c.phone ?? tr('booking.numberShownOnceTheyAccept'),
                   style: AppType.meta.copyWith(color: AppColors.grey),
                 ),
               ],
@@ -569,7 +566,7 @@ class _ReviewPrompt extends ConsumerWidget {
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Text(
-                    'Thanks for rating this job.',
+                    tr('booking.thanksForRatingThisJob'),
                     style: AppType.meta.copyWith(color: AppColors.ink),
                   ),
                 ),
@@ -582,16 +579,15 @@ class _ReviewPrompt extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('How did it go?', style: AppType.cardTitle),
+              Text(tr('booking.howDidItGo'), style: AppType.cardTitle),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                'Your rating is what other people see when they are deciding '
-                'who to trust.',
+                tr('booking.yourRatingIsWhatOther'),
                 style: AppType.meta.copyWith(color: AppColors.grey),
               ),
               const SizedBox(height: AppSpacing.md),
               AppButton(
-                label: 'Rate $technicianName',
+                label: tr('booking.rateTechnicianname', {'technicianName': technicianName}),
                 kind: AppButtonKind.ghost,
                 onPressed: () async {
                   final posted = await showModalBottomSheet<bool>(
@@ -633,7 +629,7 @@ Future<void> _call(BuildContext context, String phone) async {
   await Clipboard.setData(ClipboardData(text: phone));
   if (context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('No dialler here — number copied instead')),
+      SnackBar(content: Text(tr('booking.noDiallerHereNumberCopied'))),
     );
   }
 }
@@ -678,7 +674,7 @@ class _PayableCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text('You pay', style: AppType.cardTitle),
+              Text(tr('booking.youPay'), style: AppType.cardTitle),
               const Spacer(),
               Text(
                 Paise.show(payable.payableDisplay, payable.payablePaise),
@@ -711,14 +707,14 @@ class _Details extends StatelessWidget {
     return AppCard(
       child: Column(
         children: [
-          _row('When', formatWhen(booking.startsAt)),
+          _row(tr('booking.when'), formatWhen(booking.startsAt)),
           if (booking.address != null)
-            _row('Where', booking.address!.shortLine),
+            _row(tr('booking.where'), booking.address!.shortLine),
           if (booking.problemNote != null && booking.problemNote!.isNotEmpty)
-            _row('Problem', booking.problemNote!),
+            _row(tr('booking.problem'), booking.problemNote!),
           if (booking.agreedLabour.amountPaise != null)
             _row(
-              'Agreed labour',
+              tr('booking.agreedLabour'),
               Paise.format(booking.agreedLabour.amountPaise!),
             ),
         ],
@@ -755,7 +751,7 @@ extension on BookingAddress {
   String get shortLine {
     final l = landmark;
     if (l == null || l.isEmpty) return addressText;
-    return '$addressText, near $l';
+    return tr('booking.addresstextNearL', {'addressText': addressText, 'l': l});
   }
 }
 
@@ -816,13 +812,13 @@ class _Footer extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           AppButton(
-            label: 'Pay $amount now',
+            label: tr('booking.payAmountNow', {'amount': amount}),
             kind: AppButtonKind.accent,
             onPressed: busy ? null : onPay,
           ),
           const SizedBox(height: AppSpacing.sm),
           AppButton(
-            label: 'Pay cash to the technician',
+            label: tr('booking.payCashToTheTechnician'),
             kind: AppButtonKind.ghost,
             onPressed: busy ? null : onChooseCash,
           ),
@@ -833,7 +829,7 @@ class _Footer extends StatelessWidget {
       // and failing: once somebody is at the door it is a dispute, not a
       // cancellation.
       action = AppButton(
-        label: 'Cancel booking',
+        label: tr('booking.cancelBooking'),
         kind: AppButtonKind.ghost,
         onPressed: busy ? null : onCancel,
       );
@@ -937,7 +933,7 @@ class _PaidNote extends StatelessWidget {
         const SizedBox(width: AppSpacing.md),
         Expanded(
           child: Text(
-            wasCash ? 'Paid in cash. Thank you.' : 'Paid. Thank you.',
+            wasCash ? tr('booking.paidInCashThankYou') : tr('booking.paidThankYou'),
             style: AppType.bodyMedium,
           ),
         ),
@@ -973,7 +969,7 @@ class _CashChosenNote extends StatelessWidget {
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Text(
-                'Hand the money to your technician. They will confirm it here.',
+                tr('booking.handTheMoneyToYour'),
                 style: AppType.meta.copyWith(color: AppColors.grey),
               ),
             ),
@@ -981,7 +977,7 @@ class _CashChosenNote extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.sm),
         AppButton(
-          label: 'Pay online instead',
+          label: tr('booking.payOnlineInstead'),
           kind: AppButtonKind.ghost,
           onPressed: busy ? null : onUndo,
         ),

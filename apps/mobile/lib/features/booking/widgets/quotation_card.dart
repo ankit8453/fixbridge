@@ -6,6 +6,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../data/models/money.dart';
 import '../../../data/models/quotation.dart';
 import '../../../shared/widgets/app_button.dart';
+import '../../../l10n/app_text.dart';
 
 /// The price, itemised, with the agreed rate locked.
 ///
@@ -68,17 +69,17 @@ class QuotationCard extends StatelessWidget {
             children: [
               if (agreed != null && agreed > 0)
                 _Line(
-                  title: 'Agreed labour',
-                  subtitle: 'What you booked at',
+                  title: tr('booking.agreedLabour2'),
+                  subtitle: tr('booking.whatYouBookedAt'),
                   amount: Paise.format(agreed),
                   locked: true,
                 ),
 
               if (extra > 0) ...[
                 _Line(
-                  title: 'Extra labour',
-                  subtitle: 'Found on site',
-                  amount: '+ ${Paise.format(extra)}',
+                  title: tr('booking.extraLabour'),
+                  subtitle: tr('booking.foundOnSite'),
+                  amount: tr('booking.paiseFormatExtra', {'extra': Paise.format(extra)}),
                   amountColor: AppColors.amberText,
                 ),
                 if (quotation.extraLabourReason != null)
@@ -89,7 +90,7 @@ class QuotationCard extends StatelessWidget {
               // with no price card behind it.
               if (agreed == null && quotation.labourPaise > 0)
                 _Line(
-                  title: 'Labour',
+                  title: tr('booking.labour'),
                   amount: Paise.format(quotation.labourPaise),
                 ),
 
@@ -103,10 +104,10 @@ class QuotationCard extends StatelessWidget {
                 ),
 
               _Line(
-                title: 'Visit fee',
+                title: tr('booking.visitFee'),
                 // The fee is the price of turning up, so it is waived when
                 // the job actually got done under this quotation.
-                subtitle: 'Waived — work completed',
+                subtitle: tr('booking.waivedWorkCompleted'),
                 amount: Paise.format(0),
                 amountColor: AppColors.green,
                 last: true,
@@ -120,7 +121,7 @@ class QuotationCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      'Total',
+                      tr('booking.total'),
                       style: AppType.cardTitle.copyWith(fontSize: 13.5),
                     ),
                     const Spacer(),
@@ -151,10 +152,8 @@ class QuotationCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   agreed != null && agreed > 0
-                      ? 'The ${Paise.format(agreed)} you booked at cannot be '
-                          'changed. Only the extra is new — and it came with a '
-                          'reason you just read.'
-                      : 'You can say no. Nothing is charged until you approve.',
+                      ? tr('booking.thePaiseFormatAgreedYou', {'agreed': Paise.format(agreed)})
+                      : tr('booking.youCanSayNoNothing'),
                   style: AppType.caption.copyWith(color: AppColors.grey),
                 ),
               ),
@@ -165,7 +164,7 @@ class QuotationCard extends StatelessWidget {
             children: [
               Expanded(
                 child: AppButton(
-                  label: 'Not this price',
+                  label: tr('booking.notThisPrice'),
                   kind: AppButtonKind.ghost,
                   onPressed: busy ? null : onReject,
                 ),
@@ -175,7 +174,7 @@ class QuotationCard extends StatelessWidget {
                 flex: 3,
                 child: AppButton(
                   label:
-                      'Approve ${Paise.show(quotation.totalDisplay, quotation.totalPaise)}',
+                      tr('booking.approvePaiseShowQuotationTotaldisplay', {'totalPaise': Paise.show(quotation.totalDisplay, quotation.totalPaise)}),
                   kind: AppButtonKind.accent,
                   loading: busy,
                   onPressed: onApprove,
@@ -314,7 +313,7 @@ class _Reason extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'WHY THE EXTRA',
+            tr('booking.whyTheExtra'),
             style: AppType.label.copyWith(
               color: AppColors.amberText,
               fontSize: 8.5,

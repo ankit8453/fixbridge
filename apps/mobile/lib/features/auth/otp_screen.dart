@@ -11,6 +11,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import '../../shared/widgets/app_button.dart';
 import 'auth_controller.dart';
+import '../../l10n/app_text.dart';
 
 class OtpScreen extends ConsumerStatefulWidget {
   const OtpScreen({super.key, this.redirectTo});
@@ -74,7 +75,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
         // A wrong code and an expired one are the same OTP_INVALID by
         // design, so no attempt is made to tell them apart here.
         _error = e.isRateLimited
-            ? 'Too many attempts. Ask for a new code.'
+            ? tr('auth.tooManyAttemptsAskFor')
             : e.message;
         _controller.clear();
       });
@@ -94,7 +95,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       _startResendTimer();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('A new code is on its way.')),
+          SnackBar(content: Text(tr('auth.aNewCodeIsOn'))),
         );
       }
     } on ApiError catch (e) {
@@ -124,10 +125,10 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: AppSpacing.lg),
-              Text('Enter the code', style: AppType.title),
+              Text(tr('auth.enterTheCode'), style: AppType.title),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'Sent to $masked',
+                tr('auth.sentToMasked', {'masked': masked}),
                 style: AppType.body.copyWith(color: AppColors.grey),
               ),
               const SizedBox(height: AppSpacing.xxl),
@@ -152,14 +153,14 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
               Center(
                 child: _resendIn > 0
                     ? Text(
-                        'Resend in ${_resendIn}s',
+                        tr('auth.resendInResendinS', {'_resendIn': _resendIn}),
                         style:
                             AppType.meta.copyWith(color: AppColors.greyLight),
                       )
                     : TextButton(
                         onPressed: _resend,
                         child: Text(
-                          'Send a new code',
+                          tr('auth.sendANewCode'),
                           style: AppType.bodyMedium.copyWith(
                             color: AppColors.blue,
                             fontWeight: FontWeight.w600,
@@ -169,7 +170,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
               ),
               const Spacer(),
               AppButton(
-                label: 'Verify',
+                label: tr('auth.verify'),
                 loading: _verifying,
                 onPressed: _controller.text.length == 6 ? _verify : null,
               ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../data/models/booking.dart';
+import '../../l10n/app_text.dart';
 
 /// How each state reads to the technician.
 ///
@@ -11,27 +12,27 @@ import '../../data/models/booking.dart';
 /// says what to do rather than what is happening.
 extension JobStatusUi on BookingStatus {
   String get partnerLabel => switch (this) {
-        BookingStatus.requested => 'Needs your answer',
-        BookingStatus.accepted => 'Accepted',
-        BookingStatus.rejected => 'You declined',
-        BookingStatus.expired => 'Expired',
-        BookingStatus.enRoute => 'On your way',
-        BookingStatus.arrived => 'At the door',
-        BookingStatus.inProgress => 'Working',
-        BookingStatus.workDone => 'Finished',
-        BookingStatus.cancelledByCustomer => 'Customer cancelled',
-        BookingStatus.cancelledByProvider => 'You cancelled',
-        BookingStatus.closedQuoteDeclined => 'Customer declined the price',
-        BookingStatus.unknown => 'Job',
+        BookingStatus.requested => tr('jobs.needsYourAnswer'),
+        BookingStatus.accepted => tr('jobs.accepted'),
+        BookingStatus.rejected => tr('jobs.youDeclined'),
+        BookingStatus.expired => tr('jobs.expired'),
+        BookingStatus.enRoute => tr('jobs.onYourWay'),
+        BookingStatus.arrived => tr('jobs.atTheDoor'),
+        BookingStatus.inProgress => tr('jobs.working'),
+        BookingStatus.workDone => tr('jobs.finished'),
+        BookingStatus.cancelledByCustomer => tr('jobs.customerCancelled'),
+        BookingStatus.cancelledByProvider => tr('jobs.youCancelled'),
+        BookingStatus.closedQuoteDeclined => tr('jobs.customerDeclinedThePrice'),
+        BookingStatus.unknown => tr('jobs.job2'),
       };
 
   /// The single next thing to do. Empty when it is somebody else's move.
   String get nextAction => switch (this) {
-        BookingStatus.requested => 'Accept or decline',
-        BookingStatus.accepted => 'Set off when you are ready',
-        BookingStatus.enRoute => 'Ask for the start code when you arrive',
-        BookingStatus.arrived => 'Ask for the start code',
-        BookingStatus.inProgress => 'Send the price, then finish',
+        BookingStatus.requested => tr('jobs.acceptOrDecline'),
+        BookingStatus.accepted => tr('jobs.setOffWhenYouAre'),
+        BookingStatus.enRoute => tr('jobs.askForTheStartCode2'),
+        BookingStatus.arrived => tr('jobs.askForTheStartCode3'),
+        BookingStatus.inProgress => tr('jobs.sendThePriceThenFinish'),
         _ => '',
       };
 
@@ -90,27 +91,27 @@ String formatWhen(DateTime dt) {
   final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
   final minute = dt.minute.toString().padLeft(2, '0');
   final period = dt.hour < 12 ? 'am' : 'pm';
-  final time = '$hour:$minute $period';
+  final time = tr('jobs.hourMinutePeriod', {'hour': hour, 'minute': minute, 'period': period});
 
   return switch (diff) {
-    0 => 'Today, $time',
-    1 => 'Tomorrow, $time',
-    -1 => 'Yesterday, $time',
+    0 => tr('jobs.todayTime', {'time': time}),
+    1 => tr('jobs.tomorrowTime', {'time': time}),
+    -1 => tr('jobs.yesterdayTime', {'time': time}),
     _ => '${dt.day} ${_months[dt.month - 1]}, $time',
   };
 }
 
-const _months = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
+List<String> get _months => [
+  tr('jobs.jan'),
+  tr('jobs.feb'),
+  tr('jobs.mar'),
+  tr('jobs.apr'),
+  tr('jobs.may'),
+  tr('jobs.jun'),
+  tr('jobs.jul'),
+  tr('jobs.aug'),
+  tr('jobs.sep'),
+  tr('jobs.oct'),
+  tr('jobs.nov'),
+  tr('jobs.dec'),
 ];

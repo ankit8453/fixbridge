@@ -11,6 +11,7 @@ import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/states.dart';
 import '../home/partner_providers.dart';
 import 'widgets/job_row.dart';
+import '../../l10n/app_text.dart';
 
 /// Every job, open and finished.
 ///
@@ -41,7 +42,7 @@ class JobsScreen extends ConsumerWidget {
                 AppSpacing.screenX,
                 AppSpacing.md,
               ),
-              child: Text('Your jobs', style: AppType.title),
+              child: Text(tr('jobs.yourJobs'), style: AppType.title),
             ),
             Expanded(
               child: jobs.when(
@@ -60,12 +61,11 @@ class JobsScreen extends ConsumerWidget {
                   onRetry: () => ref.read(jobsProvider.notifier).refresh(),
                 ),
                 data: (all) => all.isEmpty
-                    ? const EmptyState(
+                    ? EmptyState(
                         icon: Icons.work_outline_rounded,
-                        title: 'No jobs yet',
+                        title: tr('jobs.noJobsYet'),
                         message:
-                            'Everything you take on will be listed here, from '
-                            'the request until it is paid.',
+                            tr('jobs.everythingYouTakeOnWill'),
                       )
                     : RefreshIndicator(
                         color: AppColors.graphite,
@@ -80,7 +80,7 @@ class JobsScreen extends ConsumerWidget {
                           ),
                           children: [
                             if (active.isNotEmpty) ...[
-                              const SectionHeader(title: 'Still open'),
+                              SectionHeader(title: tr('jobs.stillOpen')),
                               for (final job in active)
                                 Padding(
                                   padding: const EdgeInsets.only(
@@ -94,7 +94,7 @@ class JobsScreen extends ConsumerWidget {
                             ],
                             if (finished.isNotEmpty) ...[
                               SectionHeader(
-                                title: 'Finished',
+                                title: tr('jobs.finished2'),
                                 actionLabel: _earnedLabel(finished),
                               ),
                               for (final job in finished)
@@ -128,6 +128,6 @@ class JobsScreen extends ConsumerWidget {
         total += job.payablePaise ?? 0;
       }
     }
-    return total == 0 ? '' : '${Paise.format(total)} earned';
+    return total == 0 ? '' : tr('jobs.paiseFormatTotalEarned', {'total': Paise.format(total)});
   }
 }

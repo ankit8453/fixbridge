@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/app_button.dart';
+import '../../../l10n/app_text.dart';
 
 /// Typing in the code the customer reads out.
 ///
@@ -108,8 +109,7 @@ class _OtpEntrySheetState extends State<OtpEntrySheet> {
                       // Framed as protection for them, which is true: the code
                       // is the evidence that they turned up, if a customer
                       // ever disputes it.
-                      'Do not start without it. The code proves you were at '
-                      'the door — it protects you as much as the customer.',
+                      tr('jobs.doNotStartWithoutIt'),
                       style: AppType.meta.copyWith(color: AppColors.inkMuted),
                     ),
                   ),
@@ -196,8 +196,8 @@ class _OtpEntrySheetState extends State<OtpEntrySheet> {
               const SizedBox(height: AppSpacing.sm),
               Text(
                 widget.attemptsLeft == 1
-                    ? 'One attempt left — after that only support can unlock it'
-                    : '${widget.attemptsLeft} attempts left',
+                    ? tr('jobs.oneAttemptLeftAfterThat')
+                    : tr('jobs.widgetAttemptsleftAttemptsLeft', {'attemptsLeft': widget.attemptsLeft}),
                 style: AppType.caption.copyWith(
                   color: widget.attemptsLeft! <= 2
                       ? AppColors.red

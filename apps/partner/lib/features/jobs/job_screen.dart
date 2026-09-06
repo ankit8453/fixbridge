@@ -21,6 +21,7 @@ import 'job_providers.dart';
 import 'job_status_ui.dart';
 import 'quote_builder.dart';
 import 'widgets/otp_entry_sheet.dart';
+import '../../l10n/app_text.dart';
 
 /// One job, from accepted to paid.
 ///
@@ -50,7 +51,7 @@ class _JobScreenState extends ConsumerState<JobScreen> {
           loading: () => const _Skeleton(),
           error: (e, _) => Column(
             children: [
-              _TopBar(onBack: () => context.pop(), title: 'Job'),
+              _TopBar(onBack: () => context.pop(), title: tr('jobs.job')),
               Expanded(
                 child: ErrorState(
                   error: e,
@@ -117,7 +118,7 @@ class _JobScreenState extends ConsumerState<JobScreen> {
       ],
 
       if (b.problemNote != null && b.problemNote!.trim().isNotEmpty) ...[
-        const SectionHeader(title: 'What they said'),
+        SectionHeader(title: tr('jobs.whatTheySaid')),
         AppCard(
           child: Text(
             '“${b.problemNote!.trim()}”',
@@ -129,7 +130,7 @@ class _JobScreenState extends ConsumerState<JobScreen> {
       // A quote awaiting the customer blocks finishing, so it is stated
       // rather than left to be discovered at the OTP step.
       if (b.pendingQuotation != null) ...[
-        const SectionHeader(title: 'Price sent'),
+        SectionHeader(title: tr('jobs.priceSent')),
         _PendingQuoteCard(
           booking: b,
           busy: _busy,
@@ -138,15 +139,15 @@ class _JobScreenState extends ConsumerState<JobScreen> {
       ],
 
       if (b.approvedQuotation != null) ...[
-        const SectionHeader(title: 'Agreed price'),
+        SectionHeader(title: tr('jobs.agreedPrice')),
         _ApprovedQuoteCard(booking: b),
       ],
 
-      const SectionHeader(title: 'The job'),
+      SectionHeader(title: tr('jobs.theJob')),
       _Details(booking: b),
 
       if (status.isBillable) ...[
-        const SectionHeader(title: 'Getting paid'),
+        SectionHeader(title: tr('jobs.gettingPaid')),
         _PaymentCard(
           booking: b,
           busy: _busy,
@@ -195,7 +196,7 @@ class _JobScreenState extends ConsumerState<JobScreen> {
         if (b.approvedQuotation == null && b.pendingQuotation == null) {
           await _sendQuote(b);
         } else if (b.pendingQuotation != null) {
-          _say('${b.counterpart.displayName} has not approved the price yet.');
+          _say(tr('jobs.bCounterpartDisplaynameHasNot', {'displayName': b.counterpart.displayName}));
         } else {
           await _completeJob(b);
         }
@@ -210,10 +211,10 @@ class _JobScreenState extends ConsumerState<JobScreen> {
       context: context,
       isScrollControlled: true,
       builder: (_) => OtpEntrySheet(
-        title: 'Ask for the start code',
+        title: tr('jobs.askForTheStartCode'),
         blurb:
-            '${b.counterpart.displayName} has a 4-digit code on their phone.',
-        confirmLabel: 'Start work',
+            tr('jobs.bCounterpartDisplaynameHasA', {'displayName': b.counterpart.displayName}),
+        confirmLabel: tr('jobs.startWork'),
       ),
     );
     if (otp == null) return;
@@ -239,10 +240,9 @@ class _JobScreenState extends ConsumerState<JobScreen> {
       context: context,
       isScrollControlled: true,
       builder: (_) => OtpEntrySheet(
-        title: 'Ask for the end code',
-        blurb: '${b.counterpart.displayName} gives this once they are happy '
-            'the work is done.',
-        confirmLabel: 'Finish job',
+        title: tr('jobs.askForTheEndCode'),
+        blurb: tr('jobs.bCounterpartDisplaynameGivesThis', {'displayName': b.counterpart.displayName}),
+        confirmLabel: tr('jobs.finishJob'),
       ),
     );
     if (otp == null) return;
@@ -316,7 +316,7 @@ class _JobScreenState extends ConsumerState<JobScreen> {
     final result = await showModalBottomSheet<({String reason, String? note})>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => const _CancelSheet(),
+      builder: (_) => _CancelSheet(),
     );
     if (result == null) return;
 
@@ -410,7 +410,7 @@ class _CustomerCard extends StatelessWidget {
                 Text(
                   // Masked until acceptance. After that both sides genuinely
                   // need to reach each other.
-                  c.phone ?? 'Number appears once you accept',
+                  c.phone ?? tr('jobs.numberAppearsOnceYouAccept'),
                   style: AppType.meta.copyWith(color: AppColors.grey),
                 ),
               ],
@@ -477,21 +477,20 @@ class _AddressCard extends StatelessWidget {
             Text(
               // The landmark matters more than the street here — it is how
               // somebody is actually found.
-              'near $landmark',
+              tr('jobs.nearLandmark', {'landmark': landmark}),
               style: AppType.meta.copyWith(color: AppColors.grey),
             ),
           ],
           if (!isPinned) ...[
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'This address was not pinned on a map, so search results may be '
-              'approximate. Call if you cannot find it.',
+              tr('jobs.thisAddressWasNotPinned'),
               style: AppType.caption.copyWith(color: AppColors.amberText),
             ),
           ],
           const SizedBox(height: AppSpacing.md),
           AppButton(
-            label: isPinned ? 'Open in Maps' : 'Search this address',
+            label: isPinned ? tr('jobs.openInMaps') : tr('jobs.searchThisAddress'),
             kind: AppButtonKind.ghost,
             icon: Icons.map_outlined,
             onPressed: () => _openMaps(
@@ -543,7 +542,7 @@ class _PendingQuoteCard extends StatelessWidget {
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
-                  'Waiting for ${booking.counterpart.displayName} to approve',
+                  tr('jobs.waitingForBookingCounterpartDisplayname', {'displayName': booking.counterpart.displayName}),
                   style: AppType.meta.copyWith(
                     color: AppColors.amber,
                     fontWeight: FontWeight.w600,
@@ -560,13 +559,12 @@ class _PendingQuoteCard extends StatelessWidget {
           Text(
             // The job cannot be finished until this is settled, which is the
             // reason the card exists rather than a status line.
-            'You cannot finish the job until they say yes. You can withdraw '
-            'this and send a different price.',
+            tr('jobs.youCannotFinishTheJob'),
             style: AppType.caption.copyWith(color: AppColors.amber),
           ),
           const SizedBox(height: AppSpacing.md),
           AppButton(
-            label: 'Withdraw and change it',
+            label: tr('jobs.withdrawAndChangeIt'),
             kind: AppButtonKind.ghost,
             onPressed: busy ? null : onWithdraw,
           ),
@@ -589,16 +587,16 @@ class _ApprovedQuoteCard extends StatelessWidget {
       child: Column(
         children: [
           if (quote.agreedLabourPaise != null)
-            _row('Agreed labour', Paise.format(quote.agreedLabourPaise!)),
+            _row(tr('jobs.agreedLabour'), Paise.format(quote.agreedLabourPaise!)),
           if (quote.hasExtraLabour)
-            _row('Extra labour', Paise.format(quote.extraLabourPaise!)),
+            _row(tr('jobs.extraLabour'), Paise.format(quote.extraLabourPaise!)),
           for (final item in quote.items)
             _row(item.description, Paise.format(item.lineTotalPaise)),
           const Divider(height: AppSpacing.lg),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text('Approved', style: AppType.cardTitle),
+              Text(tr('jobs.approved'), style: AppType.cardTitle),
               const Spacer(),
               Text(
                 Paise.show(quote.totalDisplay, quote.totalPaise),
@@ -672,7 +670,7 @@ class _PaymentCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text('To collect', style: AppType.cardTitle),
+              Text(tr('jobs.toCollect'), style: AppType.cardTitle),
               const Spacer(),
               Text(amount, style: AppType.amountLarge.copyWith(fontSize: 22)),
             ],
@@ -684,14 +682,12 @@ class _PaymentCard extends StatelessWidget {
             // technician to do but wait — and saying so is better than an
             // inert button, which invites a tap that would be a guess.
             SettlementState.awaitingChoice => Text(
-                'Waiting for ${booking.counterpart.displayName} to choose how '
-                'to pay. Ask them to open the app.',
+                tr('jobs.waitingForBookingCounterpartDisplayname2', {'displayName': booking.counterpart.displayName}),
                 style: AppType.caption.copyWith(color: AppColors.grey),
               ),
 
             SettlementState.onlinePending => Text(
-                'They are paying online. Nothing for you to do — it will '
-                'appear in your next payout.',
+                tr('jobs.theyArePayingOnlineNothing'),
                 style: AppType.caption.copyWith(color: AppColors.grey),
               ),
 
@@ -700,13 +696,12 @@ class _PaymentCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'They chose to pay cash. Confirm only once the money is '
-                    'actually in your hand.',
+                    tr('jobs.theyChoseToPayCash'),
                     style: AppType.caption.copyWith(color: AppColors.grey),
                   ),
                   const SizedBox(height: AppSpacing.md),
                   AppButton(
-                    label: 'I have the cash',
+                    label: tr('jobs.iHaveTheCash'),
                     onPressed: busy ? null : onCash,
                   ),
                   const SizedBox(height: AppSpacing.sm),
@@ -715,7 +710,7 @@ class _PaymentCard extends StatelessWidget {
                   // somebody who chose cash and walked off left the technician
                   // choosing between lying and being stuck.
                   AppButton(
-                    label: 'They have not paid me',
+                    label: tr('jobs.theyHaveNotPaidMe'),
                     kind: AppButtonKind.ghost,
                     onPressed: busy ? null : onNotPaid,
                   ),
@@ -723,7 +718,7 @@ class _PaymentCard extends StatelessWidget {
               ),
 
             _ => Text(
-                'Nothing to collect on this job.',
+                tr('jobs.nothingToCollectOnThis'),
                 style: AppType.caption.copyWith(color: AppColors.grey),
               ),
           },
@@ -754,9 +749,8 @@ class _Settled extends StatelessWidget {
           Expanded(
             child: Text(
               wasCash
-                  ? 'Paid in cash. Our commission has been added to what you '
-                      'owe us.'
-                  : 'Paid online. It will appear in your next payout.',
+                  ? tr('jobs.paidInCashOurCommission')
+                  : tr('jobs.paidOnlineItWillAppear'),
               style: AppType.meta.copyWith(color: AppColors.ink),
             ),
           ),
@@ -776,10 +770,10 @@ class _Details extends StatelessWidget {
     return AppCard(
       child: Column(
         children: [
-          _row('When', formatWhen(booking.startsAt)),
+          _row(tr('jobs.when'), formatWhen(booking.startsAt)),
           if (booking.agreedLabour.amountPaise != null)
             _row(
-              'Agreed rate',
+              tr('jobs.agreedRate'),
               Paise.format(booking.agreedLabour.amountPaise!),
             ),
           // Only when there is one. It was drawn unconditionally, so a job
@@ -787,7 +781,7 @@ class _Details extends StatelessWidget {
           // customer is not being charged is worse than a missing row: the
           // technician quotes from this screen.
           if (booking.visitFeePaise > 0)
-            _row('Visit fee', Paise.format(booking.visitFeePaise)),
+            _row(tr('jobs.visitFee'), Paise.format(booking.visitFeePaise)),
         ],
       ),
     );
@@ -835,10 +829,10 @@ class _ActionBar extends StatelessWidget {
     final status = booking.status;
 
     final label = switch (status) {
-      BookingStatus.accepted => 'I am on my way',
-      BookingStatus.enRoute || BookingStatus.arrived => 'I have arrived',
+      BookingStatus.accepted => tr('jobs.iAmOnMyWay'),
+      BookingStatus.enRoute || BookingStatus.arrived => tr('jobs.iHaveArrived'),
       BookingStatus.inProgress =>
-        booking.approvedQuotation != null ? 'Finish the job' : 'Send the price',
+        booking.approvedQuotation != null ? tr('jobs.finishTheJob') : tr('jobs.sendThePrice'),
       _ => null,
     };
 
@@ -869,7 +863,7 @@ class _ActionBar extends StatelessWidget {
           if (status.canProviderCancel) ...[
             const SizedBox(height: AppSpacing.sm),
             AppButton(
-              label: 'Cancel this job',
+              label: tr('jobs.cancelThisJob'),
               kind: AppButtonKind.quiet,
               onPressed: busy ? null : onCancel,
             ),
@@ -903,13 +897,12 @@ class _CashSheet extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Did they pay you in cash?', style: AppType.heading),
+          Text(tr('jobs.didTheyPayYouIn'), style: AppType.heading),
           const SizedBox(height: AppSpacing.sm),
           Text(
             payable == null
-                ? 'Only confirm this if the money is in your hand.'
-                : 'Only confirm this if ${Paise.show(payable.payableDisplay, payable.payablePaise)} '
-                    'is in your hand.',
+                ? tr('jobs.onlyConfirmThisIfThe')
+                : tr('jobs.onlyConfirmThisIfPaise', {'payablePaise': Paise.show(payable.payableDisplay, payable.payablePaise)}),
             style: AppType.body.copyWith(color: AppColors.grey),
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -934,9 +927,7 @@ class _CashSheet extends StatelessWidget {
                     // The accounting asymmetry, said plainly. The gross went
                     // hand to hand, so only the commission moves through our
                     // books — which means recording cash *raises* their dues.
-                    'The whole amount stays with you, so our commission gets '
-                    'added to what you owe us. It comes out of your next '
-                    'payout.',
+                    tr('jobs.theWholeAmountStaysWith'),
                     style: AppType.meta.copyWith(color: AppColors.amber),
                   ),
                 ),
@@ -948,7 +939,7 @@ class _CashSheet extends StatelessWidget {
             children: [
               Expanded(
                 child: AppButton(
-                  label: 'Not yet',
+                  label: tr('jobs.notYet'),
                   kind: AppButtonKind.ghost,
                   onPressed: () => Navigator.pop(context, false),
                 ),
@@ -956,7 +947,7 @@ class _CashSheet extends StatelessWidget {
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: AppButton(
-                  label: 'Yes, cash',
+                  label: tr('jobs.yesCash'),
                   onPressed: () => Navigator.pop(context, true),
                 ),
               ),
@@ -980,11 +971,11 @@ class _CancelSheetState extends State<_CancelSheet> {
   final _note = TextEditingController();
   String? _reason;
 
-  static const _reasons = <String, String>{
-    'emergency': 'Something urgent came up',
-    'vehicle_issue': 'Vehicle trouble',
-    'wrong_skill': 'Not the work I do',
-    'other': 'Another reason',
+  static Map<String, String> get _reasons => <String, String>{
+    'emergency': tr('jobs.somethingUrgentCameUp'),
+    'vehicle_issue': tr('jobs.vehicleTrouble'),
+    'wrong_skill': tr('jobs.notTheWorkIDo'),
+    'other': tr('jobs.anotherReason'),
   };
 
   @override
@@ -1010,14 +1001,13 @@ class _CancelSheetState extends State<_CancelSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Cancel this job?', style: AppType.heading),
+            Text(tr('jobs.cancelThisJob2'), style: AppType.heading),
             const SizedBox(height: AppSpacing.sm),
             Text(
               // Honest about the consequence. Cancelling after accepting feeds
               // the reliability score and, repeated, triggers suspension —
               // finding that out later would feel like a trap.
-              'The customer is expecting you. Cancelling after accepting '
-              'affects your reliability score.',
+              tr('jobs.theCustomerIsExpectingYou'),
               style: AppType.body.copyWith(color: AppColors.grey),
             ),
             const SizedBox(height: AppSpacing.lg),
@@ -1058,7 +1048,7 @@ class _CancelSheetState extends State<_CancelSheet> {
                 style: AppType.body,
                 cursorColor: AppColors.graphite,
                 decoration: InputDecoration(
-                  hintText: 'Tell us briefly',
+                  hintText: tr('jobs.tellUsBriefly'),
                   filled: true,
                   fillColor: AppColors.surface,
                   border: OutlineInputBorder(
@@ -1070,7 +1060,7 @@ class _CancelSheetState extends State<_CancelSheet> {
             ],
             const SizedBox(height: AppSpacing.md),
             AppButton(
-              label: 'Cancel the job',
+              label: tr('jobs.cancelTheJob'),
               onPressed: _valid
                   ? () => Navigator.pop(
                         context,
@@ -1121,7 +1111,7 @@ Future<void> _call(BuildContext context, String phone) async {
   await Clipboard.setData(ClipboardData(text: phone));
   if (context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('No dialler here — number copied instead')),
+      SnackBar(content: Text(tr('jobs.noDiallerHereNumberCopied'))),
     );
   }
 }
@@ -1161,7 +1151,7 @@ Future<void> _openMaps(
   await Clipboard.setData(ClipboardData(text: address));
   if (context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('No maps app — address copied instead')),
+      SnackBar(content: Text(tr('jobs.noMapsAppAddressCopied'))),
     );
   }
 }
@@ -1188,27 +1178,25 @@ class _NotPaidSheet extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('They have not paid you?', style: AppType.heading),
+          Text(tr('jobs.theyHaveNotPaidYou'), style: AppType.heading),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            'We will tell the customer the job is still unpaid and ask them to '
-            'pay again — they can pay online instead. Nobody is charged and '
-            'nothing is taken from you.',
+            tr('jobs.weWillTellTheCustomer'),
             style: AppType.body.copyWith(color: AppColors.grey),
           ),
           const SizedBox(height: AppSpacing.md),
           Text(
-            'Only do this if you really have not been paid.',
+            tr('jobs.onlyDoThisIfYou'),
             style: AppType.meta.copyWith(color: AppColors.amberText),
           ),
           const SizedBox(height: AppSpacing.xl),
           AppButton(
-            label: 'Yes, I have not been paid',
+            label: tr('jobs.yesIHaveNotBeen'),
             onPressed: () => Navigator.pop(context, true),
           ),
           const SizedBox(height: AppSpacing.sm),
           AppButton(
-            label: 'Cancel',
+            label: tr('jobs.cancel'),
             kind: AppButtonKind.ghost,
             onPressed: () => Navigator.pop(context, false),
           ),

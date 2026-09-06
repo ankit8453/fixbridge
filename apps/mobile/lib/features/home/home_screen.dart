@@ -14,6 +14,7 @@ import '../location/location_providers.dart';
 import 'home_providers.dart';
 import 'widgets/live_booking_card.dart';
 import 'widgets/service_tile.dart';
+import '../../l10n/app_text.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -28,8 +29,8 @@ class HomeScreen extends ConsumerWidget {
     // without waiting for a server string, because it is the first thing
     // rendered and it must not flash.
     final greeting = locale.languageCode == 'hi'
-        ? 'क्या ठीक करवाना है?'
-        : 'What needs fixing?';
+        ? tr('home.text')
+        : tr('home.whatNeedsFixing');
 
     return Scaffold(
       backgroundColor: AppColors.ground,
@@ -69,8 +70,8 @@ class HomeScreen extends ConsumerWidget {
               ],
 
               SectionHeader(
-                title: 'Services',
-                actionLabel: 'All services',
+                title: tr('home.services'),
+                actionLabel: tr('home.allServices'),
                 onAction: () => context.push('/search'),
               ),
 
@@ -137,7 +138,7 @@ class _LocationLine extends ConsumerWidget {
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 210),
                 child: Text(
-                  loc?.label ?? 'Finding you…',
+                  loc?.label ?? tr('home.findingYou'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppType.meta.copyWith(
@@ -189,7 +190,7 @@ class _SearchField extends StatelessWidget {
                   size: 18, color: AppColors.greyLight),
               const SizedBox(width: AppSpacing.sm + 2),
               Text(
-                'पंखा, नल, AC…',
+                tr('home.ac'),
                 style: AppType.body.copyWith(
                   color: AppColors.greyLight,
                   fontSize: 13.5,
@@ -211,10 +212,10 @@ class _ServiceGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (categories.isEmpty) {
-      return const EmptyState(
+      return EmptyState(
         icon: Icons.handyman_outlined,
-        title: 'No services yet',
-        message: 'Services will appear here as technicians join in your city.',
+        title: tr('home.noServicesYet'),
+        message: tr('home.servicesWillAppearHereAs'),
       );
     }
 

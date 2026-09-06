@@ -13,6 +13,7 @@ import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/states.dart';
 import '../auth/auth_controller.dart';
 import '../home/home_providers.dart';
+import '../../l10n/app_text.dart';
 
 final _inboxProvider = FutureProvider<NotificationPage>((ref) async {
   final auth = ref.watch(authControllerProvider);
@@ -52,7 +53,7 @@ class NotificationsScreen extends ConsumerWidget {
               ),
               child: Row(
                 children: [
-                  Expanded(child: Text('Updates', style: AppType.title)),
+                  Expanded(child: Text(tr('notifications.updates'), style: AppType.title)),
                   if ((inbox.valueOrNull?.unread ?? 0) > 0)
                     TextButton(
                       onPressed: () async {
@@ -61,7 +62,7 @@ class NotificationsScreen extends ConsumerWidget {
                         ref.invalidate(unreadCountProvider);
                       },
                       child: Text(
-                        'Mark all read',
+                        tr('notifications.markAllRead'),
                         style: AppType.meta.copyWith(
                           color: AppColors.blue,
                           fontWeight: FontWeight.w600,
@@ -73,11 +74,11 @@ class NotificationsScreen extends ConsumerWidget {
             ),
             Expanded(
               child: !auth.isSignedIn
-                  ? const EmptyState(
+                  ? EmptyState(
                       icon: Icons.notifications_none_rounded,
-                      title: 'Nothing to show',
+                      title: tr('notifications.nothingToShow'),
                       message:
-                          'Sign in to get updates about your bookings here.',
+                          tr('notifications.signInToGetUpdates'),
                     )
                   : inbox.when(
                       loading: () => const _InboxSkeleton(),
@@ -86,12 +87,10 @@ class NotificationsScreen extends ConsumerWidget {
                         onRetry: () => ref.invalidate(_inboxProvider),
                       ),
                       data: (page) => page.notifications.isEmpty
-                          ? const EmptyState(
+                          ? EmptyState(
                               icon: Icons.notifications_none_rounded,
-                              title: 'No updates yet',
-                              message: 'When a technician accepts, sets off or '
-                                  'sends you a price, you will hear about it '
-                                  'here and on WhatsApp.',
+                              title: tr('notifications.noUpdatesYet'),
+                              message: tr('notifications.whenATechnicianAcceptsSets'),
                             )
                           : RefreshIndicator(
                               color: AppColors.blue,
@@ -238,11 +237,11 @@ class _NotificationRow extends StatelessWidget {
 
   static String _ago(DateTime dt) {
     final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 1) return 'Just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
-    if (diff.inHours < 24) return '${diff.inHours} hr ago';
-    if (diff.inDays == 1) return 'Yesterday';
-    return '${diff.inDays} days ago';
+    if (diff.inMinutes < 1) return tr('notifications.justNow');
+    if (diff.inMinutes < 60) return tr('notifications.diffInminutesMinAgo', {'inMinutes': diff.inMinutes});
+    if (diff.inHours < 24) return tr('notifications.diffInhoursHrAgo', {'inHours': diff.inHours});
+    if (diff.inDays == 1) return tr('notifications.yesterday');
+    return tr('notifications.diffIndaysDaysAgo', {'inDays': diff.inDays});
   }
 }
 

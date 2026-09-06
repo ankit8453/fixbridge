@@ -12,6 +12,7 @@ import '../home/home_providers.dart';
 import '../location/location_sheet.dart';
 import 'search_providers.dart';
 import 'widgets/provider_card_tile.dart';
+import '../../l10n/app_text.dart';
 
 /// Search.
 ///
@@ -54,7 +55,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   String _categoryName(int? id) {
-    if (id == null) return 'All services';
+    if (id == null) return tr('search.allServices');
     final tree = ref.read(categoriesProvider).valueOrNull ?? const [];
     for (final cluster in tree) {
       if (cluster.id == id) return cluster.name;
@@ -62,7 +63,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         if (child.id == id) return child.name;
       }
     }
-    return 'Results';
+    return tr('search.results');
   }
 
   @override
@@ -130,15 +131,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   data: (page) => page.results.isEmpty
                       ? EmptyState(
                           icon: Icons.person_search_outlined,
-                          title: 'Nobody available yet',
+                          title: tr('search.nobodyAvailableYet'),
                           message: query.categoryId == null
-                              ? 'No technicians are listed near you right now. '
-                                  'We are adding them city by city.'
-                              : 'No one is offering this service nearby yet. '
-                                  'Try another service, or check back soon.',
+                              ? tr('search.noTechniciansAreListedNear')
+                              : tr('search.noOneIsOfferingThis'),
                           actionLabel: query.categoryId == null
                               ? null
-                              : 'See all services',
+                              : tr('search.seeAllServices'),
                           onAction: () => ref
                               .read(searchQueryProvider.notifier)
                               .state = query.copyWith(clearCategory: true),
@@ -249,7 +248,7 @@ class _SearchBar extends StatelessWidget {
                         // Devanagari in the placeholder, because that is the
                         // default language and the field must look usable in
                         // it before anybody types.
-                        hintText: 'पंखा, नल, AC…',
+                        hintText: tr('search.ac'),
                         hintStyle: AppType.body.copyWith(
                           color: AppColors.greyLight,
                           fontSize: 14,
@@ -305,8 +304,7 @@ class _Suggestions extends StatelessWidget {
           return Padding(
             padding: const EdgeInsets.all(AppSpacing.xl),
             child: Text(
-              'Nothing matches that yet. Try a simpler word — "fan", "tap", '
-              '"AC" — or browse all services.',
+              tr('search.nothingMatchesThatYetTry'),
               style: AppType.body.copyWith(color: AppColors.grey),
             ),
           );
@@ -337,7 +335,7 @@ class _Suggestions extends StatelessWidget {
               // A cluster is a family of services; a leaf is one job. Saying
               // which avoids "why did picking Electrical show me 40 people?"
               subtitle: Text(
-                s.parentId == null ? 'Service category' : 'Service',
+                s.parentId == null ? tr('search.serviceCategory') : tr('search.service'),
                 style: AppType.caption.copyWith(color: AppColors.greyLight),
               ),
               onTap: () => onPick(s.categoryId as int, s.name as String),
@@ -378,10 +376,10 @@ class _Header extends StatelessWidget {
               // `truncated` means more matched than were ranked, so quoting
               // the number as exact would be a small lie.
               count == 0
-                  ? 'None available'
+                  ? tr('search.noneAvailable')
                   : truncated
-                      ? 'Many available nearby'
-                      : '$count available nearby',
+                      ? tr('search.manyAvailableNearby')
+                      : tr('search.countAvailableNearby', {'count': count}),
               style: AppType.meta.copyWith(color: AppColors.grey),
             ),
           ],
@@ -397,10 +395,10 @@ class _SortRow extends StatelessWidget {
   final String sort;
   final ValueChanged<String> onSort;
 
-  static const _options = [
-    (key: 'rank', label: 'Best match'),
-    (key: 'distance', label: 'Nearest'),
-    (key: 'price_low', label: 'Price'),
+  static List<({String key, String label})> get _options => [
+    (key: 'rank', label: tr('search.bestMatch')),
+    (key: 'distance', label: tr('search.nearest')),
+    (key: 'price_low', label: tr('search.price')),
   ];
 
   @override
@@ -498,8 +496,7 @@ class _ApproximateOrigin extends StatelessWidget {
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Text(
-                  'Distances are measured from the city centre until we know '
-                  'where you are.',
+                  tr('search.distancesAreMeasuredFromThe'),
                   style: AppType.meta.copyWith(color: AppColors.amberText),
                 ),
               ),
@@ -507,7 +504,7 @@ class _ApproximateOrigin extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           AppButton(
-            label: 'Set your location',
+            label: tr('search.setYourLocation'),
             kind: AppButtonKind.ghost,
             icon: Icons.my_location_rounded,
             onPressed: () => showModalBottomSheet(

@@ -12,6 +12,7 @@ import '../../core/theme/app_typography.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_field.dart';
 import 'auth_controller.dart';
+import '../../l10n/app_text.dart';
 
 /// Asks for a phone number, and only here.
 ///
@@ -82,9 +83,9 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
 
     final seconds = e.retryAfterSeconds ?? 60;
     return switch (e.rateLimitScope) {
-      'cooldown' => 'Wait $seconds seconds before asking for another code.',
-      'phone' => 'Too many codes sent to this number. Try again later.',
-      'ip' => 'Too many attempts from this connection. Try again later.',
+      'cooldown' => tr('auth.waitSecondsSecondsBeforeAsking', {'seconds': seconds}),
+      'phone' => tr('auth.tooManyCodesSentTo'),
+      'ip' => tr('auth.tooManyAttemptsFromThis'),
       _ => e.message,
     };
   }
@@ -111,10 +112,10 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: AppSpacing.lg),
-              Text('What is your number?', style: AppType.title),
+              Text(tr('auth.whatIsYourNumber'), style: AppType.title),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'We will send a 6-digit code to confirm it.',
+                tr('auth.weWillSendADigit'),
                 style: AppType.body.copyWith(color: AppColors.grey),
               ),
               const SizedBox(height: AppSpacing.xxl),
@@ -146,14 +147,13 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
               ),
               const Spacer(),
               AppButton(
-                label: 'Send code',
+                label: tr('auth.sendCode'),
                 loading: _sending,
                 onPressed: _valid ? _send : null,
               ),
               const SizedBox(height: AppSpacing.md),
               Text(
-                'Your number is never shown to a technician until you book, '
-                'and never shared with anyone else.',
+                tr('auth.yourNumberIsNeverShown'),
                 style: AppType.caption.copyWith(color: AppColors.grey),
                 textAlign: TextAlign.center,
               ),

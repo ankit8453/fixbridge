@@ -15,6 +15,7 @@ import '../../shared/widgets/states.dart';
 import '../auth/auth_controller.dart';
 import 'book_sheet.dart';
 import 'provider_providers.dart';
+import '../../l10n/app_text.dart';
 
 /// A technician's public profile.
 ///
@@ -84,14 +85,13 @@ class _ProviderScreenState extends ConsumerState<ProviderScreen> {
               Expanded(
                 child: EmptyState(
                   icon: Icons.person_off_outlined,
-                  title: 'Not available',
+                  title: tr('provider.notAvailable'),
                   // The API returns the same 404 for missing, unlisted and
                   // suspended, deliberately, so that a status code cannot be
                   // used to discover a suspension. The copy has to match that
                   // — anything more specific would be a guess.
-                  message: 'This technician is not available right now. '
-                      'Try another one nearby.',
-                  actionLabel: 'Back to search',
+                  message: tr('provider.thisTechnicianIsNotAvailable'),
+                  actionLabel: tr('provider.backToSearch'),
                   onAction: () => context.pop(),
                 ),
               ),
@@ -122,8 +122,8 @@ class _ProviderScreenState extends ConsumerState<ProviderScreen> {
                     if (p.priceCards.isNotEmpty) ...[
                       SectionHeader(
                         title: p.priceCards.length == 1
-                            ? 'Price'
-                            : 'Which service do you need?',
+                            ? tr('provider.price')
+                            : tr('provider.whichServiceDoYouNeed'),
                       ),
                       _Prices(
                         cards: p.priceCards,
@@ -132,7 +132,7 @@ class _ProviderScreenState extends ConsumerState<ProviderScreen> {
                             setState(() => _categoryId = card.categoryId),
                       ),
                     ],
-                    const SectionHeader(title: 'When they can come'),
+                    SectionHeader(title: tr('provider.whenTheyCanCome')),
                     _Slots(
                       value: slots,
                       selected: _selectedSlot,
@@ -233,7 +233,7 @@ class _Identity extends StatelessWidget {
             // City granularity only — the API never exposes a locality or a
             // coordinate on a public profile.
             if (profile.cityName != null) profile.cityName!,
-            if (profile.badge.isEarned) 'Verified',
+            if (profile.badge.isEarned) tr('provider.verified'),
           ].join(' · '),
           style: AppType.meta.copyWith(color: AppColors.grey),
           textAlign: TextAlign.center,
@@ -257,13 +257,13 @@ class _Stats extends StatelessWidget {
         // "New" rather than a fabricated 0.0 — the API sends null until
         // somebody has actually rated this person.
         value: rating == null || rating.count == 0
-            ? 'New'
+            ? tr('provider.new')
             : rating.average.toStringAsFixed(1),
-        label: 'Rating',
+        label: tr('provider.rating'),
       ),
-      (value: '${profile.jobsCompleted}', label: 'Jobs'),
+      (value: '${profile.jobsCompleted}', label: tr('provider.jobs')),
       if (profile.yearsExperience != null)
-        (value: '${profile.yearsExperience} yr', label: 'Experience'),
+        (value: tr('provider.profileYearsexperienceYr', {'yearsExperience': profile.yearsExperience}), label: tr('provider.experience')),
     ];
 
     return AppCard(
@@ -358,7 +358,7 @@ class _Prices extends StatelessWidget {
                         Text(card.title, style: AppType.bodyMedium),
                         const SizedBox(height: 1),
                         Text(
-                          'Fixed price, agreed when you book',
+                          tr('provider.fixedPriceAgreedWhenYou'),
                           style: AppType.caption.copyWith(
                             color: AppColors.greyLight,
                           ),
@@ -418,7 +418,7 @@ class _Slots extends StatelessWidget {
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Text(
-                    'No free times in the next week. Try another technician.',
+                    tr('provider.noFreeTimesInThe'),
                     style: AppType.meta.copyWith(color: AppColors.grey),
                   ),
                 ),
@@ -481,17 +481,17 @@ class _Slots extends StatelessWidget {
     final day = DateTime(dt.year, dt.month, dt.day);
     final diff = day.difference(today).inDays;
 
-    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    final weekdays = ['Mon', tr('provider.tue'), tr('provider.wed'), tr('provider.thu'), tr('provider.fri'), tr('provider.sat'), 'Sun'];
+    final months = [
+      tr('provider.jan'), tr('provider.feb'), tr('provider.mar'), tr('provider.apr'), tr('provider.may'), tr('provider.jun'),
+      tr('provider.jul'), tr('provider.aug'), tr('provider.sep'), tr('provider.oct'), tr('provider.nov'), tr('provider.dec'),
     ];
 
     final date = '${dt.day} ${months[dt.month - 1]}';
 
     return switch (diff) {
-      0 => 'Today, $date',
-      1 => 'Tomorrow, $date',
+      0 => tr('provider.todayDate', {'date': date}),
+      1 => tr('provider.tomorrowDate', {'date': date}),
       _ => '${weekdays[dt.weekday - 1]}, $date',
     };
   }
@@ -535,8 +535,11 @@ class _SlotChip extends StatelessWidget {
             children: [
               Text(
                 minute == 0
-                    ? '$h12 $period'
-                    : '$h12:${minute.toString().padLeft(2, '0')}',
+                    ? tr('provider.slotOnTheHour', {'h': h12, 'period': period})
+                    : tr('provider.slotWithMinutes', {
+                        'h': h12,
+                        'm': minute.toString().padLeft(2, '0'),
+                      }),
                 style: AppType.cardTitle.copyWith(
                   fontSize: 13,
                   color: selected ? AppColors.blue : AppColors.ink,
@@ -574,7 +577,7 @@ class _Reviews extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SectionHeader(title: 'What people said (${page.reviewCount})'),
+            SectionHeader(title: tr('provider.whatPeopleSaidPageReviewcount', {'reviewCount': page.reviewCount})),
             for (final review in page.reviews.take(3))
               Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.sm + 2),
@@ -696,7 +699,7 @@ class _BookBar extends StatelessWidget {
               children: [
                 Text(price, style: AppType.amountLarge.copyWith(fontSize: 20)),
                 Text(
-                  'agreed now',
+                  tr('provider.agreedNow'),
                   style: AppType.caption.copyWith(color: AppColors.greyLight),
                 ),
               ],
@@ -708,10 +711,10 @@ class _BookBar extends StatelessWidget {
               // The label names whatever is still missing, so a disabled
               // button is never a dead end somebody has to guess at.
               label: needsService
-                  ? 'Pick a service'
+                  ? tr('provider.pickAService')
                   : slot == null
-                      ? 'Pick a time'
-                      : 'Book this time',
+                      ? tr('provider.pickATime')
+                      : tr('provider.bookThisTime'),
               onPressed: (slot == null || needsService) ? null : onBook,
             ),
           ),

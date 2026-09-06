@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../l10n/app_text.dart';
 
 /// The handshake code.
 ///
@@ -47,7 +48,7 @@ class OtpCard extends StatelessWidget {
       child: Column(
         children: [
           Text(
-            kind == OtpKind.start ? 'START CODE' : 'END CODE',
+            kind == OtpKind.start ? tr('booking.startCode') : tr('booking.endCode'),
             style: AppType.label.copyWith(color: AppColors.grey),
           ),
           const SizedBox(height: AppSpacing.md + 1),
@@ -63,9 +64,8 @@ class OtpCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           Text(
             kind == OtpKind.start
-                ? 'Read this out when $technicianName arrives, so they can '
-                    'start the work.'
-                : 'Read this out once you are happy the work is finished.',
+                ? tr('booking.readThisOutWhenTechnicianname', {'technicianName': technicianName})
+                : tr('booking.readThisOutOnceYou'),
             style: AppType.caption.copyWith(color: AppColors.grey),
             textAlign: TextAlign.center,
           ),

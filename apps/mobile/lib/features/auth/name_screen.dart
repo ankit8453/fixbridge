@@ -9,6 +9,7 @@ import '../../core/theme/app_typography.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_field.dart';
 import 'auth_controller.dart';
+import '../../l10n/app_text.dart';
 
 /// Asked once, on the first sign-in, and never again.
 ///
@@ -71,16 +72,16 @@ class _NameScreenState extends ConsumerState<NameScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 56),
-              Text('What should we call you?', style: AppType.title),
+              Text(tr('auth.whatShouldWeCallYou'), style: AppType.title),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'The technician sees this when they accept your booking.',
+                tr('auth.theTechnicianSeesThisWhen'),
                 style: AppType.body.copyWith(color: AppColors.grey),
               ),
               const SizedBox(height: AppSpacing.xxl),
               AppField(
                 controller: _controller,
-                hint: 'Your name',
+                hint: tr('auth.yourName'),
                 error: _error,
                 autofocus: true,
                 textCapitalization: TextCapitalization.words,
@@ -92,13 +93,13 @@ class _NameScreenState extends ConsumerState<NameScreen> {
               ),
               const Spacer(),
               AppButton(
-                label: 'Continue',
+                label: tr('auth.continue2'),
                 loading: _saving,
                 onPressed: _save,
               ),
               const SizedBox(height: AppSpacing.sm),
               AppButton(
-                label: 'Skip for now',
+                label: tr('auth.skipForNow'),
                 kind: AppButtonKind.quiet,
                 onPressed: _saving ? null : _done,
               ),

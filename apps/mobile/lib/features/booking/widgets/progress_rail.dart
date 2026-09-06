@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/models/booking.dart';
+import '../../../l10n/app_text.dart';
 
 /// The six-stage progress rail.
 ///
@@ -16,13 +17,13 @@ class ProgressRail extends StatelessWidget {
 
   final BookingStatus status;
 
-  static const _stages = [
-    (label: 'Asked', short: 'Asked'),
-    (label: 'Accepted', short: 'Accepted'),
-    (label: 'On the way', short: 'En route'),
-    (label: 'Arrived', short: 'Arrived'),
-    (label: 'Working', short: 'Working'),
-    (label: 'Done', short: 'Done'),
+  static List<({String label, String short})> get _stages => [
+    (label: tr('booking.asked'), short: tr('booking.asked2')),
+    (label: tr('booking.accepted'), short: tr('booking.accepted2')),
+    (label: tr('booking.onTheWay'), short: tr('booking.enRoute')),
+    (label: tr('booking.arrived'), short: tr('booking.arrived2')),
+    (label: tr('booking.working'), short: tr('booking.working2')),
+    (label: tr('booking.done'), short: tr('booking.done2')),
   ];
 
   @override

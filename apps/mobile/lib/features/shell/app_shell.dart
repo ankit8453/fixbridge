@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../home/home_providers.dart';
+import '../../l10n/app_text.dart';
 
 /// The four-tab shell.
 ///
@@ -68,11 +69,11 @@ class _FloatingNav extends StatelessWidget {
   final int unread;
   final ValueChanged<int> onTap;
 
-  static const _items = [
-    (icon: Icons.home_rounded, label: 'Home'),
-    (icon: Icons.receipt_long_rounded, label: 'Bookings'),
-    (icon: Icons.notifications_rounded, label: 'Alerts'),
-    (icon: Icons.person_rounded, label: 'Account'),
+  static List<({IconData icon, String label})> get _items => [
+    (icon: Icons.home_rounded, label: tr('shell.home')),
+    (icon: Icons.receipt_long_rounded, label: tr('shell.bookings')),
+    (icon: Icons.notifications_rounded, label: tr('shell.alerts')),
+    (icon: Icons.person_rounded, label: tr('shell.account')),
   ];
 
   @override

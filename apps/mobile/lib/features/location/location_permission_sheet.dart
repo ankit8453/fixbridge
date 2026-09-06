@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import '../../shared/widgets/app_button.dart';
+import '../../l10n/app_text.dart';
 
 /// Explaining the location permission before the system asks for it.
 ///
@@ -75,18 +76,15 @@ class LocationPermissionSheet extends StatelessWidget {
           const SizedBox(height: AppSpacing.lg),
 
           Text(
-            blocked ? 'Location is switched off for FixBridge' : 'Open the map at your street',
+            blocked ? tr('location.locationIsSwitchedOffFor') : tr('location.openTheMapAtYour'),
             style: AppType.heading,
           ),
           const SizedBox(height: AppSpacing.sm),
 
           Text(
             blocked
-                ? 'Your phone is blocking location for this app, so we cannot '
-                    'ask again from here. You can turn it on in Settings — or '
-                    'just find your street on the map yourself.'
-                : 'We use your location once, to open the map where you are '
-                    'standing. It saves you searching for your own street.',
+                ? tr('location.yourPhoneIsBlockingLocation')
+                : tr('location.weUseYourLocationOnce'),
             style: AppType.body.copyWith(color: AppColors.grey),
           ),
 
@@ -95,14 +93,14 @@ class LocationPermissionSheet extends StatelessWidget {
             // The two things people are actually worried about, answered
             // before they are asked. Swiggy found the specific fear was that
             // location meant handing over a home address.
-            const _Promise(
+            _Promise(
               icon: Icons.visibility_off_outlined,
-              text: 'Only while you are using the app. Never in the background.',
+              text: tr('location.onlyWhileYouAreUsing'),
             ),
             const SizedBox(height: AppSpacing.md),
-            const _Promise(
+            _Promise(
               icon: Icons.push_pin_outlined,
-              text: 'We save only the pin you confirm — not where you go.',
+              text: tr('location.weSaveOnlyThePin'),
             ),
           ],
 
@@ -110,7 +108,7 @@ class LocationPermissionSheet extends StatelessWidget {
 
           if (blocked) ...[
             AppButton(
-              label: 'Open settings',
+              label: tr('location.openSettings'),
               onPressed: () {
                 Navigator.pop(context, false);
                 DeviceLocation.openSettings();
@@ -118,13 +116,13 @@ class LocationPermissionSheet extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.sm),
             AppButton(
-              label: 'I will find it on the map',
+              label: tr('location.iWillFindItOn'),
               kind: AppButtonKind.ghost,
               onPressed: () => Navigator.pop(context, false),
             ),
           ] else ...[
             AppButton(
-              label: 'Use my location',
+              label: tr('location.useMyLocation'),
               onPressed: () => Navigator.pop(context, true),
             ),
             const SizedBox(height: AppSpacing.sm),
@@ -132,7 +130,7 @@ class LocationPermissionSheet extends StatelessWidget {
             // explicit that a refusal is to be respected rather than argued
             // with — the map still works, it just opens further away.
             AppButton(
-              label: 'Not now',
+              label: tr('location.notNow'),
               kind: AppButtonKind.ghost,
               onPressed: () => Navigator.pop(context, false),
             ),

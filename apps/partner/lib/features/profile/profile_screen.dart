@@ -21,6 +21,7 @@ import '../auth/auth_controller.dart';
 import '../home/partner_providers.dart';
 import 'edit_profile_sheet.dart';
 import 'edit_sheets.dart';
+import '../../l10n/app_text.dart';
 
 /// The technician's own profile and standing.
 class ProfileScreen extends ConsumerWidget {
@@ -66,7 +67,7 @@ class ProfileScreen extends ConsumerWidget {
                 96,
               ),
               children: [
-                Text('You', style: AppType.title),
+                Text(tr('profile.you'), style: AppType.title),
                 const SizedBox(height: AppSpacing.lg),
 
                 _Identity(
@@ -116,7 +117,7 @@ class ProfileScreen extends ConsumerWidget {
                         const SizedBox(width: AppSpacing.md),
                         Expanded(
                           child: Text(
-                            'You are not visible to customers yet.',
+                            tr('profile.youAreNotVisibleTo'),
                             style:
                                 AppType.meta.copyWith(color: AppColors.amber),
                           ),
@@ -134,7 +135,7 @@ class ProfileScreen extends ConsumerWidget {
                 trust.maybeWhen(
                   data: (t) => Column(
                     children: [
-                      const SectionHeader(title: 'Your standing'),
+                      SectionHeader(title: tr('profile.yourStanding')),
                       _TrustCard(trust: t),
                     ],
                   ),
@@ -142,8 +143,8 @@ class ProfileScreen extends ConsumerWidget {
                 ),
 
                 SectionHeader(
-                  title: 'What you do',
-                  actionLabel: 'Add',
+                  title: tr('profile.whatYouDo'),
+                  actionLabel: tr('profile.add'),
                   onAction: () => _addSkill(context, ref, p),
                 ),
                 _SkillsCard(
@@ -151,8 +152,8 @@ class ProfileScreen extends ConsumerWidget {
                     onRemove: (id) => _removeSkill(context, ref, id)),
 
                 SectionHeader(
-                  title: 'Your prices',
-                  actionLabel: 'Add',
+                  title: tr('profile.yourPrices'),
+                  actionLabel: tr('profile.add2'),
                   onAction: () => _addPrice(context, ref, p),
                 ),
                 _PricesCard(
@@ -160,8 +161,8 @@ class ProfileScreen extends ConsumerWidget {
                     onRemove: (id) => _removePrice(context, ref, id)),
 
                 SectionHeader(
-                  title: 'When you work',
-                  actionLabel: 'Add',
+                  title: tr('profile.whenYouWork'),
+                  actionLabel: tr('profile.add3'),
                   onAction: () => _addAvailability(context, ref),
                 ),
                 _AvailabilityCard(
@@ -174,24 +175,24 @@ class ProfileScreen extends ConsumerWidget {
                 if (p.availability.isNotEmpty) ...[
                   const SizedBox(height: AppSpacing.sm),
                   AppButton(
-                    label: 'Take an hour off this week',
+                    label: tr('profile.takeAnHourOffThis'),
                     kind: AppButtonKind.ghost,
                     icon: Icons.event_busy_outlined,
                     onPressed: () => context.push('/calendar'),
                   ),
                 ],
 
-                const SectionHeader(title: 'Settings'),
+                SectionHeader(title: tr('profile.settings')),
                 _SettingRow(
                   icon: Icons.translate_rounded,
-                  title: 'Language',
-                  value: locale.languageCode == 'hi' ? 'हिन्दी' : 'English',
+                  title: tr('profile.language'),
+                  value: locale.languageCode == 'hi' ? 'हिन्दी' : tr('profile.english'),
                   onTap: () => context.push('/settings/language'),
                 ),
 
                 const SizedBox(height: AppSpacing.xl),
                 AppButton(
-                  label: 'Sign out',
+                  label: tr('profile.signOut'),
                   kind: AppButtonKind.ghost,
                   onPressed: () => _signOut(context, ref),
                 ),
@@ -225,22 +226,21 @@ class ProfileScreen extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Your photo', style: AppType.heading),
+            Text(tr('profile.yourPhoto'), style: AppType.heading),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'Customers see this once they have accepted, so they know who '
-              'is at the door. It is not the ID photo used for verification.',
+              tr('profile.customersSeeThisOnceThey'),
               style: AppType.body.copyWith(color: AppColors.grey),
             ),
             const SizedBox(height: AppSpacing.xl),
             AppButton(
-              label: 'Take a photo',
+              label: tr('profile.takeAPhoto'),
               icon: Icons.photo_camera_rounded,
               onPressed: () => Navigator.pop(context, ImageSource.camera),
             ),
             const SizedBox(height: AppSpacing.sm),
             AppButton(
-              label: 'Choose from gallery',
+              label: tr('profile.chooseFromGallery'),
               kind: AppButtonKind.ghost,
               icon: Icons.photo_library_outlined,
               onPressed: () => Navigator.pop(context, ImageSource.gallery),
@@ -263,7 +263,7 @@ class ProfileScreen extends ConsumerWidget {
     if (picked == null) return;
 
     messenger.showSnackBar(
-      const SnackBar(content: Text('Uploading your photo…')),
+      SnackBar(content: Text(tr('profile.uploadingYourPhoto'))),
     );
 
     try {
@@ -273,7 +273,7 @@ class ProfileScreen extends ConsumerWidget {
           );
       ref.invalidate(profilePhotoProvider);
       messenger.showSnackBar(
-        const SnackBar(content: Text('Photo updated.')),
+        SnackBar(content: Text(tr('profile.photoUpdated'))),
       );
     } on ApiError catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(e.message)));
@@ -343,8 +343,8 @@ class ProfileScreen extends ConsumerWidget {
 
     if (profile.skills.isEmpty) {
       messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Add what you do first, then set a price for it.'),
+        SnackBar(
+          content: Text(tr('profile.addWhatYouDoFirst')),
         ),
       );
       return;
@@ -382,7 +382,7 @@ class ProfileScreen extends ConsumerWidget {
     final result = await showModalBottomSheet<AvailabilityDraft>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => const AvailabilitySheet(),
+      builder: (_) => AvailabilitySheet(),
     );
     if (result == null) return;
 
@@ -439,10 +439,10 @@ class ProfileScreen extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Sign out?', style: AppType.heading),
+            Text(tr('profile.signOut2'), style: AppType.heading),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'You will stop seeing new job requests until you sign back in.',
+              tr('profile.youWillStopSeeingNew'),
               style: AppType.body.copyWith(color: AppColors.grey),
             ),
             const SizedBox(height: AppSpacing.xl),
@@ -450,7 +450,7 @@ class ProfileScreen extends ConsumerWidget {
               children: [
                 Expanded(
                   child: AppButton(
-                    label: 'Stay',
+                    label: tr('profile.stay'),
                     kind: AppButtonKind.ghost,
                     onPressed: () => Navigator.pop(context, false),
                   ),
@@ -458,7 +458,7 @@ class ProfileScreen extends ConsumerWidget {
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: AppButton(
-                    label: 'Sign out',
+                    label: tr('profile.signOut3'),
                     onPressed: () => Navigator.pop(context, true),
                   ),
                 ),
@@ -565,7 +565,7 @@ class _Identity extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        'Verified',
+                        tr('profile.verified'),
                         style: AppType.meta.copyWith(
                           color: AppColors.green,
                           fontWeight: FontWeight.w600,
@@ -573,12 +573,12 @@ class _Identity extends StatelessWidget {
                       ),
                     ] else
                       Text(
-                        'Not verified yet',
+                        tr('profile.notVerifiedYet'),
                         style: AppType.meta.copyWith(color: AppColors.grey),
                       ),
                     const SizedBox(width: AppSpacing.sm),
                     Text(
-                      '· ${profile.serviceRadiusKm} km',
+                      tr('profile.profileServiceradiuskmKm', {'serviceRadiusKm': profile.serviceRadiusKm}),
                       style: AppType.meta.copyWith(color: AppColors.grey),
                     ),
                   ],
@@ -625,7 +625,7 @@ class _BaseLocationCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  set ? 'Where you work from' : 'Set where you work from',
+                  set ? tr('profile.whereYouWorkFrom') : tr('profile.setWhereYouWorkFrom'),
                   style: AppType.cardTitle.copyWith(
                     color: set ? AppColors.ink : AppColors.amber,
                   ),
@@ -633,9 +633,8 @@ class _BaseLocationCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   set
-                      ? 'Customers within ${profile.serviceRadiusKm} km of '
-                          'this point can find you.'
-                      : 'Until you set this, no customer can find you at all.',
+                      ? tr('profile.customersWithinProfileServiceradiuskmKm', {'serviceRadiusKm': profile.serviceRadiusKm})
+                      : tr('profile.untilYouSetThisNo'),
                   style: AppType.meta.copyWith(
                     color: set ? AppColors.grey : AppColors.amber,
                   ),
@@ -688,13 +687,16 @@ class _SuspendedBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Account suspended',
+                  tr('profile.accountSuspended'),
                   style: AppType.cardTitle.copyWith(color: AppColors.red),
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'You cannot take jobs until ${until.day}/${until.month}. '
-                  '${trust.suspensionReason ?? ''}',
+                  tr('profile.suspendedUntil', {
+                    'day': until.day,
+                    'month': until.month,
+                    'reason': trust.suspensionReason ?? '',
+                  }),
                   style: AppType.meta.copyWith(color: AppColors.red),
                 ),
               ],
@@ -727,13 +729,17 @@ class _TrustCard extends StatelessWidget {
                     // Null is "no history yet", not zero. Showing 0 would tell
                     // somebody they have failed when they have not started.
                     trust.score == null
-                        ? 'New'
+                        ? tr('profile.new')
                         : trust.score!.toStringAsFixed(0),
                     style: AppType.hero.copyWith(fontSize: 32),
                   ),
                   Text(
-                    '${trust.settledJobs} '
-                    '${trust.settledJobs == 1 ? 'job' : 'jobs'} finished',
+                    tr(
+                      trust.settledJobs == 1
+                          ? 'profile.oneJobFinished'
+                          : 'profile.jobsFinished',
+                      {'count': trust.settledJobs},
+                    ),
                     style: AppType.meta.copyWith(color: AppColors.grey),
                   ),
                 ],
@@ -753,7 +759,7 @@ class _TrustCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        'NEXT: ${trust.nextBand!.band}',
+                        tr('profile.nextTrustNextbandBand', {'band': trust.nextBand!.band}),
                         style: AppType.label.copyWith(
                           color: AppColors.graphite,
                           fontSize: 8.5,
@@ -765,8 +771,8 @@ class _TrustCard extends StatelessWidget {
                         // yet, and a remaining gap once there is — so the
                         // sentence changes rather than the number lying.
                         trust.nextBand!.isAbsolute
-                            ? 'Reach ${trust.nextBand!.needsScore.toStringAsFixed(0)}'
-                            : '${trust.nextBand!.needsScore.toStringAsFixed(0)} to go',
+                            ? tr('profile.reachTrustNextbandNeedsscoreTostringasfi', {'toStringAsFixed': trust.nextBand!.needsScore.toStringAsFixed(0)})
+                            : tr('profile.trustNextbandNeedsscoreTostringasfixedTo', {'toStringAsFixed': trust.nextBand!.needsScore.toStringAsFixed(0)}),
                         style: AppType.meta.copyWith(
                           color: AppColors.inkMuted,
                           fontWeight: FontWeight.w600,
@@ -774,7 +780,7 @@ class _TrustCard extends StatelessWidget {
                       ),
                       if (trust.nextBand!.needsJobs > 0)
                         Text(
-                          '${trust.nextBand!.needsJobs} more jobs',
+                          tr('profile.trustNextbandNeedsjobsMoreJobs', {'needsJobs': trust.nextBand!.needsJobs}),
                           style: AppType.caption
                               .copyWith(color: AppColors.greyLight),
                         ),
@@ -804,8 +810,8 @@ class _TrustCard extends StatelessWidget {
                     ),
                     Text(
                       c.pending
-                          ? 'Not enough yet'
-                          : '${(c.normalized! * 100).toStringAsFixed(0)}%',
+                          ? tr('profile.notEnoughYet')
+                          : tr('profile.cNormalizedTostringasfixed', {'toStringAsFixed': (c.normalized! * 100).toStringAsFixed(0)}),
                       style: AppType.meta.copyWith(
                         color: c.pending
                             ? AppColors.greyLight
@@ -836,7 +842,7 @@ class _SkillsCard extends StatelessWidget {
     if (profile.skills.isEmpty) {
       return AppCard(
         child: Text(
-          'Nothing yet. Add what you do so customers can find you.',
+          tr('profile.nothingYetAddWhatYou'),
           style: AppType.meta.copyWith(color: AppColors.grey),
         ),
       );
@@ -873,8 +879,7 @@ class _PricesCard extends StatelessWidget {
     if (profile.priceCards.isEmpty) {
       return AppCard(
         child: Text(
-          'No prices set. A customer books at the price you put here, and it '
-          'cannot change afterwards.',
+          tr('profile.noPricesSetACustomer'),
           style: AppType.meta.copyWith(color: AppColors.grey),
         ),
       );
@@ -940,8 +945,7 @@ class _AvailabilityCard extends StatelessWidget {
     if (profile.availability.isEmpty) {
       return AppCard(
         child: Text(
-          'No hours set. Customers can only book you in the hours you add '
-          'here.',
+          tr('profile.noHoursSetCustomersCan'),
           style: AppType.meta.copyWith(color: AppColors.grey),
         ),
       );
@@ -966,8 +970,7 @@ class _AvailabilityCard extends StatelessWidget {
                   ),
                   Expanded(
                     child: Text(
-                      '${profile.availability[i].startTime} – '
-                      '${profile.availability[i].endTime}',
+                      tr('profile.profileAvailabilityIStarttimeProfile', {'startTime': profile.availability[i].startTime, 'endTime': profile.availability[i].endTime}),
                       style: AppType.meta.copyWith(color: AppColors.inkMuted),
                     ),
                   ),

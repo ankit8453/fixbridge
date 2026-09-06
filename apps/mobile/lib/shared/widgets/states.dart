@@ -6,6 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import 'app_button.dart';
+import '../../l10n/app_text.dart';
 
 /// A shimmering placeholder the shape of the thing that is loading.
 ///
@@ -154,9 +155,9 @@ class ErrorState extends StatelessWidget {
 
     return EmptyState(
       icon: isNetwork ? Icons.wifi_off_rounded : Icons.error_outline_rounded,
-      title: isNetwork ? 'No connection' : 'Something went wrong',
-      message: api?.message ?? 'Please try again in a moment.',
-      actionLabel: onRetry == null ? null : 'Try again',
+      title: isNetwork ? tr('common.noConnection') : tr('common.somethingWentWrong'),
+      message: api?.message ?? tr('common.pleaseTryAgainInA'),
+      actionLabel: onRetry == null ? null : tr('common.tryAgain'),
       onAction: onRetry,
     );
   }

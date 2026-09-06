@@ -11,6 +11,7 @@ import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_field.dart';
 import '../../core/providers.dart';
 import '../home/partner_providers.dart';
+import '../../l10n/app_text.dart';
 
 /// Telling us where the money goes.
 ///
@@ -84,7 +85,7 @@ class _PayoutDetailSheetState extends ConsumerState<PayoutDetailSheet> {
     // server checks too, because this one is worth being sure about: a
     // wrong-but-valid account number pays a stranger and there is no undo.
     if (_isBank && _account.text.trim() != _confirm.text.trim()) {
-      setState(() => _error = 'The two account numbers do not match');
+      setState(() => _error = tr('wallet.theTwoAccountNumbersDo'));
       return;
     }
 
@@ -127,11 +128,10 @@ class _PayoutDetailSheetState extends ConsumerState<PayoutDetailSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('How should we pay you?', style: AppType.heading),
+            Text(tr('wallet.howShouldWePayYou'), style: AppType.heading),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              'We send your earnings here. Check it carefully — money sent to '
-              'a wrong number cannot be brought back.',
+              tr('wallet.weSendYourEarningsHere'),
               style: AppType.meta.copyWith(color: AppColors.grey),
             ),
             const SizedBox(height: AppSpacing.lg),
@@ -148,7 +148,7 @@ class _PayoutDetailSheetState extends ConsumerState<PayoutDetailSheet> {
             if (_isBank) ...[
               AppField(
                 controller: _account,
-                label: 'Account number',
+                label: tr('wallet.accountNumber'),
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 maxLength: 18,
@@ -157,7 +157,7 @@ class _PayoutDetailSheetState extends ConsumerState<PayoutDetailSheet> {
               const SizedBox(height: AppSpacing.md),
               AppField(
                 controller: _confirm,
-                label: 'Type the account number again',
+                label: tr('wallet.typeTheAccountNumberAgain'),
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 maxLength: 18,
@@ -166,7 +166,7 @@ class _PayoutDetailSheetState extends ConsumerState<PayoutDetailSheet> {
               const SizedBox(height: AppSpacing.md),
               AppField(
                 controller: _ifsc,
-                label: 'IFSC code',
+                label: tr('wallet.ifscCode'),
                 hint: 'HDFC0001234',
                 maxLength: 11,
                 textCapitalization: TextCapitalization.characters,
@@ -178,7 +178,7 @@ class _PayoutDetailSheetState extends ConsumerState<PayoutDetailSheet> {
               const SizedBox(height: AppSpacing.md),
               AppField(
                 controller: _holder,
-                label: 'Name on the account',
+                label: tr('wallet.nameOnTheAccount'),
                 textCapitalization: TextCapitalization.words,
                 maxLength: 120,
                 onChanged: (_) => setState(() => _error = null),
@@ -186,7 +186,7 @@ class _PayoutDetailSheetState extends ConsumerState<PayoutDetailSheet> {
             ] else ...[
               AppField(
                 controller: _upi,
-                label: 'UPI ID',
+                label: tr('wallet.upiId'),
                 hint: 'yourname@okhdfcbank',
                 keyboardType: TextInputType.emailAddress,
                 maxLength: 120,
@@ -194,7 +194,7 @@ class _PayoutDetailSheetState extends ConsumerState<PayoutDetailSheet> {
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                'The same ID people use to send you money on any UPI app.',
+                tr('wallet.theSameIdPeopleUse'),
                 style: AppType.caption.copyWith(color: AppColors.greyLight),
               ),
             ],
@@ -202,7 +202,7 @@ class _PayoutDetailSheetState extends ConsumerState<PayoutDetailSheet> {
             const SizedBox(height: AppSpacing.lg),
             AppField(
               controller: _pan,
-              label: 'PAN (optional)',
+              label: tr('wallet.panOptional'),
               hint: 'ABCDE1234F',
               maxLength: 10,
               textCapitalization: TextCapitalization.characters,
@@ -212,8 +212,8 @@ class _PayoutDetailSheetState extends ConsumerState<PayoutDetailSheet> {
             const SizedBox(height: AppSpacing.xs),
             Text(
               widget.existing?.hasPan == true
-                  ? 'A PAN is already saved. Leave this blank to keep it.'
-                  : 'Needed later for tax. You can add it another time.',
+                  ? tr('wallet.aPanIsAlreadySaved')
+                  : tr('wallet.neededLaterForTaxYou'),
               style: AppType.caption.copyWith(color: AppColors.greyLight),
             ),
 
@@ -227,7 +227,7 @@ class _PayoutDetailSheetState extends ConsumerState<PayoutDetailSheet> {
 
             const SizedBox(height: AppSpacing.xl),
             AppButton(
-              label: 'Save',
+              label: tr('wallet.save'),
               loading: _saving,
               onPressed: _canSave ? _save : null,
             ),
@@ -263,7 +263,7 @@ class _MethodPicker extends StatelessWidget {
         Expanded(
           child: _MethodTile(
             label: 'UPI',
-            caption: 'Fastest',
+            caption: tr('wallet.fastest'),
             icon: Icons.qr_code_rounded,
             selected: method == 'upi',
             onTap: () => onChanged('upi'),
@@ -272,8 +272,8 @@ class _MethodPicker extends StatelessWidget {
         const SizedBox(width: AppSpacing.md),
         Expanded(
           child: _MethodTile(
-            label: 'Bank account',
-            caption: 'Any amount',
+            label: tr('wallet.bankAccount'),
+            caption: tr('wallet.anyAmount'),
             icon: Icons.account_balance_rounded,
             selected: method == 'bank',
             onTap: () => onChanged('bank'),

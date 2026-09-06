@@ -13,6 +13,7 @@ import '../../data/models/booking.dart';
 import '../../data/models/money.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_card.dart';
+import '../../l10n/app_text.dart';
 
 /// A part or an extra line the technician is adding.
 class _Line {
@@ -140,11 +141,10 @@ class _QuoteBuilderState extends ConsumerState<QuoteBuilder> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Send the price', style: AppType.heading),
+            Text(tr('jobs.sendThePrice2'), style: AppType.heading),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              '${widget.booking.counterpart.displayName} approves this before '
-              'you can finish the job.',
+              tr('jobs.widgetBookingCounterpartDisplaynameAppro', {'displayName': widget.booking.counterpart.displayName}),
               style: AppType.meta.copyWith(color: AppColors.grey),
             ),
 
@@ -165,7 +165,7 @@ class _QuoteBuilderState extends ConsumerState<QuoteBuilder> {
                         Row(
                           children: [
                             Text(
-                              'Agreed labour',
+                              tr('jobs.agreedLabour2'),
                               style: AppType.bodyMedium.copyWith(fontSize: 13),
                             ),
                             const SizedBox(width: AppSpacing.sm),
@@ -174,7 +174,7 @@ class _QuoteBuilderState extends ConsumerState<QuoteBuilder> {
                         ),
                         const SizedBox(height: 1),
                         Text(
-                          'What the customer booked at',
+                          tr('jobs.whatTheCustomerBookedAt'),
                           style: AppType.caption
                               .copyWith(color: AppColors.greyLight),
                         ),
@@ -205,13 +205,13 @@ class _QuoteBuilderState extends ConsumerState<QuoteBuilder> {
             const SizedBox(height: AppSpacing.lg),
             Row(
               children: [
-                Text('Parts used', style: AppType.cardTitle),
+                Text(tr('jobs.partsUsed'), style: AppType.cardTitle),
                 const Spacer(),
                 if (_lines.length < _maxLines)
                   TextButton.icon(
                     onPressed: () => setState(() => _lines.add(_Line())),
                     icon: const Icon(Icons.add_rounded, size: 16),
-                    label: const Text('Add'),
+                    label: Text(tr('jobs.add')),
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.graphite,
                       textStyle:
@@ -223,7 +223,7 @@ class _QuoteBuilderState extends ConsumerState<QuoteBuilder> {
 
             if (_lines.isEmpty)
               Text(
-                'Nothing yet. Add anything you had to buy or fit.',
+                tr('jobs.nothingYetAddAnythingYou'),
                 style: AppType.meta.copyWith(color: AppColors.greyLight),
               )
             else
@@ -248,7 +248,7 @@ class _QuoteBuilderState extends ConsumerState<QuoteBuilder> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('Total', style: AppType.cardTitle),
+                  Text(tr('jobs.total'), style: AppType.cardTitle),
                   const Spacer(),
                   Text(
                     Paise.format(_totalPaise),
@@ -268,14 +268,14 @@ class _QuoteBuilderState extends ConsumerState<QuoteBuilder> {
 
             const SizedBox(height: AppSpacing.lg),
             AppButton(
-              label: 'Send to ${widget.booking.counterpart.displayName}',
+              label: tr('jobs.sendToWidgetBookingCounterpart', {'displayName': widget.booking.counterpart.displayName}),
               kind: AppButtonKind.accent,
               loading: _sending,
               onPressed: _canSend ? _send : null,
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'You can send a revised price if they say no.',
+              tr('jobs.youCanSendARevised'),
               style: AppType.caption.copyWith(color: AppColors.grey),
               textAlign: TextAlign.center,
             ),
@@ -336,12 +336,12 @@ class _ExtraLabourField extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Extra labour',
+                  tr('jobs.extraLabour2'),
                   style: AppType.bodyMedium.copyWith(fontSize: 13),
                 ),
                 const SizedBox(height: 1),
                 Text(
-                  'Only if the job was more than agreed',
+                  tr('jobs.onlyIfTheJobWas'),
                   style: AppType.caption.copyWith(color: AppColors.greyLight),
                 ),
               ],
@@ -407,7 +407,7 @@ class _ReasonField extends StatelessWidget {
           Text(
             // Naming the reader is the point: this is the sentence the
             // customer weighs before approving.
-            'WHY — ${customerName.toUpperCase()} WILL READ THIS',
+            tr('jobs.whyCustomernameTouppercaseWillRead', {'toUpperCase': customerName.toUpperCase()}),
             style: AppType.label.copyWith(
               color: AppColors.amber,
               fontSize: 8.5,
@@ -422,8 +422,7 @@ class _ReasonField extends StatelessWidget {
             style: AppType.meta.copyWith(color: AppColors.amber, height: 1.5),
             cursorColor: AppColors.amber,
             decoration: InputDecoration(
-              hintText: 'Capacitor had burnt and the board needed rewiring — '
-                  'about 45 minutes more',
+              hintText: tr('jobs.capacitorHadBurntAndThe'),
               hintStyle: AppType.meta.copyWith(
                 color: AppColors.amber.withValues(alpha: 0.5),
               ),
@@ -435,7 +434,7 @@ class _ReasonField extends StatelessWidget {
           ),
           if (short)
             Text(
-              'A sentence, not a word — at least $minLength characters.',
+              tr('jobs.aSentenceNotAWord', {'minLength': minLength}),
               style: AppType.caption.copyWith(color: AppColors.amber),
             ),
         ],
@@ -476,7 +475,7 @@ class _LineEditor extends StatelessWidget {
                   style: AppType.bodyMedium.copyWith(fontSize: 13),
                   cursorColor: AppColors.graphite,
                   decoration: InputDecoration(
-                    hintText: 'What was it?',
+                    hintText: tr('jobs.whatWasIt'),
                     hintStyle: AppType.bodyMedium.copyWith(
                       fontSize: 13,
                       color: AppColors.greyLight,
@@ -516,7 +515,7 @@ class _LineEditor extends StatelessWidget {
                   style: AppType.meta.copyWith(color: AppColors.ink),
                   cursorColor: AppColors.graphite,
                   decoration: InputDecoration(
-                    hintText: 'Qty',
+                    hintText: tr('jobs.qty'),
                     hintStyle:
                         AppType.meta.copyWith(color: AppColors.greyLight),
                     border: InputBorder.none,
@@ -546,7 +545,7 @@ class _LineEditor extends StatelessWidget {
                     prefixText: '₹ ',
                     prefixStyle:
                         AppType.meta.copyWith(color: AppColors.greyLight),
-                    hintText: 'Each',
+                    hintText: tr('jobs.each'),
                     hintStyle:
                         AppType.meta.copyWith(color: AppColors.greyLight),
                     border: InputBorder.none,

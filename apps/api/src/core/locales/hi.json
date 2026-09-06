@@ -192,7 +192,8 @@
       "photoNotUploaded": "फ़ोटो अपलोड नहीं हुई। कृपया दोबारा कोशिश करें।",
       "photoTypeNotAllowed": "कृपया JPG, PNG या WebP फ़ोटो अपलोड करें।",
       "photoTooLarge": "यह फ़ोटो बहुत बड़ी है। कृपया छोटी फ़ोटो अपलोड करें।",
-      "photoRemovalNeedsNote": "कृपया कम से कम 10 अक्षरों में कारण लिखें।"
+      "photoRemovalNeedsNote": "कृपया कम से कम 10 अक्षरों में कारण लिखें।",
+      "outsideServiceArea": "यह जगह जबलपुर के बाहर है। FixBridge फ़िलहाल केवल यहीं काम करता है।"
     },
     "bookings": {
       "notFound": "यह बुकिंग हमें नहीं मिली।",

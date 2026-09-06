@@ -1,11 +1,14 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/repositories/geo_repository.dart';
+
 import '../data/repositories/auth_repository.dart';
 import '../data/repositories/partner_repository.dart';
 import '../data/repositories/verification_repository.dart';
 import 'api/api_client.dart';
 import 'storage/session_store.dart';
+import '../l10n/app_text.dart';
 
 final sessionStoreProvider = Provider<SessionStore>((ref) {
   throw StateError('sessionStoreProvider must be overridden in main()');
@@ -56,7 +59,11 @@ class LocaleController extends StateNotifier<LocaleState> {
             locale: Locale(_store.localeCode ?? _fallback),
             chosen: _store.localeCode != null,
           ),
-        );
+        ) {
+    // The saved choice has to reach the string table before the first screen
+    // builds — otherwise a Hindi customer sees one English frame on launch.
+    setAppLanguage(_store.localeCode ?? _fallback);
+  }
 
   final SessionStore _store;
   static const _fallback = 'hi';
@@ -65,6 +72,9 @@ class LocaleController extends StateNotifier<LocaleState> {
   Future<void> set(String code) async {
     if (code != 'hi' && code != 'en') return;
     await _store.setLocaleCode(code);
+    // Before the state change, so the rebuild it triggers already reads the
+    // new language. The other way round shows one frame of the old one.
+    setAppLanguage(code);
     state = LocaleState(locale: Locale(code), chosen: true);
   }
 }
@@ -81,6 +91,11 @@ final localeProvider =
 /// Whether the picker has been answered. Watched by the router.
 final localeChosenProvider =
     Provider<bool>((ref) => ref.watch(localeControllerProvider).chosen);
+
+/// Map lookups — search and naming a point. Server-side; see the repository.
+final geoRepositoryProvider = Provider<GeoRepository>((ref) {
+  return GeoRepository(ref.watch(apiClientProvider));
+});
 
 final apiClientProvider = Provider<ApiClient>((ref) {
   final client = ApiClient(

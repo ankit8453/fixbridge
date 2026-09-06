@@ -11,6 +11,7 @@ import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/states.dart';
 import '../home/partner_providers.dart';
+import '../../l10n/app_text.dart';
 
 /// Getting listed.
 ///
@@ -44,7 +45,7 @@ class SetupScreen extends ConsumerWidget {
             onPressed: () => context.pop(),
           ),
         ),
-        title: const Text('Get your first job'),
+        title: Text(tr('setup.getYourFirstJob')),
       ),
       body: SafeArea(
         child: profile.when(
@@ -142,10 +143,10 @@ class _Verdict extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('You are live', style: AppType.cardTitle),
+                  Text(tr('setup.youAreLive'), style: AppType.cardTitle),
                   const SizedBox(height: 2),
                   Text(
-                    'Customers can find you and book you.',
+                    tr('setup.customersCanFindYouAnd'),
                     style: AppType.meta.copyWith(color: AppColors.inkMuted),
                   ),
                 ],
@@ -177,7 +178,7 @@ class _Verdict extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  waitingOnUs ? 'Waiting on us' : 'Not visible yet',
+                  waitingOnUs ? tr('setup.waitingOnUs') : tr('setup.notVisibleYet'),
                   style: AppType.cardTitle.copyWith(color: AppColors.amber),
                 ),
                 const SizedBox(height: 2),
@@ -185,11 +186,8 @@ class _Verdict extends StatelessWidget {
                   // The distinction that matters: nothing further to do,
                   // versus something still to do.
                   waitingOnUs
-                      ? 'Your profile is finished. We are checking your '
-                          'verification — you will appear in search as soon '
-                          'as it passes.'
-                      : 'Customers cannot find you until both parts below are '
-                          'done.',
+                      ? tr('setup.yourProfileIsFinishedWe')
+                      : tr('setup.customersCannotFindYouUntil'),
                   style: AppType.meta.copyWith(color: AppColors.amber),
                 ),
               ],
@@ -220,10 +218,10 @@ class _ProfileTrack extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              Text('Your profile', style: AppType.cardTitle),
+              Text(tr('setup.yourProfile'), style: AppType.cardTitle),
               const Spacer(),
               Text(
-                '$done of 5',
+                tr('setup.doneOf', {'done': done}),
                 style: AppType.meta.copyWith(color: AppColors.grey),
               ),
             ],
@@ -242,7 +240,7 @@ class _ProfileTrack extends StatelessWidget {
           if (missing.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.md),
             AppButton(
-              label: 'Finish your profile',
+              label: tr('setup.finishYourProfile'),
               kind: AppButtonKind.ghost,
               onPressed: onFix,
             ),
@@ -255,12 +253,12 @@ class _ProfileTrack extends StatelessWidget {
   /// The five that actually gate listing. The optional extras — a bio, a
   /// photo document, years of experience — move the score but never block,
   /// so listing them here would imply work that is not required.
-  static const _requiredItems = [
-    (key: 'displayName', label: 'Your name'),
-    (key: 'baseLocation', label: 'Where you work from'),
-    (key: 'skills', label: 'What you do'),
-    (key: 'priceCard', label: 'Your prices'),
-    (key: 'availability', label: 'When you work'),
+  static List<({String key, String label})> get _requiredItems => [
+    (key: 'displayName', label: tr('setup.yourName')),
+    (key: 'baseLocation', label: tr('setup.whereYouWorkFrom')),
+    (key: 'skills', label: tr('setup.whatYouDo')),
+    (key: 'priceCard', label: tr('setup.yourPrices')),
+    (key: 'availability', label: tr('setup.whenYouWork')),
   ];
 }
 
@@ -293,15 +291,14 @@ class _PhotoPrompt extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  hasPhoto ? 'Your photo is set' : 'Add your photo',
+                  hasPhoto ? tr('setup.yourPhotoIsSet') : tr('setup.addYourPhoto'),
                   style: AppType.cardTitle,
                 ),
                 const SizedBox(height: 2),
                 Text(
                   hasPhoto
-                      ? 'Customers see this after they accept.'
-                      : 'Optional, but customers who can see who is coming '
-                          'open the door faster.',
+                      ? tr('setup.customersSeeThisAfterThey')
+                      : tr('setup.optionalButCustomersWhoCan'),
                   style: AppType.meta.copyWith(color: AppColors.grey),
                 ),
               ],
@@ -336,10 +333,10 @@ class _VerificationTrack extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              Text('Verification', style: AppType.cardTitle),
+              Text(tr('setup.verification'), style: AppType.cardTitle),
               const Spacer(),
               Text(
-                '$passed of 3',
+                tr('setup.passedOf', {'passed': passed}),
                 style: AppType.meta.copyWith(color: AppColors.grey),
               ),
             ],
@@ -387,14 +384,14 @@ class _LevelRow extends StatelessWidget {
     final failed = openCase?.isFailed ?? false;
 
     final (status, tone) = passed
-        ? ('Done', AppColors.green)
+        ? (tr('setup.done'), AppColors.green)
         : needsInfo
-            ? ('Needs more from you', AppColors.amber)
+            ? (tr('setup.needsMoreFromYou'), AppColors.amber)
             : failed
-                ? ('Not accepted', AppColors.red)
+                ? (tr('setup.notAccepted'), AppColors.red)
                 : submitted
-                    ? ('Being checked', AppColors.grey)
-                    : ('Not started', AppColors.greyLight);
+                    ? (tr('setup.beingChecked'), AppColors.grey)
+                    : (tr('setup.notStarted'), AppColors.greyLight);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
@@ -415,7 +412,7 @@ class _LevelRow extends StatelessWidget {
                 ? const Icon(Icons.check_rounded, size: 13, color: Colors.white)
                 : Center(
                     child: Text(
-                      '${level + 1}',
+                      tr('setup.level', {'level': level + 1}),
                       style: AppType.caption.copyWith(
                         color: AppColors.greyLight,
                         fontWeight: FontWeight.w700,
@@ -429,7 +426,7 @@ class _LevelRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  VerificationLevels.titles[level] ?? 'Step ${level + 1}',
+                  VerificationLevels.titles[level] ?? tr('setup.stepLevel', {'level': level + 1}),
                   style: AppType.bodyMedium.copyWith(
                     fontSize: 13.5,
                     color: passed ? AppColors.inkMuted : AppColors.ink,
@@ -463,7 +460,7 @@ class _LevelRow extends StatelessWidget {
                 textStyle: AppType.meta.copyWith(fontWeight: FontWeight.w700),
                 visualDensity: VisualDensity.compact,
               ),
-              child: Text(needsInfo || failed ? 'Fix' : 'Start'),
+              child: Text(needsInfo || failed ? tr('setup.fix') : tr('setup.start')),
             ),
         ],
       ),

@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_error.dart';
-import '../../core/location.dart';
+import '../location/map_picker_screen.dart';
 import '../../core/providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
@@ -12,6 +12,7 @@ import '../../data/models/partner_profile.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_field.dart';
 import '../home/partner_providers.dart';
+import '../../l10n/app_text.dart';
 
 /// Editing the parts of a profile that are not skills, prices or hours.
 ///
@@ -39,7 +40,6 @@ class _EditProfileSheetState extends ConsumerState<EditProfileSheet> {
   String? _error;
   String? _locationNote;
   bool _saving = false;
-  bool _locating = false;
 
   @override
   void dispose() {
@@ -49,30 +49,34 @@ class _EditProfileSheetState extends ConsumerState<EditProfileSheet> {
     super.dispose();
   }
 
-  /// Reads the phone's location for the base point.
+  /// Sets the base point on a map.
   ///
-  /// Standing where you work is the honest way to set this, and it is the one
-  /// moment a technician is guaranteed to be there — during onboarding, at
-  /// their own shop or home. Refusal is handled rather than blocked: the note
-  /// explains what happened and the rest of the form still saves.
+  /// It used to read the phone's GPS and nothing else, on the reasoning that a
+  /// technician setting this up is standing where they work. Two problems with
+  /// that. A base location is **required** to be listed, so somebody who
+  /// refused the permission could never be found by a customer and had no way
+  /// to fix it. And plenty set this up at home for a shop two streets away,
+  /// which pinned them to the wrong building with no way to see that it had.
+  ///
+  /// The map answers both: it opens on the phone's position when that is
+  /// available, and works by panning when it is not.
   Future<void> _locate() async {
+    final picked = await Navigator.of(context).push<PickedPoint>(
+      MaterialPageRoute(
+        builder: (_) => MapPickerScreen(
+          initial: _base == null
+              ? null
+              : PickedPoint(lat: _base!.lat, lng: _base!.lng),
+        ),
+        fullscreenDialog: true,
+      ),
+    );
+
+    if (picked == null || !mounted) return;
+
     setState(() {
-      _locating = true;
+      _base = GeoPoint(picked.lat, picked.lng);
       _locationNote = null;
-    });
-
-    final result = await DeviceLocation.current();
-    if (!mounted) return;
-
-    setState(() {
-      _locating = false;
-      switch (result) {
-        case LocationFound(:final lat, :final lng):
-          _base = GeoPoint(lat, lng);
-          _locationNote = null;
-        case LocationRefused(:final message):
-          _locationNote = message;
-      }
     });
   }
 
@@ -121,11 +125,11 @@ class _EditProfileSheetState extends ConsumerState<EditProfileSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Your details', style: AppType.heading),
+            Text(tr('profile.yourDetails'), style: AppType.heading),
             const SizedBox(height: AppSpacing.lg),
             AppField(
               controller: _name,
-              label: 'Name customers see',
+              label: tr('profile.nameCustomersSee'),
               error: _error,
               maxLength: 120,
               textCapitalization: TextCapitalization.words,
@@ -134,15 +138,15 @@ class _EditProfileSheetState extends ConsumerState<EditProfileSheet> {
             const SizedBox(height: AppSpacing.md),
             AppField(
               controller: _bio,
-              label: 'About you (optional)',
-              hint: '12 years doing tank cleaning and RO servicing',
+              label: tr('profile.aboutYouOptional'),
+              hint: tr('profile.yearsDoingTankCleaningAnd'),
               maxLines: 3,
               maxLength: 1000,
             ),
             const SizedBox(height: AppSpacing.md),
             AppField(
               controller: _years,
-              label: 'Years of experience (optional)',
+              label: tr('profile.yearsOfExperienceOptional'),
               hint: '6',
               keyboardType: TextInputType.number,
               inputFormatters: [
@@ -151,26 +155,21 @@ class _EditProfileSheetState extends ConsumerState<EditProfileSheet> {
               ],
             ),
             const SizedBox(height: AppSpacing.lg),
-            Text('Where do you work from?', style: AppType.cardTitle),
+            Text(tr('profile.whereDoYouWorkFrom'), style: AppType.cardTitle),
             const SizedBox(height: AppSpacing.xs),
             Text(
               _base == null
-                  ? 'Customers are matched to you by distance from here. '
-                      'Without it you cannot be found at all.'
-                  : 'Set. Customers within your travel distance of this point '
-                      'can find you.',
+                  ? tr('profile.customersAreMatchedToYou')
+                  : tr('profile.setCustomersWithinYourTravel'),
               style: AppType.meta.copyWith(
                 color: _base == null ? AppColors.amber : AppColors.grey,
               ),
             ),
             const SizedBox(height: AppSpacing.sm),
             AppButton(
-              label: _base == null
-                  ? 'Use my current location'
-                  : 'Update to where I am now',
-              kind: AppButtonKind.ghost,
-              icon: Icons.my_location_rounded,
-              loading: _locating,
+              label: _base == null ? tr('profile.setOnMap') : tr('profile.changeLocation'),
+              kind: _base == null ? AppButtonKind.primary : AppButtonKind.ghost,
+              icon: _base == null ? Icons.map_outlined : Icons.check_rounded,
               onPressed: _locate,
             ),
             if (_locationNote != null) ...[
@@ -181,10 +180,10 @@ class _EditProfileSheetState extends ConsumerState<EditProfileSheet> {
               ),
             ],
             const SizedBox(height: AppSpacing.lg),
-            Text('How far will you travel?', style: AppType.cardTitle),
+            Text(tr('profile.howFarWillYouTravel'), style: AppType.cardTitle),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              'Customers further than this will not see you.',
+              tr('profile.customersFurtherThanThisWill'),
               style: AppType.meta.copyWith(color: AppColors.grey),
             ),
             Slider(
@@ -192,19 +191,19 @@ class _EditProfileSheetState extends ConsumerState<EditProfileSheet> {
               min: 1,
               max: 25,
               divisions: 24,
-              label: '$_radius km',
+              label: tr('profile.radiusKm', {'_radius': _radius}),
               activeColor: AppColors.graphite,
               onChanged: (v) => setState(() => _radius = v.round()),
             ),
             Center(
               child: Text(
-                '$_radius km',
+                tr('profile.radiusKm2', {'_radius': _radius}),
                 style: AppType.cardTitle.copyWith(color: AppColors.graphite),
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
             AppButton(
-              label: 'Save',
+              label: tr('profile.save'),
               loading: _saving,
               onPressed: _name.text.trim().isEmpty ? null : _save,
             ),

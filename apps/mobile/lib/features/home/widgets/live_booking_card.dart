@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/models/booking.dart';
+import '../../../l10n/app_text.dart';
 
 /// The live booking.
 ///
@@ -26,22 +27,22 @@ class LiveBookingCard extends StatelessWidget {
   /// Deliberately plain and in the second person. "REQUESTED" is a database
   /// state; "Waiting for a reply" is what is actually happening to you.
   String get _headline => switch (booking.status) {
-        BookingStatus.requested => 'Waiting for a reply',
-        BookingStatus.accepted => '${booking.counterpart.displayName} accepted',
+        BookingStatus.requested => tr('home.waitingForAReply'),
+        BookingStatus.accepted => tr('home.bookingCounterpartDisplaynameAccepted', {'displayName': booking.counterpart.displayName}),
         BookingStatus.enRoute =>
-          '${booking.counterpart.displayName} is on the way',
+          tr('home.bookingCounterpartDisplaynameIsOn', {'displayName': booking.counterpart.displayName}),
         BookingStatus.arrived =>
-          '${booking.counterpart.displayName} has arrived',
-        BookingStatus.inProgress => 'Work in progress',
-        _ => 'Your booking',
+          tr('home.bookingCounterpartDisplaynameHasArrived', {'displayName': booking.counterpart.displayName}),
+        BookingStatus.inProgress => tr('home.workInProgress'),
+        _ => tr('home.yourBooking'),
       };
 
   String get _sub => switch (booking.status) {
-        BookingStatus.requested => 'We will tell you as soon as they answer',
-        BookingStatus.accepted => 'Arriving ${_time(booking.startsAt)}',
-        BookingStatus.enRoute => 'Have your start code ready',
-        BookingStatus.arrived => 'Read out your start code to begin',
-        BookingStatus.inProgress => 'The price will come through when done',
+        BookingStatus.requested => tr('home.weWillTellYouAs'),
+        BookingStatus.accepted => tr('home.arrivingTimeBookingStartsat', {'startsAt': _time(booking.startsAt)}),
+        BookingStatus.enRoute => tr('home.haveYourStartCodeReady'),
+        BookingStatus.arrived => tr('home.readOutYourStartCode'),
+        BookingStatus.inProgress => tr('home.thePriceWillComeThrough'),
         _ => '',
       };
 
@@ -49,7 +50,7 @@ class LiveBookingCard extends StatelessWidget {
     final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
     final minute = dt.minute.toString().padLeft(2, '0');
     final period = dt.hour < 12 ? 'am' : 'pm';
-    return '$hour:$minute $period';
+    return tr('home.hourMinutePeriod', {'hour': hour, 'minute': minute, 'period': period});
   }
 
   @override
@@ -99,7 +100,7 @@ class LiveBookingCard extends StatelessWidget {
                             const _LivePulse(),
                             const SizedBox(width: 7),
                             Text(
-                              'LIVE BOOKING',
+                              tr('home.liveBooking'),
                               style: AppType.label.copyWith(
                                 color: Colors.white.withValues(alpha: 0.92),
                               ),

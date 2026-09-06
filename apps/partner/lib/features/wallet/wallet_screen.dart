@@ -12,6 +12,7 @@ import '../../shared/widgets/states.dart';
 import '../home/partner_providers.dart';
 import '../jobs/job_status_ui.dart';
 import 'payout_detail_sheet.dart';
+import '../../l10n/app_text.dart';
 
 /// The money screen.
 ///
@@ -64,7 +65,7 @@ class WalletScreen extends ConsumerWidget {
                 96,
               ),
               children: [
-                Text('Money', style: AppType.title),
+                Text(tr('wallet.money'), style: AppType.title),
                 const SizedBox(height: AppSpacing.lg),
                 // Earnings first, balance second. They answer different
                 // questions and this is the one a technician came to ask —
@@ -85,7 +86,7 @@ class WalletScreen extends ConsumerWidget {
                   _DuesNote(wallet: w),
                 ],
                 if (w.recentPayouts.isNotEmpty) ...[
-                  const SectionHeader(title: 'Payouts'),
+                  SectionHeader(title: tr('wallet.payouts')),
                   for (final payout in w.recentPayouts)
                     Padding(
                       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -93,7 +94,7 @@ class WalletScreen extends ConsumerWidget {
                     ),
                 ],
                 if (w.earnings.recent.isNotEmpty) ...[
-                  const SectionHeader(title: 'Jobs you have been paid for'),
+                  SectionHeader(title: tr('wallet.jobsYouHaveBeenPaid')),
                   AppCard(
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.lg,
@@ -110,7 +111,7 @@ class WalletScreen extends ConsumerWidget {
                   const SizedBox(height: AppSpacing.md),
                 ],
                 if (w.ledger.isNotEmpty) ...[
-                  const SectionHeader(title: 'Everything that moved'),
+                  SectionHeader(title: tr('wallet.everythingThatMoved')),
                   AppCard(
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.lg,
@@ -128,19 +129,18 @@ class WalletScreen extends ConsumerWidget {
                   Text(
                     // The API returns one fixed page with no cursor, so
                     // saying so beats an infinite scroll that never loads.
-                    'Showing your most recent entries.',
+                    tr('wallet.showingYourMostRecentEntries'),
                     style: AppType.caption.copyWith(color: AppColors.greyLight),
                     textAlign: TextAlign.center,
                   ),
                 ] else if (w.recentPayouts.isEmpty)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(top: AppSpacing.xxl),
                     child: EmptyState(
                       icon: Icons.account_balance_wallet_outlined,
-                      title: 'Nothing yet',
+                      title: tr('wallet.nothingYet'),
                       message:
-                          'Once you finish a job, what you earned shows up '
-                          'here and goes out in the next payout.',
+                          tr('wallet.onceYouFinishAJob'),
                     ),
                   ),
               ],
@@ -169,7 +169,7 @@ class _BalanceCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            wallet.owesUs ? 'YOU OWE US' : 'COMING TO YOU',
+            wallet.owesUs ? tr('wallet.youOweUs') : tr('wallet.comingToYou'),
             style: AppType.label.copyWith(
               color: Colors.white.withValues(alpha: 0.9),
             ),
@@ -200,7 +200,7 @@ class _BalanceCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: _Half(
-                    label: 'WE OWE YOU',
+                    label: tr('wallet.weOweYou'),
                     value: Paise.show(
                       wallet.payableDisplay,
                       wallet.payablePaise,
@@ -209,7 +209,7 @@ class _BalanceCard extends StatelessWidget {
                 ),
                 Expanded(
                   child: _Half(
-                    label: 'YOU OWE US',
+                    label: tr('wallet.youOweUs2'),
                     value: Paise.show(wallet.duesDisplay, wallet.duesPaise),
                   ),
                 ),
@@ -273,8 +273,7 @@ class _MinimumNote extends StatelessWidget {
             child: Text(
               // Explained rather than left as a silent absence: a technician
               // who expected a transfer and got none assumes a bug.
-              'Payouts go out above ${Paise.format(minimum)}. What you have '
-              'now carries over to the next one — nothing is lost.',
+              tr('wallet.payoutsGoOutAbovePaise', {'minimum': Paise.format(minimum)}),
               style: AppType.meta.copyWith(color: AppColors.amber),
             ),
           ),
@@ -295,11 +294,10 @@ class _DuesNote extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Why you owe us', style: AppType.cardTitle),
+          Text(tr('wallet.whyYouOweUs'), style: AppType.cardTitle),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            'When a customer pays you in cash, the whole amount stays with '
-            'you — so our commission on those jobs is added here instead.',
+            tr('wallet.whenACustomerPaysYou'),
             style: AppType.meta.copyWith(color: AppColors.grey),
           ),
           const SizedBox(height: AppSpacing.md),
@@ -312,7 +310,7 @@ class _DuesNote extends StatelessWidget {
             child: Text(
               // Stated because the opposite would be a nasty surprise, and
               // the API deliberately does not net them.
-              'Your payouts are not reduced by this. It is settled separately.',
+              tr('wallet.yourPayoutsAreNotReduced'),
               style: AppType.meta.copyWith(
                 color: AppColors.inkMuted,
                 fontWeight: FontWeight.w600,
@@ -333,9 +331,9 @@ class _PayoutRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, tone, soft) = switch (payout.status) {
-      'paid' => ('Paid', AppColors.green, AppColors.greenSoft),
-      'failed' => ('Did not go through', AppColors.red, AppColors.redSoft),
-      _ => ('On its way', AppColors.amber, AppColors.amberSoft),
+      'paid' => (tr('wallet.paid'), AppColors.green, AppColors.greenSoft),
+      'failed' => (tr('wallet.didNotGoThrough'), AppColors.red, AppColors.redSoft),
+      _ => (tr('wallet.onItsWay'), AppColors.amber, AppColors.amberSoft),
     };
 
     return AppCard(
@@ -416,8 +414,7 @@ class _PayoutRow extends StatelessWidget {
               // A failed payout posts nothing — the balance was never reduced
               // and rolls into the next batch. Worth saying, because the word
               // "failed" reads as money lost.
-              'Nothing was taken from your balance. It will go out again in '
-              'the next payout.',
+              tr('wallet.nothingWasTakenFromYour'),
               style: AppType.caption.copyWith(color: AppColors.grey),
             ),
           ],
@@ -456,7 +453,8 @@ class _LedgerRow extends StatelessWidget {
             ),
           ),
           Text(
-            '${incoming ? '+' : '−'} ${Paise.show(line.amountDisplay, line.amountPaise)}',
+            '${incoming ? '+' : '−'} '
+            '${Paise.show(line.amountDisplay, line.amountPaise)}',
             style: AppType.amount.copyWith(
               fontSize: 13,
               color: incoming ? AppColors.green : AppColors.inkMuted,
@@ -525,14 +523,14 @@ class _PayoutDestinationCard extends ConsumerWidget {
                   children: [
                     Text(
                       value == null
-                          ? 'Tell us where to send your money'
-                          : 'Payouts go to',
+                          ? tr('wallet.tellUsWhereToSend')
+                          : tr('wallet.payoutsGoTo'),
                       style: AppType.bodyMedium,
                     ),
                     const SizedBox(height: 1),
                     Text(
                       value == null
-                          ? 'We cannot pay you until you add this'
+                          ? tr('wallet.weCannotPayYouUntil')
                           : value.destination,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -580,7 +578,7 @@ class _EarningsCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Earned this week',
+              tr('wallet.earnedThisWeek'),
               style: AppType.label.copyWith(color: AppColors.greyLight),
             ),
             const SizedBox(height: AppSpacing.xs),
@@ -588,10 +586,10 @@ class _EarningsCard extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               week.jobCount == 0
-                  ? 'No finished jobs yet this week'
+                  ? tr('wallet.noFinishedJobsYetThis')
                   : week.jobCount == 1
-                      ? 'From 1 job'
-                      : 'From ${week.jobCount} jobs',
+                      ? tr('wallet.fromJob')
+                      : tr('wallet.fromWeekJobcountJobs', {'jobCount': week.jobCount}),
               style: AppType.caption.copyWith(color: AppColors.grey),
             ),
             const SizedBox(height: AppSpacing.md),
@@ -601,14 +599,14 @@ class _EarningsCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: _EarningsStat(
-                    label: 'This month',
+                    label: tr('wallet.thisMonth'),
                     value: earnings.thisMonth.grossDisplay,
                     jobs: earnings.thisMonth.jobCount,
                   ),
                 ),
                 Expanded(
                   child: _EarningsStat(
-                    label: 'All time',
+                    label: tr('wallet.allTime'),
                     value: earnings.allTime.grossDisplay,
                     jobs: earnings.allTime.jobCount,
                   ),
@@ -643,7 +641,7 @@ class _EarningsStat extends StatelessWidget {
         const SizedBox(height: 2),
         Text(value, style: AppType.bodyMedium),
         Text(
-          jobs == 1 ? '1 job' : '$jobs jobs',
+          jobs == 1 ? tr('wallet.job') : tr('wallet.jobsJobs', {'jobs': jobs}),
           style: AppType.caption.copyWith(color: AppColors.greyLight),
         ),
       ],
@@ -678,7 +676,7 @@ class _EarningsRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  line.wasCash ? 'Cash collected' : 'Paid online',
+                  line.wasCash ? tr('wallet.cashCollected') : tr('wallet.paidOnline'),
                   style: AppType.bodyMedium,
                 ),
                 const SizedBox(height: 1),
@@ -695,7 +693,7 @@ class _EarningsRow extends StatelessWidget {
               Text(line.earnedDisplay, style: AppType.bodyMedium),
               if (line.commissionPaise > 0)
                 Text(
-                  '${line.grossDisplay} bill',
+                  tr('wallet.lineGrossdisplayBill', {'grossDisplay': line.grossDisplay}),
                   style: AppType.caption.copyWith(color: AppColors.greyLight),
                 ),
             ],
@@ -706,19 +704,19 @@ class _EarningsRow extends StatelessWidget {
   }
 
   static String _when(DateTime at) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
+    final months = [
+      tr('wallet.jan'),
+      tr('wallet.feb'),
+      tr('wallet.mar'),
+      tr('wallet.apr'),
+      tr('wallet.may'),
+      tr('wallet.jun'),
+      tr('wallet.jul'),
+      tr('wallet.aug'),
+      tr('wallet.sep'),
+      tr('wallet.oct'),
+      tr('wallet.nov'),
+      tr('wallet.dec'),
     ];
     return '${at.day} ${months[at.month - 1]}';
   }

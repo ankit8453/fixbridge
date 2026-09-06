@@ -192,7 +192,8 @@
       "photoNotUploaded": "The photo was not uploaded. Please try again.",
       "photoTypeNotAllowed": "Please upload a JPG, PNG or WebP image.",
       "photoTooLarge": "That photo is too large. Please upload a smaller one.",
-      "photoRemovalNeedsNote": "Please give a reason of at least 10 characters."
+      "photoRemovalNeedsNote": "Please give a reason of at least 10 characters.",
+      "outsideServiceArea": "That location is outside Jabalpur. FixBridge only works here for now."
     },
     "bookings": {
       "notFound": "We could not find that booking.",

@@ -15,6 +15,7 @@ import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_field.dart';
 import 'location_permission_sheet.dart';
 import 'location_providers.dart';
+import '../../l10n/app_text.dart';
 
 /// The point the customer confirmed, and what it is called.
 class PickedPoint {
@@ -212,7 +213,7 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
     return Scaffold(
       backgroundColor: AppColors.ground,
       appBar: AppBar(
-        title: const Text('Where is the job?'),
+        title: Text(tr('location.whereIsTheJob')),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => Navigator.pop(context),
@@ -338,7 +339,7 @@ class _SearchBox extends StatelessWidget {
           borderRadius: AppRadius.tileR,
           child: AppField(
             controller: controller,
-            hint: 'Search an area — Vijay Nagar, Surtalai',
+            hint: tr('location.searchAnAreaVijayNagar'),
             prefix: const Icon(
               Icons.search_rounded,
               size: 18,
@@ -426,8 +427,8 @@ class _ConfirmBar extends StatelessWidget {
         children: [
           Text(
             servedHere
-                ? 'Move the map so the pin sits on the door'
-                : 'Outside our area',
+                ? tr('location.moveTheMapSoThe')
+                : tr('location.outsideOurArea'),
             style: AppType.bodyMedium,
           ),
           const SizedBox(height: 2),
@@ -436,17 +437,17 @@ class _ConfirmBar extends StatelessWidget {
                 // Said here rather than at save time. Somebody who has panned
                 // to the wrong city should learn it while looking at the map,
                 // not after typing out a full address.
-                ? 'FixBridge only works in Jabalpur for now.'
+                ? tr('location.fixbridgeOnlyWorksInJabalpur')
                 : naming
-                    ? 'Finding the area…'
-                    : label ?? 'Drop the pin anywhere you can point to',
+                    ? tr('location.findingTheArea')
+                    : label ?? tr('location.dropThePinAnywhereYou'),
             style: AppType.caption.copyWith(
               color: servedHere ? AppColors.grey : AppColors.red,
             ),
           ),
           const SizedBox(height: AppSpacing.md),
           AppButton(
-            label: 'Confirm this location',
+            label: tr('location.confirmThisLocation'),
             onPressed: servedHere ? onConfirm : null,
           ),
         ],

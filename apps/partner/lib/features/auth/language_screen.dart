@@ -9,6 +9,7 @@ import '../../core/theme/app_typography.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/brand_mark.dart';
 import 'auth_controller.dart';
+import '../../l10n/app_text.dart';
 
 /// The first screen, and the one that has to be got right.
 ///
@@ -73,7 +74,7 @@ class _LanguageScreenState extends ConsumerState<LanguageScreen> {
       appBar: widget.isSettings
           ? AppBar(
               leading: const _BackButton(),
-              title: const Text('Language'),
+              title: Text(tr('auth.language')),
             )
           : null,
       body: SafeArea(
@@ -100,7 +101,7 @@ class _LanguageScreenState extends ConsumerState<LanguageScreen> {
               const SizedBox(height: AppSpacing.xxl),
               _LanguageOption(
                 title: 'हिन्दी',
-                subtitle: 'Hindi',
+                subtitle: 'हिन्दी',
                 selected: _selected == 'hi',
                 onTap: () => setState(() => _selected = 'hi'),
               ),
@@ -113,13 +114,13 @@ class _LanguageScreenState extends ConsumerState<LanguageScreen> {
               ),
               const Spacer(),
               AppButton(
-                label: widget.isSettings ? 'Save' : 'Continue',
+                label: widget.isSettings ? tr('auth.save') : tr('auth.continue'),
                 loading: _saving,
                 onPressed: _selected == null ? null : _continue,
               ),
               const SizedBox(height: AppSpacing.md),
               Text(
-                'You can change this any time in Account.',
+                tr('auth.youCanChangeThisAny'),
                 style: AppType.caption.copyWith(color: AppColors.grey),
                 textAlign: TextAlign.center,
               ),

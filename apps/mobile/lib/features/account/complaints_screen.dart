@@ -12,6 +12,7 @@ import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/states.dart';
 import '../auth/auth_controller.dart';
 import '../bookings/booking_status_ui.dart';
+import '../../l10n/app_text.dart';
 
 final _complaintsProvider = FutureProvider<List<Complaint>>((ref) async {
   if (!ref.watch(authControllerProvider).isSignedIn) return const [];
@@ -39,7 +40,7 @@ class ComplaintsScreen extends ConsumerWidget {
             onPressed: () => context.pop(),
           ),
         ),
-        title: const Text('Complaints'),
+        title: Text(tr('account.complaints2')),
       ),
       body: SafeArea(
         child: complaints.when(
@@ -56,12 +57,11 @@ class ComplaintsScreen extends ConsumerWidget {
             onRetry: () => ref.invalidate(_complaintsProvider),
           ),
           data: (list) => list.isEmpty
-              ? const EmptyState(
+              ? EmptyState(
                   icon: Icons.support_agent_rounded,
-                  title: 'Nothing reported',
+                  title: tr('account.nothingReported'),
                   message:
-                      'If something goes wrong on a job, you can report it '
-                      'from that booking and it will show up here.',
+                      tr('account.ifSomethingGoesWrongOn'),
                 )
               : RefreshIndicator(
                   color: AppColors.blue,
@@ -99,22 +99,22 @@ class _ComplaintCard extends StatelessWidget {
   ({String label, Color tone, Color soft}) get _status =>
       switch (complaint.status) {
         'open' => (
-            label: 'Open',
+            label: tr('account.open'),
             tone: AppColors.amberText,
             soft: AppColors.amberSoft,
           ),
         'in_review' => (
-            label: 'Being looked at',
+            label: tr('account.beingLookedAt'),
             tone: AppColors.blue,
             soft: AppColors.blueSoft,
           ),
         'resolved' => (
-            label: 'Resolved',
+            label: tr('account.resolved'),
             tone: AppColors.green,
             soft: AppColors.greenSoft,
           ),
         _ => (
-            label: 'Closed',
+            label: tr('account.closed'),
             tone: AppColors.grey,
             soft: AppColors.mist,
           ),
@@ -180,7 +180,7 @@ class _ComplaintCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'WHAT WE DID',
+                    tr('account.whatWeDid'),
                     style: AppType.label.copyWith(
                       color: AppColors.greyLight,
                       fontSize: 8.5,

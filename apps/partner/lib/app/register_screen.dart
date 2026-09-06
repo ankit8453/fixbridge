@@ -8,6 +8,7 @@ import '../core/theme/app_typography.dart';
 import '../features/auth/auth_controller.dart';
 import '../shared/widgets/app_button.dart';
 import '../shared/widgets/app_field.dart';
+import '../l10n/app_text.dart';
 
 /// Becoming a technician.
 ///
@@ -80,18 +81,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xl),
-                Text('Start taking work', style: AppType.title),
+                Text(tr('app.startTakingWork'), style: AppType.title),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  'This is the app for technicians. Customers book you here, '
-                  'you agree the price, and we pay out what you have earned.',
+                  tr('app.thisIsTheAppFor'),
                   style: AppType.body.copyWith(color: AppColors.grey),
                 ),
                 const SizedBox(height: AppSpacing.xxl),
                 AppField(
                   controller: _name,
-                  label: 'What should customers see?',
-                  hint: 'Your name',
+                  label: tr('app.whatShouldCustomersSee'),
+                  hint: tr('app.yourName'),
                   error: _error,
                   autofocus: true,
                   maxLength: 120,
@@ -105,14 +105,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ),
                 const SizedBox(height: AppSpacing.xl),
                 AppButton(
-                  label: 'Continue',
+                  label: tr('app.continue'),
                   loading: _saving,
                   onPressed: _name.text.trim().isEmpty ? null : _register,
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
-                  'Next you will add what you do, your prices, and when you '
-                  'work — then get verified.',
+                  tr('app.nextYouWillAddWhat'),
                   style: AppType.caption.copyWith(color: AppColors.grey),
                   textAlign: TextAlign.center,
                 ),

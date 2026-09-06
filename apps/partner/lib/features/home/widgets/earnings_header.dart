@@ -5,6 +5,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/models/money.dart';
 import '../../../data/models/wallet.dart';
+import '../../../l10n/app_text.dart';
 
 /// This week's money.
 ///
@@ -64,7 +65,7 @@ class EarningsHeader extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'THIS WEEK',
+                    tr('home.thisWeek'),
                     style: AppType.label.copyWith(
                       color: Colors.white.withValues(alpha: 0.9),
                     ),
@@ -80,8 +81,13 @@ class EarningsHeader extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     weekJobs == 0
-                        ? 'No jobs finished yet this week'
-                        : '$weekJobs ${weekJobs == 1 ? 'job' : 'jobs'} finished',
+                        ? tr('home.noJobsFinishedYetThis')
+                        : tr(
+                            weekJobs == 1
+                                ? 'home.oneJobFinished'
+                                : 'home.jobsFinished',
+                            {'count': weekJobs},
+                          ),
                     style: AppType.meta.copyWith(
                       color: Colors.white.withValues(alpha: 0.9),
                     ),
@@ -101,7 +107,7 @@ class EarningsHeader extends StatelessWidget {
                         children: [
                           Expanded(
                             child: _Half(
-                              label: 'WE OWE YOU',
+                              label: tr('home.weOweYou'),
                               value: Paise.show(
                                 wallet!.payableDisplay,
                                 wallet!.payablePaise,
@@ -111,7 +117,7 @@ class EarningsHeader extends StatelessWidget {
                           ),
                           Expanded(
                             child: _Half(
-                              label: 'YOU OWE US',
+                              label: tr('home.youOweUs'),
                               value: Paise.show(
                                 wallet!.duesDisplay,
                                 wallet!.duesPaise,

@@ -11,6 +11,7 @@ import '../provider/provider_providers.dart';
 import '../provider/book_sheet.dart';
 import 'location_permission_sheet.dart';
 import 'location_providers.dart';
+import '../../l10n/app_text.dart';
 
 /// Choosing where "near me" means.
 ///
@@ -94,16 +95,15 @@ class _LocationSheetState extends ConsumerState<LocationSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Where do you need help?', style: AppType.heading),
+          Text(tr('location.whereDoYouNeedHelp'), style: AppType.heading),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            'We use this to show technicians near you and how far away '
-            'they are.',
+            tr('location.weUseThisToShow'),
             style: AppType.meta.copyWith(color: AppColors.grey),
           ),
           const SizedBox(height: AppSpacing.lg),
           AppButton(
-            label: 'Use my current location',
+            label: tr('location.useMyCurrentLocation'),
             icon: Icons.my_location_rounded,
             loading: _locating,
             onPressed: _useDevice,
@@ -117,7 +117,7 @@ class _LocationSheetState extends ConsumerState<LocationSheet> {
             if (refusal.settingsWouldHelp) ...[
               const SizedBox(height: AppSpacing.sm),
               AppButton(
-                label: 'Open settings',
+                label: tr('location.openSettings2'),
                 kind: AppButtonKind.ghost,
                 icon: Icons.settings_outlined,
                 onPressed: () => refusal.reason == LocationDenial.serviceOff
@@ -133,7 +133,7 @@ class _LocationSheetState extends ConsumerState<LocationSheet> {
               children: [
                 if (list.isNotEmpty) ...[
                   Text(
-                    'Saved addresses',
+                    tr('location.savedAddresses'),
                     style: AppType.label.copyWith(color: AppColors.greyLight),
                   ),
                   const SizedBox(height: AppSpacing.sm),
@@ -152,7 +152,7 @@ class _LocationSheetState extends ConsumerState<LocationSheet> {
                   const SizedBox(height: AppSpacing.sm),
                 ],
                 AppButton(
-                  label: 'Add a new address',
+                  label: tr('location.addANewAddress'),
                   kind: AppButtonKind.ghost,
                   icon: Icons.add_location_alt_outlined,
                   onPressed: () async {

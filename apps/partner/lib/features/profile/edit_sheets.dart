@@ -12,6 +12,7 @@ import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_field.dart';
 import '../../shared/widgets/states.dart';
+import '../../l10n/app_text.dart';
 
 /// The service tree, for picking a skill.
 final _categoriesProvider = FutureProvider<List<ServiceCategory>>((ref) async {
@@ -48,10 +49,10 @@ class SkillPickerSheet extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('What do you do?', style: AppType.heading),
+          Text(tr('profile.whatDoYouDo'), style: AppType.heading),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            'Pick the exact work. You can add more than one.',
+            tr('profile.pickTheExactWorkYou'),
             style: AppType.meta.copyWith(color: AppColors.grey),
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -115,7 +116,7 @@ class SkillPickerSheet extends ConsumerWidget {
                               ),
                               if (have.contains(leaf.id))
                                 Text(
-                                  'Added',
+                                  tr('profile.added'),
                                   style: AppType.caption
                                       .copyWith(color: AppColors.green),
                                 ),
@@ -204,16 +205,15 @@ class _PriceSheetState extends State<PriceSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Add a price', style: AppType.heading),
+            Text(tr('profile.addAPrice'), style: AppType.heading),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              'A customer books at this price, and it cannot be raised '
-              'afterwards. Anything extra needs their approval on the day.',
+              tr('profile.aCustomerBooksAtThis'),
               style: AppType.meta.copyWith(color: AppColors.grey),
             ),
             if (widget.skills.length > 1) ...[
               const SizedBox(height: AppSpacing.lg),
-              Text('For which work?', style: AppType.cardTitle),
+              Text(tr('profile.forWhichWork'), style: AppType.cardTitle),
               const SizedBox(height: AppSpacing.sm),
               Wrap(
                 spacing: AppSpacing.sm,
@@ -232,15 +232,15 @@ class _PriceSheetState extends State<PriceSheet> {
             const SizedBox(height: AppSpacing.lg),
             AppField(
               controller: _title,
-              label: 'What is it?',
-              hint: '500–1000 litre tank cleaning',
+              label: tr('profile.whatIsIt'),
+              hint: tr('profile.litreTankCleaning'),
               maxLength: 120,
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: AppSpacing.md),
             AppField(
               controller: _amount,
-              label: 'Your price',
+              label: tr('profile.yourPrice'),
               hint: '700',
               keyboardType: TextInputType.number,
               inputFormatters: [
@@ -258,7 +258,7 @@ class _PriceSheetState extends State<PriceSheet> {
             ),
             const SizedBox(height: AppSpacing.lg),
             AppButton(
-              label: 'Save this price',
+              label: tr('profile.saveThisPrice'),
               onPressed: _valid
                   ? () => Navigator.pop(
                         context,
@@ -303,17 +303,18 @@ class AvailabilitySheet extends StatefulWidget {
 
 class _AvailabilitySheetState extends State<AvailabilitySheet> {
   final _days = <int>{};
-  TimeOfDay _start = const TimeOfDay(hour: 9, minute: 0);
-  TimeOfDay _end = const TimeOfDay(hour: 18, minute: 0);
+  TimeOfDay _start = TimeOfDay(hour: 9, minute: 0);
+  TimeOfDay _end = TimeOfDay(hour: 18, minute: 0);
 
-  static const _dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  static List<String> get _dayNames => ['Sun', tr('profile.mon'), tr('profile.tue'), tr('profile.wed'), tr('profile.thu'), tr('profile.fri'), 'Sat'];
 
   bool get _valid =>
       _days.isNotEmpty &&
       (_end.hour * 60 + _end.minute) > (_start.hour * 60 + _start.minute);
 
-  String _fmt(TimeOfDay t) => '${t.hour.toString().padLeft(2, '0')}:'
-      '${t.minute.toString().padLeft(2, '0')}';
+  String _fmt(TimeOfDay time) =>
+      '${time.hour.toString().padLeft(2, '0')}:'
+      '${time.minute.toString().padLeft(2, '0')}';
 
   Future<void> _pick(bool isStart) async {
     final picked = await showTimePicker(
@@ -346,11 +347,10 @@ class _AvailabilitySheetState extends State<AvailabilitySheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('When do you work?', style: AppType.heading),
+          Text(tr('profile.whenDoYouWork'), style: AppType.heading),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            'Customers can only book you in these hours. They become bookable '
-            'as soon as you save.',
+            tr('profile.customersCanOnlyBookYou'),
             style: AppType.meta.copyWith(color: AppColors.grey),
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -398,7 +398,7 @@ class _AvailabilitySheetState extends State<AvailabilitySheet> {
             children: [
               Expanded(
                 child: _TimeBox(
-                  label: 'From',
+                  label: tr('profile.from'),
                   value: _start.format(context),
                   onTap: () => _pick(true),
                 ),
@@ -406,7 +406,7 @@ class _AvailabilitySheetState extends State<AvailabilitySheet> {
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: _TimeBox(
-                  label: 'Until',
+                  label: tr('profile.until'),
                   value: _end.format(context),
                   onTap: () => _pick(false),
                 ),
@@ -416,8 +416,8 @@ class _AvailabilitySheetState extends State<AvailabilitySheet> {
           const SizedBox(height: AppSpacing.lg),
           AppButton(
             label: _days.length > 1
-                ? 'Save for ${_days.length} days'
-                : 'Save these hours',
+                ? tr('profile.saveForDaysLengthDays', {'length': _days.length})
+                : tr('profile.saveTheseHours'),
             onPressed: _valid
                 ? () => Navigator.pop(
                       context,

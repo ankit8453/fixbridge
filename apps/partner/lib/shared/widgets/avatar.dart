@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../data/models/provider.dart';
+import '../../l10n/app_text.dart';
 
 /// A technician's face, or their initials when there is no photo.
 ///
@@ -189,7 +190,7 @@ class RatingChip extends StatelessWidget {
   Widget build(BuildContext context) {
     if (rating == null || rating!.count == 0) {
       return Text(
-        'New',
+        tr('common.new'),
         style: AppType.meta.copyWith(
           color: AppColors.grey,
           fontWeight: FontWeight.w600,

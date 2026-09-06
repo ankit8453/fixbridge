@@ -8,6 +8,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../data/models/booking.dart';
 import '../../../data/models/money.dart';
 import '../../../shared/widgets/app_button.dart';
+import '../../../l10n/app_text.dart';
 
 /// A job waiting for an answer.
 ///
@@ -150,7 +151,7 @@ class RequestCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: AppButton(
-                        label: 'Decline',
+                        label: tr('home.decline'),
                         kind: AppButtonKind.ghost,
                         onPressed: busy ? null : onDecline,
                       ),
@@ -159,7 +160,7 @@ class RequestCard extends StatelessWidget {
                     Expanded(
                       flex: 2,
                       child: AppButton(
-                        label: 'Accept job',
+                        label: tr('home.acceptJob'),
                         kind: AppButtonKind.accent,
                         loading: busy,
                         onPressed: onAccept,
@@ -191,13 +192,17 @@ class RequestCard extends StatelessWidget {
     final h = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
     final period = dt.hour < 12 ? 'am' : 'pm';
     final time = dt.minute == 0
-        ? '$h $period'
-        : '$h:${dt.minute.toString().padLeft(2, '0')} $period';
+        ? tr('home.hPeriod', {'h': h, 'period': period})
+        : tr('home.timeWithMinutes', {
+            'h': h,
+            'm': dt.minute.toString().padLeft(2, '0'),
+            'period': period,
+          });
 
     return switch (diff) {
-      0 => 'Today, $time',
-      1 => 'Tomorrow, $time',
-      _ => '${dt.day}/${dt.month}, $time',
+      0 => tr('home.todayTime', {'time': time}),
+      1 => tr('home.tomorrowTime', {'time': time}),
+      _ => tr('home.dtDayDtMonthTime', {'day': dt.day, 'month': dt.month, 'time': time}),
     };
   }
 }
@@ -304,7 +309,7 @@ class _CountdownState extends State<_Countdown> {
 
     if (left.isNegative) {
       return Text(
-        'Expired',
+        tr('home.expired'),
         style: AppType.meta.copyWith(
           color: AppColors.red,
           fontWeight: FontWeight.w700,
@@ -327,7 +332,7 @@ class _CountdownState extends State<_Countdown> {
         ),
       ),
       child: Text(
-        '$label left',
+        tr('home.labelLeft', {'label': label}),
         style: AppType.amount.copyWith(
           fontSize: 11.5,
           color: urgent ? AppColors.red : AppColors.amber,

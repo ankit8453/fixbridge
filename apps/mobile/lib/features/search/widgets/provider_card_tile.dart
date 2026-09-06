@@ -6,6 +6,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../data/models/provider.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/avatar.dart';
+import '../../../l10n/app_text.dart';
 
 /// One technician in a result list.
 ///
@@ -34,17 +35,17 @@ class ProviderCardTile extends StatelessWidget {
       _ when next.dayOfWeek == (today + 1) % 7 => 'tomorrow',
       _ => _dayName(next.dayOfWeek),
     };
-    return 'Free $when, ${_hour(next.startTime)}–${_hour(next.endTime)}';
+    return tr('search.freeWhenHourNextStarttime', {'when': when, 'startTime': _hour(next.startTime), 'endTime': _hour(next.endTime)});
   }
 
   static String _dayName(int d) => switch (d) {
-        0 => 'Sunday',
-        1 => 'Monday',
-        2 => 'Tuesday',
-        3 => 'Wednesday',
-        4 => 'Thursday',
-        5 => 'Friday',
-        _ => 'Saturday',
+        0 => tr('search.sunday'),
+        1 => tr('search.monday'),
+        2 => tr('search.tuesday'),
+        3 => tr('search.wednesday'),
+        4 => tr('search.thursday'),
+        5 => tr('search.friday'),
+        _ => tr('search.saturday'),
       };
 
   /// "14:00" reads as a timetable; "2 pm" reads as a person speaking.
@@ -55,7 +56,7 @@ class ProviderCardTile extends StatelessWidget {
     final m = parts[1];
     final period = h < 12 ? 'am' : 'pm';
     final h12 = h % 12 == 0 ? 12 : h % 12;
-    return m == '00' ? '$h12 $period' : '$h12:$m $period';
+    return m == '00' ? tr('search.hPeriod', {'h12': h12, 'period': period}) : tr('search.hMPeriod', {'h12': h12, 'm': m, 'period': period});
   }
 
   @override
@@ -101,7 +102,7 @@ class ProviderCardTile extends StatelessWidget {
                     Text(
                       // Rounded to 0.1 km server-side — too coarse to locate
                       // anybody, precise enough to choose on.
-                      '${provider.distanceKm.toStringAsFixed(1)} km',
+                      tr('search.providerDistancekmTostringasfixedKm', {'toStringAsFixed': provider.distanceKm.toStringAsFixed(1)}),
                       style: AppType.meta.copyWith(
                         color: AppColors.ink,
                         fontWeight: FontWeight.w600,

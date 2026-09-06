@@ -19,6 +19,7 @@ import '../../shared/widgets/app_field.dart';
 import '../../shared/widgets/states.dart';
 import '../home/home_providers.dart';
 import 'provider_providers.dart';
+import '../../l10n/app_text.dart';
 
 /// Confirming a booking: where, and what is wrong.
 ///
@@ -116,17 +117,17 @@ class _BookSheetState extends ConsumerState<BookSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Confirm booking', style: AppType.heading),
+            Text(tr('provider.confirmBooking'), style: AppType.heading),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              '${widget.profile.name} · ${_when(widget.slot.startsAt)}',
+              tr('provider.widgetProfileNameWhenWidget', {'name': widget.profile.name, 'startsAt': _when(widget.slot.startsAt)}),
               style: AppType.meta.copyWith(color: AppColors.grey),
             ),
             const SizedBox(height: AppSpacing.lg),
             _PriceRow(card: _priceCard),
             const SizedBox(height: AppSpacing.lg),
             Text(
-              'Where should they come?',
+              tr('provider.whereShouldTheyCome'),
               style: AppType.cardTitle.copyWith(fontSize: 13),
             ),
             const SizedBox(height: AppSpacing.sm),
@@ -156,7 +157,7 @@ class _BookSheetState extends ConsumerState<BookSheet> {
                           child: TextButton.icon(
                             onPressed: _addAddress,
                             icon: const Icon(Icons.add_rounded, size: 16),
-                            label: const Text('Add another address'),
+                            label: Text(tr('provider.addAnotherAddress')),
                             style: TextButton.styleFrom(
                               foregroundColor: AppColors.blue,
                               textStyle: AppType.meta.copyWith(
@@ -172,7 +173,7 @@ class _BookSheetState extends ConsumerState<BookSheet> {
             AppField(
               controller: _note,
               label: "What's the problem? (optional)",
-              hint: 'Fan makes noise and stops after a while',
+              hint: tr('provider.fanMakesNoiseAndStops'),
               maxLines: 3,
               maxLength: 500,
             ),
@@ -185,14 +186,13 @@ class _BookSheetState extends ConsumerState<BookSheet> {
             ],
             const SizedBox(height: AppSpacing.lg),
             AppButton(
-              label: 'Confirm booking',
+              label: tr('provider.confirmBooking2'),
               loading: _booking,
               onPressed: _addressId == null ? null : _confirm,
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'They have one hour to accept. Nothing is charged until the '
-              'work is done.',
+              tr('provider.theyHaveOneHourTo'),
               style: AppType.caption.copyWith(color: AppColors.grey),
               textAlign: TextAlign.center,
             ),
@@ -222,13 +222,17 @@ class _BookSheetState extends ConsumerState<BookSheet> {
     final h = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
     final period = dt.hour < 12 ? 'am' : 'pm';
     final time = dt.minute == 0
-        ? '$h $period'
-        : '$h:${dt.minute.toString().padLeft(2, '0')} $period';
+        ? tr('provider.timeOnTheHour', {'h': h, 'period': period})
+        : tr('provider.timeWithMinutes', {
+            'h': h,
+            'm': dt.minute.toString().padLeft(2, '0'),
+            'period': period,
+          });
 
     return switch (diff) {
-      0 => 'today, $time',
-      1 => 'tomorrow, $time',
-      _ => '${dt.day}/${dt.month}, $time',
+      0 => tr('provider.todayTime', {'time': time}),
+      1 => tr('provider.tomorrowTime', {'time': time}),
+      _ => tr('provider.dtDayDtMonthTime', {'day': dt.day, 'month': dt.month, 'time': time}),
     };
   }
 }
@@ -254,8 +258,7 @@ class _PriceRow extends StatelessWidget {
             child: Text(
               // The whole product in one sentence. The API snapshots this
               // amount onto the booking and holds every later quotation to it.
-              'The labour price is fixed at ${Paise.show(card!.display, card!.amountPaise)} '
-              'now. It cannot be changed later.',
+              tr('provider.theLabourPriceIsFixed', {'amountPaise': Paise.show(card!.display, card!.amountPaise)}),
               style: AppType.meta.copyWith(color: AppColors.ink),
             ),
           ),
@@ -336,17 +339,17 @@ class _NoAddress extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'No saved address yet',
+            tr('provider.noSavedAddressYet'),
             style: AppType.cardTitle.copyWith(fontSize: 13),
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            'The technician needs somewhere to come to.',
+            tr('provider.theTechnicianNeedsSomewhereTo'),
             style: AppType.meta.copyWith(color: AppColors.grey),
           ),
           const SizedBox(height: AppSpacing.md),
           AppButton(
-            label: 'Add an address',
+            label: tr('provider.addAnAddress'),
             kind: AppButtonKind.ghost,
             onPressed: onAdd,
           ),
@@ -417,7 +420,7 @@ class _AddAddressSheetState extends ConsumerState<AddAddressSheet> {
       // box. Never a replacement for it — "Surtalai" is not an address, and a
       // technician needs the house.
       if (_address.text.trim().isEmpty && picked.label != null) {
-        _address.text = '${picked.label}, ';
+        _address.text = tr('provider.pickedLabel', {'label': picked.label});
         _address.selection = TextSelection.fromPosition(
           TextPosition(offset: _address.text.length),
         );
@@ -464,14 +467,14 @@ class _AddAddressSheetState extends ConsumerState<AddAddressSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Add an address', style: AppType.heading),
-            const SizedBox(height: AppSpacing.lg),
+            Text(tr('provider.addAnAddress2'), style: AppType.heading),
+            SizedBox(height: AppSpacing.lg),
             Row(
               children: [
-                for (final option in const [
-                  (key: 'home', label: 'Home'),
-                  (key: 'shop', label: 'Shop'),
-                  (key: 'other', label: 'Other'),
+                for (final option in [
+                  (key: 'home', label: tr('provider.home')),
+                  (key: 'shop', label: tr('provider.shop')),
+                  (key: 'other', label: tr('provider.other')),
                 ])
                   Padding(
                     padding: const EdgeInsets.only(right: AppSpacing.sm),
@@ -486,8 +489,8 @@ class _AddAddressSheetState extends ConsumerState<AddAddressSheet> {
             const SizedBox(height: AppSpacing.lg),
             AppField(
               controller: _address,
-              label: 'Address',
-              hint: 'House number, street, area',
+              label: tr('provider.address'),
+              hint: tr('provider.houseNumberStreetArea'),
               error: _error,
               autofocus: true,
               maxLines: 2,
@@ -499,8 +502,8 @@ class _AddAddressSheetState extends ConsumerState<AddAddressSheet> {
             const SizedBox(height: AppSpacing.md),
             AppField(
               controller: _landmark,
-              label: 'Landmark (optional)',
-              hint: 'Near Surtalai bus stop',
+              label: tr('provider.landmarkOptional'),
+              hint: tr('provider.nearSurtalaiBusStop'),
               maxLength: 200,
             ),
             const SizedBox(height: AppSpacing.md),
@@ -508,7 +511,7 @@ class _AddAddressSheetState extends ConsumerState<AddAddressSheet> {
             // between a technician arriving at the door and arriving in
             // roughly the right part of Jabalpur.
             AppButton(
-              label: _coords == null ? 'Set location on map' : 'Change location',
+              label: _coords == null ? tr('provider.setLocationOnMap') : tr('provider.changeLocation'),
               kind: _coords == null
                   ? AppButtonKind.primary
                   : AppButtonKind.ghost,
@@ -520,9 +523,8 @@ class _AddAddressSheetState extends ConsumerState<AddAddressSheet> {
             const SizedBox(height: AppSpacing.xs),
             Text(
               _coords == null
-                  ? 'Drop a pin on the exact spot. You can do this for any '
-                      'address, not just where you are standing now.'
-                  : 'Pinned. Your technician can navigate straight here.',
+                  ? tr('provider.dropAPinOnThe')
+                  : tr('provider.pinnedYourTechnicianCanNavigate'),
               style: AppType.caption.copyWith(
                 color: _coords == null ? AppColors.grey : AppColors.green,
               ),
@@ -536,7 +538,7 @@ class _AddAddressSheetState extends ConsumerState<AddAddressSheet> {
             ],
             const SizedBox(height: AppSpacing.lg),
             AppButton(
-              label: 'Save address',
+              label: tr('provider.saveAddress'),
               loading: _saving,
               // A pin is required. The whole point of the picker is that there
               // is no longer a path where the server has to guess, and leaving

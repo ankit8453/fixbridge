@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/models/category.dart';
+import '../../../l10n/app_text.dart';
 
 /// One service in the home grid.
 ///
@@ -122,8 +123,8 @@ class ServiceTile extends StatelessWidget {
                 // The count is a five-minute-old browsing hint, so the copy
                 // says "nearby" rather than presenting it as exact.
                 category.providerCount == 0
-                    ? 'Coming soon'
-                    : '${category.providerCount} nearby',
+                    ? tr('home.comingSoon')
+                    : tr('home.categoryProvidercountNearby', {'providerCount': category.providerCount}),
                 style: AppType.caption.copyWith(color: AppColors.greyLight),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

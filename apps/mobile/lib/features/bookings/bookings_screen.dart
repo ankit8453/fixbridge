@@ -13,6 +13,7 @@ import '../../shared/widgets/states.dart';
 import '../auth/auth_controller.dart';
 import '../home/home_providers.dart';
 import 'booking_status_ui.dart';
+import '../../l10n/app_text.dart';
 
 class BookingsScreen extends ConsumerWidget {
   const BookingsScreen({super.key});
@@ -36,16 +37,15 @@ class BookingsScreen extends ConsumerWidget {
                 AppSpacing.screenX,
                 AppSpacing.md,
               ),
-              child: Text('Your bookings', style: AppType.title),
+              child: Text(tr('bookings.yourBookings'), style: AppType.title),
             ),
             Expanded(
               child: !auth.isSignedIn
-                  ? const EmptyState(
+                  ? EmptyState(
                       icon: Icons.receipt_long_outlined,
-                      title: 'Nothing here yet',
+                      title: tr('bookings.nothingHereYet'),
                       message:
-                          'Sign in to see the jobs you have booked. You can '
-                          'browse technicians without an account.',
+                          tr('bookings.signInToSeeThe'),
                     )
                   : bookings.when(
                       loading: () => const _BookingsSkeleton(),
@@ -54,13 +54,11 @@ class BookingsScreen extends ConsumerWidget {
                         onRetry: () => ref.invalidate(myBookingsProvider),
                       ),
                       data: (list) => list.isEmpty
-                          ? const EmptyState(
+                          ? EmptyState(
                               icon: Icons.receipt_long_outlined,
-                              title: 'No bookings yet',
+                              title: tr('bookings.noBookingsYet'),
                               message:
-                                  'When you book a technician it will show up '
-                                  'here, from the moment you ask until the '
-                                  'work is done.',
+                                  tr('bookings.whenYouBookATechnician'),
                             )
                           : RefreshIndicator(
                               color: AppColors.blue,
@@ -178,7 +176,7 @@ class _BookingRow extends StatelessWidget {
               const Spacer(),
               if (booking.hasPendingQuote)
                 Text(
-                  'Price waiting',
+                  tr('bookings.priceWaiting'),
                   style: AppType.meta.copyWith(
                     color: AppColors.amberText,
                     fontWeight: FontWeight.w700,

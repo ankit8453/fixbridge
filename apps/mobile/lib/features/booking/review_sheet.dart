@@ -9,6 +9,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import '../../data/models/support.dart';
 import '../../shared/widgets/app_button.dart';
+import '../../l10n/app_text.dart';
 
 /// Rating a finished job.
 ///
@@ -82,7 +83,7 @@ class _ReviewSheetState extends ConsumerState<ReviewSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'How was ${widget.technicianName}?',
+              tr('booking.howWasWidgetTechnicianname', {'technicianName': widget.technicianName}),
               style: AppType.heading,
               textAlign: TextAlign.center,
             ),
@@ -118,7 +119,7 @@ class _ReviewSheetState extends ConsumerState<ReviewSheet> {
             if (_stars > 0) ...[
               const SizedBox(height: AppSpacing.xl),
               Text(
-                'What stood out? (optional)',
+                tr('booking.whatStoodOutOptional'),
                 style: AppType.meta.copyWith(color: AppColors.grey),
                 textAlign: TextAlign.center,
               ),
@@ -153,7 +154,7 @@ class _ReviewSheetState extends ConsumerState<ReviewSheet> {
                 style: AppType.body,
                 cursorColor: AppColors.blue,
                 decoration: InputDecoration(
-                  hintText: 'Anything else? (optional)',
+                  hintText: tr('booking.anythingElseOptional'),
                   hintStyle: AppType.body.copyWith(color: AppColors.greyLight),
                   filled: true,
                   fillColor: AppColors.surface,
@@ -180,13 +181,13 @@ class _ReviewSheetState extends ConsumerState<ReviewSheet> {
 
             const SizedBox(height: AppSpacing.lg),
             AppButton(
-              label: 'Post review',
+              label: tr('booking.postReview'),
               loading: _saving,
               onPressed: _stars == 0 ? null : _submit,
             ),
             const SizedBox(height: AppSpacing.sm),
             AppButton(
-              label: 'Not now',
+              label: tr('booking.notNow'),
               kind: AppButtonKind.quiet,
               onPressed: _saving ? null : () => Navigator.pop(context, false),
             ),

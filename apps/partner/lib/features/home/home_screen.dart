@@ -19,6 +19,7 @@ import '../jobs/widgets/job_row.dart';
 import 'partner_providers.dart';
 import 'widgets/earnings_header.dart';
 import 'widgets/request_card.dart';
+import '../../l10n/app_text.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -67,8 +68,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const SizedBox(height: 3),
               Text(
                 user?.name == null
-                    ? 'Your work'
-                    : 'Hello, ${user!.greetingName}',
+                    ? tr('home.yourWork')
+                    : tr('home.helloUserGreetingname', {'greetingName': user!.greetingName}),
                 style: AppType.title,
               ),
 
@@ -95,8 +96,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               if (requests.isNotEmpty) ...[
                 SectionHeader(
                   title: requests.length == 1
-                      ? 'New request'
-                      : '${requests.length} new requests',
+                      ? tr('home.newRequest')
+                      : tr('home.requestsLengthNewRequests', {'length': requests.length}),
                 ),
                 for (final request in requests)
                   Padding(
@@ -111,7 +112,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ],
 
               if (active.isNotEmpty) ...[
-                const SectionHeader(title: 'Happening now'),
+                SectionHeader(title: tr('home.happeningNow')),
                 for (final job in active)
                   Padding(
                     padding: const EdgeInsets.only(bottom: AppSpacing.md),
@@ -143,13 +144,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     child: EmptyState(
                       icon: Icons.work_outline_rounded,
                       title:
-                          readiness.ready ? 'No jobs right now' : 'No jobs yet',
+                          readiness.ready ? tr('home.noJobsRightNow') : tr('home.noJobsYet'),
                       message: readiness.ready
-                          ? 'When a customer books you, it will appear here. '
-                              'Keep the app open — you have an hour to answer.'
-                          : 'Finish setting up and customers will be able to '
-                              'find you.',
-                      actionLabel: readiness.ready ? null : 'Finish setup',
+                          ? tr('home.whenACustomerBooksYou')
+                          : tr('home.finishSettingUpAndCustomers'),
+                      actionLabel: readiness.ready ? null : tr('home.finishSetup'),
                       onAction: () => context.push('/setup'),
                     ),
                   ),
@@ -163,9 +162,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   static String _greeting() {
     final h = DateTime.now().hour;
-    if (h < 12) return 'GOOD MORNING';
-    if (h < 17) return 'GOOD AFTERNOON';
-    return 'GOOD EVENING';
+    if (h < 12) return tr('home.goodMorning');
+    if (h < 17) return tr('home.goodAfternoon');
+    return tr('home.goodEvening');
   }
 
   Future<void> _accept(Booking booking) async {
@@ -196,7 +195,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final reason = await showModalBottomSheet<({String reason, String? note})>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => const _DeclineSheet(),
+      builder: (_) => _DeclineSheet(),
     );
     if (reason == null) return;
 
@@ -239,11 +238,10 @@ class _NotListedBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final message = !listed && !verified
-        ? 'Finish your profile and get verified so customers can find you.'
+        ? tr('home.finishYourProfileAndGet')
         : !listed
-            ? 'Your profile is not finished yet, so you do not appear in search.'
-            : 'Your profile is done. Verification is still being checked — '
-                'you will appear in search as soon as it passes.';
+            ? tr('home.yourProfileIsNotFinished')
+            : tr('home.yourProfileIsDoneVerification');
 
     return AppCard(
       onTap: onTap,
@@ -289,11 +287,11 @@ class _DeclineSheetState extends State<_DeclineSheet> {
   final _note = TextEditingController();
   String? _reason;
 
-  static const _reasons = <String, String>{
-    'too_far': 'Too far from me',
-    'busy': 'I am busy then',
-    'wrong_skill': 'Not the work I do',
-    'other': 'Another reason',
+  static Map<String, String> get _reasons => <String, String>{
+    'too_far': tr('home.tooFarFromMe'),
+    'busy': tr('home.iAmBusyThen'),
+    'wrong_skill': tr('home.notTheWorkIDo'),
+    'other': tr('home.anotherReason'),
   };
 
   @override
@@ -319,13 +317,12 @@ class _DeclineSheetState extends State<_DeclineSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Why are you declining?', style: AppType.heading),
+            Text(tr('home.whyAreYouDeclining'), style: AppType.heading),
             const SizedBox(height: AppSpacing.xs),
             Text(
               // Honest rather than punitive: declining is allowed, and the
               // score effect belongs to cancelling after accepting.
-              'Declining is fine. The customer can book someone else straight '
-              'away.',
+              tr('home.decliningIsFineTheCustomer'),
               style: AppType.meta.copyWith(color: AppColors.grey),
             ),
             const SizedBox(height: AppSpacing.lg),
@@ -366,7 +363,7 @@ class _DeclineSheetState extends State<_DeclineSheet> {
                 style: AppType.body,
                 cursorColor: AppColors.graphite,
                 decoration: InputDecoration(
-                  hintText: 'Tell us briefly',
+                  hintText: tr('home.tellUsBriefly'),
                   filled: true,
                   fillColor: AppColors.surface,
                   border: OutlineInputBorder(
@@ -378,7 +375,7 @@ class _DeclineSheetState extends State<_DeclineSheet> {
             ],
             const SizedBox(height: AppSpacing.md),
             AppButton(
-              label: 'Decline this job',
+              label: tr('home.declineThisJob'),
               onPressed: _valid
                   ? () => Navigator.pop(
                         context,

@@ -9,6 +9,7 @@ import '../data/repositories/booking_repository.dart';
 import '../data/repositories/catalog_repository.dart';
 import 'api/api_client.dart';
 import 'storage/session_store.dart';
+import '../l10n/app_text.dart';
 
 /// Opened once at launch and injected here, so nothing below has to deal with
 /// an async store.
@@ -63,7 +64,11 @@ class LocaleController extends StateNotifier<LocaleState> {
             locale: Locale(_store.localeCode ?? _fallback),
             chosen: _store.localeCode != null,
           ),
-        );
+        ) {
+    // The saved choice has to reach the string table before the first screen
+    // builds — otherwise a Hindi customer sees one English frame on launch.
+    setAppLanguage(_store.localeCode ?? _fallback);
+  }
 
   final SessionStore _store;
 
@@ -78,6 +83,9 @@ class LocaleController extends StateNotifier<LocaleState> {
   Future<void> set(String code) async {
     if (code != 'hi' && code != 'en') return;
     await _store.setLocaleCode(code);
+    // Before the state change, so the rebuild it triggers already reads the
+    // new language. The other way round shows one frame of the old one.
+    setAppLanguage(code);
     state = LocaleState(locale: Locale(code), chosen: true);
   }
 }

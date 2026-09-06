@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { AppContext } from '../../core/context';
 import { AppError } from '../../core/errors';
+import { isInsideJabalpur } from '../../core/geo';
 import type { Translator } from '../../core/i18n';
 import { requireLeafCategory } from '../categories/service';
 import { formatTimeOfDay, validateWindow, type AvailabilityWindow } from './availability';
@@ -249,6 +250,21 @@ export async function updateProfile(
   // Separate from the scalar update because the API takes a point while the
   // table stores two columns, and because it is optional in a PATCH.
   if (baseLocation) {
+    /**
+     * One city, said out loud — the same guard the customer's address has.
+     *
+     * Every distance and every service radius is measured from this point, and
+     * a technician whose base sits outside Jabalpur matches nobody. They would
+     * simply never receive a request, with a complete profile and no
+     * explanation available to them or to ops.
+     */
+    if (!isInsideJabalpur(baseLocation)) {
+      throw AppError.badRequest('That location is outside the area we serve', {
+        messageKey: 'errors.providers.outsideServiceArea',
+        details: baseLocation,
+      });
+    }
+
     await repo.setBaseLocation(context.prisma, userId, baseLocation);
   }
 
