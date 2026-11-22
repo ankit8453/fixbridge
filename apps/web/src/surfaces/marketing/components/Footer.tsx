@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom';
 import { APP_NAME } from '@/brand/tokens';
 import { buildLocalizedHref, type Locale } from '@/i18n/config';
 import { useT } from '@/i18n/useT';
+import { legalVars } from '../operator';
+import { LEGAL_PAGES } from './LegalPage';
 
 /** Ported from `legacy-next-src/components/marketing/Footer.tsx`. */
 export function MarketingFooter({ locale }: { locale: Locale }) {
@@ -35,18 +37,15 @@ export function MarketingFooter({ locale }: { locale: Locale }) {
           aria-label={t('marketing.footer.legalHeading')}
           className="mt-6 flex flex-wrap gap-x-6 gap-y-2"
         >
-          <Link
-            to={buildLocalizedHref(locale, '/privacy')}
-            className="flex min-h-touch items-center hover:text-brand"
-          >
-            {t('marketing.footer.privacy')}
-          </Link>
-          <Link
-            to={buildLocalizedHref(locale, '/terms')}
-            className="flex min-h-touch items-center hover:text-brand"
-          >
-            {t('marketing.footer.terms')}
-          </Link>
+          {LEGAL_PAGES.map((page) => (
+            <Link
+              key={page.path}
+              to={buildLocalizedHref(locale, page.path)}
+              className="flex min-h-touch items-center hover:text-brand"
+            >
+              {t(page.labelKey)}
+            </Link>
+          ))}
           <Link
             to={buildLocalizedHref(locale, '/contact')}
             className="flex min-h-touch items-center hover:text-brand"
@@ -55,7 +54,12 @@ export function MarketingFooter({ locale }: { locale: Locale }) {
           </Link>
         </nav>
 
-        <p className="mt-6 text-xs text-slate-400">
+        {/* Said on every page, not only in the terms: during the pilot there is
+            no company behind the name, and the site should never imply one. */}
+        <p className="mt-6 max-w-2xl text-xs text-slate-500">
+          {t('marketing.footer.pilotNote', legalVars(t))}
+        </p>
+        <p className="mt-2 text-xs text-slate-400">
           {t('marketing.footer.rightsReserved', { year, app: APP_NAME })}
         </p>
       </div>

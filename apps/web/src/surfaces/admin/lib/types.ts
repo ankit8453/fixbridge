@@ -526,3 +526,24 @@ export interface ReportedPhoto {
   reportCount: number;
   reports: { reason: string; createdAt: string }[];
 }
+
+/**
+ * A sign-in code waiting for a team member to send by hand on WhatsApp — the
+ * pilot's stand-in for SMS (`GET /admin/otp-relay`).
+ *
+ * `whatsappUrl` is a ready `wa.me` link with the message prefilled. Expired
+ * requests, and ones the person has already signed in with, are removed by the
+ * server, so everything in the list is still live as of its fetch.
+ */
+export interface OtpRelayRequest {
+  id: string;
+  /** Full E.164, unmasked — staff need the real number to send to. */
+  phone: string;
+  otp: string;
+  createdAt: string;
+  expiresAt: string;
+  sentAt: string | null;
+  /** The staff member's display name. */
+  sentBy: string | null;
+  whatsappUrl: string;
+}

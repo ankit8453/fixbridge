@@ -51,6 +51,15 @@ class AuthController extends StateNotifier<AuthState> {
   String? _maskedPhone;
   String? get maskedPhone => _maskedPhone;
 
+  /// How the last code is being delivered, and how long it stays valid —
+  /// both from the same response as [maskedPhone], for the OTP screen's
+  /// wording.
+  OtpDelivery _otpDelivery = OtpDelivery.automatic;
+  OtpDelivery get otpDelivery => _otpDelivery;
+
+  int _otpExpiresInSeconds = 300;
+  int get otpExpiresInSeconds => _otpExpiresInSeconds;
+
   Future<void> start() async {
     final user = await _ref.read(authRepositoryProvider).restoreSession();
 
@@ -71,6 +80,8 @@ class AuthController extends StateNotifier<AuthState> {
     final challenge = await _ref.read(authRepositoryProvider).requestOtp(phone);
     _pendingPhone = phone;
     _maskedPhone = challenge.maskedPhone;
+    _otpDelivery = challenge.delivery;
+    _otpExpiresInSeconds = challenge.expiresInSeconds;
     return challenge;
   }
 
@@ -135,12 +146,14 @@ class AuthController extends StateNotifier<AuthState> {
     await _ref.read(authRepositoryProvider).signOut();
     _pendingPhone = null;
     _maskedPhone = null;
+    _otpDelivery = OtpDelivery.automatic;
     if (mounted) state = const AuthState(stage: AuthStage.signedOut);
   }
 
   void _onSessionLost() {
     _pendingPhone = null;
     _maskedPhone = null;
+    _otpDelivery = OtpDelivery.automatic;
     if (mounted) state = const AuthState(stage: AuthStage.signedOut);
   }
 }

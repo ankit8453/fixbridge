@@ -7,6 +7,7 @@ import {
   onSessionLost,
   refreshAccessToken,
   requestOtp,
+  type OtpRequestResult,
 } from './session';
 
 /**
@@ -27,7 +28,7 @@ export interface AuthState {
   user: AuthUser | null;
   /** Convenience over `user?.roles ?? []` — every guard and nav item reads this. */
   roles: Role[];
-  requestOtp: (phone: string) => Promise<{ phone: string; expiresInSeconds: number }>;
+  requestOtp: (phone: string) => Promise<OtpRequestResult>;
   login: (phone: string, otp: string) => Promise<void>;
   /** Sign in an ops/admin user via email and password */
   adminLogin: (email: string, password: string) => Promise<void>;

@@ -81,8 +81,40 @@ const baseConfigSchema = z.object({
    * lets the API start without being able to send at all — for a deployment
    * standing up before its messaging credentials exist. It has to be asked for
    * explicitly, so nobody arrives there by forgetting to configure something.
+   *
+   * `team_relay` sends nothing automatically: the code waits on the console's
+   * "Sign-in requests" page (and in an alert email) for a team member to send
+   * by hand on WhatsApp. It is the pilot's free channel — see `relay.ts`.
    */
-  AUTH_OTP_TRANSPORT: z.enum(['logger', 'disabled', 'mbg']).default('logger'),
+  AUTH_OTP_TRANSPORT: z.enum(['logger', 'disabled', 'mbg', 'team_relay']).default('logger'),
+
+  /**
+   * Who is emailed when somebody asks for a code under `team_relay`.
+   * Comma-separated. Leave unset and the codes still appear in the console;
+   * nobody is alerted.
+   */
+  OTP_RELAY_ALERT_EMAILS: z
+    .string()
+    .optional()
+    .transform((value) =>
+      (value ?? '')
+        .split(',')
+        .map((email) => email.trim())
+        .filter((email) => email.length > 0),
+    )
+    .pipe(z.array(z.string().email())),
+
+  /* ---- Outgoing email (SMTP). Needed for the sign-in alerts above. ---- */
+
+  /** e.g. `smtp.gmail.com`. Unset means the API sends no email at all. */
+  SMTP_HOST: z.string().min(1).optional(),
+  /** 465 is implicit TLS (Gmail's default); 587 upgrades with STARTTLS. */
+  SMTP_PORT: z.coerce.number().int().min(1).max(65_535).default(465),
+  SMTP_USER: z.string().min(1).optional(),
+  /** **The secret.** For Gmail, an App password — never the account password. */
+  SMTP_PASS: z.string().min(1).optional(),
+  /** Defaults to `FixBridge <SMTP_USER>`. */
+  SMTP_FROM: z.string().min(1).optional(),
 
   /* ---- MBGCart WhatsApp. Required when AUTH_OTP_TRANSPORT=mbg. ---- */
 
@@ -680,6 +712,28 @@ export const configSchema = baseConfigSchema.superRefine((config, ctx) => {
           code: 'custom',
           path: [field],
           message: 'is required when AUTH_OTP_TRANSPORT=mbg',
+        });
+      }
+    }
+  }
+
+  /**
+   * Alerts that cannot be sent are worse than none: the team would wait for an
+   * email that never comes while a customer waits for a code.
+   */
+  if (config.OTP_RELAY_ALERT_EMAILS.length > 0) {
+    const required = [
+      ['SMTP_HOST', config.SMTP_HOST],
+      ['SMTP_USER', config.SMTP_USER],
+      ['SMTP_PASS', config.SMTP_PASS],
+    ] as const;
+
+    for (const [field, value] of required) {
+      if (value === undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [field],
+          message: 'is required when OTP_RELAY_ALERT_EMAILS is set',
         });
       }
     }

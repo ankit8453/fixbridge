@@ -167,16 +167,29 @@ class Counterpart {
 }
 
 /// The address as it was when the booking was made.
+///
+/// Mirrors the API's `bookings.address_snapshot`:
+/// `{addressText, landmark, cityId, lat, lng, isPinned}`.
 class BookingAddress {
   const BookingAddress({
     required this.addressText,
     required this.landmark,
     required this.label,
+    required this.lat,
+    required this.lng,
+    required this.isPinned,
   });
 
   final String addressText;
   final String? landmark;
   final String? label;
+  final double? lat;
+  final double? lng;
+
+  /// True only when the customer placed the pin themselves. False means the
+  /// coordinates are a fallback guess and must not be navigated to. Absent
+  /// (older snapshots) reads as false — the safe direction.
+  final bool isPinned;
 
   static BookingAddress? fromJson(Object? raw) {
     if (raw is! Map) return null;
@@ -185,6 +198,9 @@ class BookingAddress {
       addressText: json['addressText'] as String? ?? '',
       landmark: json['landmark'] as String?,
       label: json['label'] as String?,
+      lat: (json['lat'] as num?)?.toDouble(),
+      lng: (json['lng'] as num?)?.toDouble(),
+      isPinned: json['isPinned'] as bool? ?? false,
     );
   }
 }

@@ -16,6 +16,7 @@
     "auth": {
       "title": "Sign in",
       "otpSentTo": "Code sent to {{phone}}",
+      "otpTeamRelay": "Our team will send your code to {{masked}} on WhatsApp within a few minutes (9 am – 8 pm). The code is valid for {{minutes}} minutes.",
       "changeNumber": "Change number"
     },
     "onboarding": {

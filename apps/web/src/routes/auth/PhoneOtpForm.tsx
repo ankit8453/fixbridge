@@ -4,6 +4,7 @@ import { useAuth } from '../../lib/auth/useAuth';
 import { useLocale, useT } from '../../i18n/useT';
 import { buildLocalizedHref } from '../../i18n/config';
 import { Button, Card, ErrorState, Field, TextInput } from '../../components/ui';
+import { otpSentState, type OtpSentState } from './otpDelivery';
 
 /**
  * The phone → OTP flow shared by the customer and partner sign-in/register
@@ -45,6 +46,10 @@ export function PhoneOtpForm({
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [phone, setPhone] = useState('');
   const [maskedPhone, setMaskedPhone] = useState('');
+  // How the code is travelling — `team_relay` means a person on the team sends
+  // it on WhatsApp by hand, so the copy must not claim it has already been sent.
+  const [delivery, setDelivery] = useState<OtpSentState['delivery']>('automatic');
+  const [validMinutes, setValidMinutes] = useState(1);
   const [otp, setOtp] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -60,7 +65,10 @@ export function PhoneOtpForm({
     setError(null);
     try {
       const result = await requestOtp(phone);
-      setMaskedPhone(result.phone);
+      const sent = otpSentState(result);
+      setDelivery(sent.delivery);
+      setValidMinutes(sent.minutes);
+      setMaskedPhone(sent.maskedPhone);
       setResendableAt(Date.now() + 60_000);
       setStep('otp');
     } catch (err) {
@@ -126,7 +134,9 @@ export function PhoneOtpForm({
           ) : (
             <form onSubmit={(event) => void verify(event)} className="flex flex-col gap-4">
               <p className="text-sm text-slate-600">
-                {t('auth.otpSentTo', { phone: maskedPhone || phone })}
+                {delivery === 'team_relay'
+                  ? t('auth.otpTeamRelay', { masked: maskedPhone || phone, minutes: validMinutes })
+                  : t('auth.otpSentTo', { phone: maskedPhone || phone })}
               </p>
               <Field label={t('auth.otpLabel')}>
                 {(id) => (

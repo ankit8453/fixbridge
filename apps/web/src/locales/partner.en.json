@@ -27,7 +27,7 @@
       "title": "Become a partner",
       "pitch": "Get job requests near you, set your own prices, get paid weekly.",
       "bullet1": "Work when you want — weekday evenings, weekends, whatever suits you",
-      "bullet2": "Low commission, transparent pricing",
+      "bullet2": "0% commission during the pilot",
       "bullet3": "Badges that build trust with customers",
       "nameLabel": "Your name",
       "nameHint": "This is what customers will see",
@@ -36,7 +36,7 @@
       "submitting": "Registering…",
       "formTitle": "Start earning",
       "formHint": "Takes a minute. You can fill in the rest of your profile afterwards.",
-      "freeNote": "Free to join. You only pay commission on jobs you complete."
+      "freeNote": "Free to join, and 0% commission during the pilot."
     },
     "checklist": {
       "title": "Profile checklist",

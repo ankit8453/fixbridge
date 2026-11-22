@@ -44,7 +44,11 @@ export function createCors(config: AppConfig): RequestHandler {
       // that missed this would hand one origin's response to another.
       res.setHeader('Vary', 'Origin');
       res.setHeader('Access-Control-Allow-Credentials', 'true');
-      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
+      // PUT is here for `PUT /providers/me/payout-details`. It was missing, so
+      // the browser's preflight refused it and a technician saving bank/UPI
+      // details on the web got a network error — the Flutter app, which does
+      // not do CORS, was unaffected.
+      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
       res.setHeader(
         'Access-Control-Allow-Headers',
         'Authorization,Content-Type,Accept-Language,X-Request-Id',

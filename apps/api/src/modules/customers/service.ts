@@ -1,7 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import type { AppContext } from '../../core/context';
 import { AppError } from '../../core/errors';
-import { isInsideJabalpur, isValidLatLng, type GeoPoint } from '../../core/geo';
+import {
+  isInsideJabalpur,
+  isValidLatLng,
+  JABALPUR_CENTRE,
+  type GeoPoint,
+} from '../../core/geo';
 import * as repo from './repository';
 import type {
   AddressResponse,
@@ -131,13 +136,36 @@ async function resolveLocation(
     return { ...point, isPinned: true };
   }
 
-  const geocoded = await context.geo.geocode({
-    addressText: text.addressText,
-    landmark: text.landmark,
-    cityId: text.cityId,
-  });
+  /**
+   * Saving an address must never fail because a geocoder shrugged.
+   *
+   * The real provider throws when it finds nothing, which is the honest
+   * contract for a lookup — but the wrong outcome here. OpenStreetMap's
+   * coverage of Jabalpur is thin, so a perfectly good address typed by a
+   * customer routinely matches nothing, and letting that bubble up turned
+   * "add your address" into "Something went wrong" with no way forward.
+   *
+   * So the caller decides, and the caller's answer is the city centre with
+   * `isPinned: false` — the same fallback the stub gives. It is visibly a
+   * guess, the technician's app searches the address text rather than
+   * navigating to it, and the customer gets on with their booking.
+   */
+  try {
+    const geocoded = await context.geo.geocode({
+      addressText: text.addressText,
+      landmark: text.landmark,
+      cityId: text.cityId,
+    });
 
-  return { ...geocoded, isPinned: false };
+    return { ...geocoded, isPinned: false };
+  } catch (cause) {
+    context.logger.info(
+      { cause: String(cause) },
+      'geocoder could not place an address; falling back to the city centre',
+    );
+
+    return { ...JABALPUR_CENTRE, isPinned: false };
+  }
 }
 
 function addressNotFound(addressId: string): AppError {

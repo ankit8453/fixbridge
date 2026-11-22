@@ -53,6 +53,8 @@ function Gated() {
 
 function renderGated(path = '/admin') {
   mockApi({
+    // The shell polls the sign-in relay for its nav badge on every page.
+    'GET /api/v1/admin/otp-relay': { body: { requests: [] } },
     'GET /api/v1/admin/summary': {
       body: {
         queues: {

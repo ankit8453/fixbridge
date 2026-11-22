@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/repositories/geo_repository.dart';
 
 import '../data/repositories/auth_repository.dart';
+import '../data/repositories/legal_repository.dart';
 import '../data/repositories/partner_repository.dart';
 import '../data/repositories/verification_repository.dart';
 import 'api/api_client.dart';
@@ -122,4 +123,9 @@ final partnerRepositoryProvider = Provider<PartnerRepository>((ref) {
 
 final verificationRepositoryProvider = Provider<VerificationRepository>((ref) {
   return VerificationRepository(ref.watch(apiClientProvider));
+});
+
+/// The partner agreement. See LegalController for the gate built on it.
+final legalRepositoryProvider = Provider<LegalRepository>((ref) {
+  return LegalRepository(ref.watch(apiClientProvider));
 });

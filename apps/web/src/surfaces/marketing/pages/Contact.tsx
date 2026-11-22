@@ -1,16 +1,13 @@
 import { DetailRow } from '@/components/ui';
 import { APP_NAME } from '@/brand/tokens';
 import { useLocale, useT } from '@/i18n/useT';
+import { OPERATOR } from '../operator';
 import { useMarketingSeo } from '../useMarketingSeo';
 
 /**
- * `/contact` — ported from
- * `legacy-next-src/app/[locale]/(marketing)/contact/page.tsx`. Every contact
- * detail here is a bracketed placeholder (see marketing.*.json) — WhatsApp
- * number, support email, address — because none of it exists yet outside
- * this codebase; inventing one would be worse than an honest blank.
- * WhatsApp is listed first because it's this product's actual primary
- * channel, not email-first the way a generic template would default to.
+ * `/contact` — WhatsApp first, because that is this product's actual primary
+ * channel. Every detail comes from `operator.ts`, the same source the legal
+ * pages use, so the contact page and the terms can never disagree.
  */
 export default function Contact() {
   const t = useT();
@@ -29,20 +26,15 @@ export default function Contact() {
       <p className="mt-3 text-lg text-slate-600">{t('marketing.contact.heroSubtitle')}</p>
 
       <dl className="mt-8">
-        <DetailRow label={t('marketing.contact.whatsappTitle')}>
-          {t('marketing.contact.whatsappPlaceholder')}
-        </DetailRow>
-        <DetailRow label={t('marketing.contact.emailTitle')}>
-          {t('marketing.contact.emailPlaceholder')}
-        </DetailRow>
+        <DetailRow label={t('marketing.contact.whatsappTitle')}>{OPERATOR.whatsapp}</DetailRow>
+        <DetailRow label={t('marketing.contact.emailTitle')}>{OPERATOR.email}</DetailRow>
         <DetailRow label={t('marketing.contact.hoursTitle')}>
-          {t('marketing.contact.hoursValue')}
+          {t('marketing.contactInfo.hours')}
         </DetailRow>
         <DetailRow label={t('marketing.contact.addressTitle')}>
-          {/* One source of truth with the footer — the address lives under
-              `contactInfo` so it can never drift between the two. */}
           {t('marketing.contactInfo.address')}
         </DetailRow>
+        <DetailRow label={t('marketing.contact.officerTitle')}>{OPERATOR.officer}</DetailRow>
       </dl>
 
       <p className="mt-6 text-sm text-slate-600">{t('marketing.contact.complaintNote')}</p>

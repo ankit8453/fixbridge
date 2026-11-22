@@ -102,6 +102,11 @@ export interface RequestOtpResult {
   /** Masked — echoes back what we normalised so a client can show it. */
   phone: string;
   expiresInSeconds: number;
+  /**
+   * How the code reaches them, so the app can say so. `team_relay`: a team
+   * member sends it on WhatsApp within minutes. Anything else is automatic.
+   */
+  delivery: 'team_relay' | 'automatic';
 }
 
 /* -------------------------------------------------------------------------- */

@@ -9,6 +9,8 @@ import '../features/auth/name_screen.dart';
 import '../features/auth/otp_screen.dart';
 import '../features/auth/phone_screen.dart';
 import '../features/home/home_screen.dart';
+import '../features/legal/legal_controller.dart';
+import '../features/legal/terms_screen.dart';
 import '../features/shell/app_shell.dart';
 import 'screens.dart';
 import 'splash_screen.dart';
@@ -20,11 +22,13 @@ final _shellKey = GlobalKey<NavigatorState>();
 ///
 /// The redirect rules are deliberately few. Browsing is public — categories,
 /// search, profiles and slots all work with no session — so the only hard
-/// gates are the language choice at the very start and the sign-in wall in
-/// front of anything that writes.
+/// gates are the language choice at the very start, the sign-in wall in
+/// front of anything that writes, and — once somebody *is* signed in — the
+/// Customer Terms, which must be accepted before any other screen.
 final routerProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authControllerProvider);
   final localeChosen = ref.watch(localeChosenProvider);
+  final legal = ref.watch(legalGateProvider);
 
   return GoRouter(
     navigatorKey: _rootKey,
@@ -36,6 +40,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (auth.isStarting) {
         return path == '/splash' ? null : '/splash';
       }
+
+      // Signed in, but whether the current terms are accepted is not known
+      // yet. Held on the splash rather than flashing either the terms or the
+      // home screen; it resolves to one of them, or to the terms screen's
+      // retry state, and never to a way past.
+      if (legal == LegalGate.pending) {
+        return path == '/splash' ? null : '/splash';
+      }
       if (path == '/splash') {
         return localeChosen ? '/' : '/language';
       }
@@ -44,6 +56,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       // first screen — the app should never speak to somebody in a language
       // they were not asked about.
       if (!localeChosen && path != '/language') return '/language';
+
+      // The terms come before everything a signed-in customer can reach,
+      // including the name prompt. Signing out from that screen opens the
+      // gate again, so nobody is trapped behind it.
+      if (legal == LegalGate.blocked) {
+        return path == '/terms' ? null : '/terms';
+      }
+      if (path == '/terms') return '/';
 
       // Straight out of a first sign-in, ask for a name once.
       if (auth.needsName && path != '/welcome') return '/welcome';
@@ -76,6 +96,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
         ],
+      ),
+      GoRoute(
+        path: '/terms',
+        builder: (_, __) => const TermsScreen(),
       ),
       GoRoute(
         path: '/welcome',

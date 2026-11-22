@@ -7,6 +7,7 @@ import '../data/repositories/account_repository.dart';
 import '../data/repositories/auth_repository.dart';
 import '../data/repositories/booking_repository.dart';
 import '../data/repositories/catalog_repository.dart';
+import '../data/repositories/legal_repository.dart';
 import 'api/api_client.dart';
 import 'storage/session_store.dart';
 import '../l10n/app_text.dart';
@@ -142,4 +143,8 @@ final bookingRepositoryProvider = Provider<BookingRepository>((ref) {
 
 final accountRepositoryProvider = Provider<AccountRepository>((ref) {
   return AccountRepository(ref.watch(apiClientProvider));
+});
+
+final legalRepositoryProvider = Provider<LegalRepository>((ref) {
+  return LegalRepository(ref.watch(apiClientProvider));
 });

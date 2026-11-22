@@ -17,6 +17,7 @@ import { buildLocalizedHref } from '../../i18n/config';
 import { AppShell, type NavItem } from '../../components/shell/AppShell';
 import { LocaleToggle } from '../../components/shell/LocaleToggle';
 import { Button, Spinner } from '../../components/ui';
+import { LegalGate } from '../../legal-gate/LegalGate';
 import { BecomePartnerGate } from './components/BecomePartnerGate';
 import { EmptyState } from './components/ui';
 import { fetchNotifications } from './lib/api';
@@ -51,26 +52,9 @@ import Notifications from './pages/Notifications';
  * on a phone and were only findable by tile or deep link.
  */
 export default function PartnerAppEntry() {
-  const { status, roles, logout } = useAuth();
+  const { status, roles } = useAuth();
   const t = useT();
-  const locale = useLocale();
-  const location = useLocation();
   const isTechnician = roles.includes('technician');
-
-  /**
-   * The unread badge. Enabled only for technicians, because the gate below
-   * renders for everybody else and this endpoint would 403 for them.
-   *
-   * `refetchOnWindowFocus` is the app default (off), so this is a per-mount
-   * read rather than a poll — a technician who backgrounds the app on a job
-   * should not be spending mobile data on a counter.
-   */
-  const unreadQuery = useQuery({
-    queryKey: partnerKeys.notifications(1, true),
-    queryFn: () => fetchNotifications(1, true),
-    enabled: isTechnician,
-  });
-  const unread = unreadQuery.data?.unread ?? 0;
 
   if (status === 'restoring') {
     return (
@@ -87,6 +71,41 @@ export default function PartnerAppEntry() {
       </div>
     );
   }
+
+  /**
+   * The Partner Agreement gate applies to technicians only: a signed-in
+   * customer who has not registered as a partner sees the pitch above, not a
+   * contract for a role they do not hold yet. Once registered (which reloads
+   * the page with the new role), they land here and must accept before any of
+   * the surface — including its unread-count query — loads.
+   */
+  return (
+    <LegalGate document="partner_terms" tone="primary">
+      <PartnerSurface />
+    </LegalGate>
+  );
+}
+
+function PartnerSurface() {
+  const { logout } = useAuth();
+  const t = useT();
+  const locale = useLocale();
+  const location = useLocation();
+
+  /**
+   * The unread badge. Only ever mounted for technicians (`PartnerAppEntry`
+   * renders the become-a-partner pitch for everybody else, for whom this
+   * endpoint would 403).
+   *
+   * `refetchOnWindowFocus` is the app default (off), so this is a per-mount
+   * read rather than a poll — a technician who backgrounds the app on a job
+   * should not be spending mobile data on a counter.
+   */
+  const unreadQuery = useQuery({
+    queryKey: partnerKeys.notifications(1, true),
+    queryFn: () => fetchNotifications(1, true),
+  });
+  const unread = unreadQuery.data?.unread ?? 0;
 
   const href = (path: string): string => buildLocalizedHref(locale, path);
 

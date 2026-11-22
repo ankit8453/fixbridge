@@ -37,6 +37,35 @@ export interface ApiMock {
   lastCall: (key: string) => RecordedCall | undefined;
 }
 
+/**
+ * A `GET /legal/me` body. Defaults to both documents accepted at the current
+ * version; pass `{ customer: false }` / `{ partner: false }` for the gate's own
+ * tests.
+ */
+export function legalStatusBody({
+  customer = true,
+  partner = true,
+  version = '2026-11-15',
+}: { customer?: boolean; partner?: boolean; version?: string } = {}) {
+  const doc = (accepted: boolean) => ({
+    currentVersion: version,
+    acceptedVersion: accepted ? version : null,
+    acceptedAt: accepted ? '2026-11-15T10:00:00.000Z' : null,
+    accepted,
+  });
+  return { customerTerms: doc(customer), partnerTerms: doc(partner) };
+}
+
+/**
+ * Routes every suite gets unless it mocks the same key itself. `/app/*` and
+ * `/partner/*` sit behind the terms gate (`legal-gate/LegalGate.tsx`), so a
+ * test of anything inside those surfaces would otherwise stop at the gate —
+ * defaulting to "accepted" keeps each suite testing what it says it tests.
+ */
+const DEFAULT_ROUTES: Record<string, RouteHandler> = {
+  'GET /api/v1/legal/me': { body: legalStatusBody() },
+};
+
 export function mockApi(routes: Record<string, RouteHandler>): ApiMock {
   const calls: RecordedCall[] = [];
 
@@ -57,7 +86,7 @@ export function mockApi(routes: Record<string, RouteHandler>): ApiMock {
       calls.push(call);
 
       const key = `${method} ${url.pathname}`;
-      const handler = routes[key];
+      const handler = routes[key] ?? DEFAULT_ROUTES[key];
 
       if (!handler) {
         // Loud, not silent — an unmocked call means the test no longer

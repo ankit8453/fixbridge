@@ -12,7 +12,7 @@ const Map<String, String> stringsEn = {
   'app.continue': 'Continue',
   'app.nextYouWillAddWhat': 'Next you will add what you do, your prices, and when you work — then get verified.',
   'app.startTakingWork': 'Start taking work',
-  'app.thisIsTheAppFor': 'This is the app for technicians. Customers book you here, you agree the price, and we pay out what you have earned.',
+  'app.thisIsTheAppFor': 'This is the app for technicians. Customers book you here, you agree the price, and the customer pays you directly.',
   'app.whatShouldCustomersSee': 'What should customers see?',
   'app.yourName': 'Your name',
 
@@ -26,6 +26,7 @@ const Map<String, String> stringsEn = {
   'auth.sendANewCode': 'Send a new code',
   'auth.sendCode': 'Send code',
   'auth.sentToMasked': 'Sent to {masked}',
+  'auth.teamWillSendCode': 'Our team will send your code to {masked} on WhatsApp within a few minutes (9 am – 8 pm). The code is valid for {minutes} minutes.',
   'auth.tooManyAttemptsAskFor': 'Too many attempts. Ask for a new code.',
   'auth.tooManyAttemptsFromThis': 'Too many attempts from this connection. Try again later.',
   'auth.tooManyCodesSentTo': 'Too many codes sent to this number. Try again later.',
@@ -214,6 +215,26 @@ const Map<String, String> stringsEn = {
   'jobs.youCannotFinishTheJob': 'You cannot finish the job until they say yes. You can withdraw this and send a different price.',
   'jobs.youDeclined': 'You declined',
   'jobs.yourJobs': 'Your jobs',
+
+  // ---- legal ----
+  'legal.accept': 'Accept and continue',
+  'legal.checkbox': 'I have read and agree to the Partner Agreement and the Privacy Policy, and I am 18 or older.',
+  'legal.deleteAccount': 'Delete my account',
+  'legal.intro': 'FixBridge is a pilot (trial) service in Jabalpur, run by a small team. It is not yet a registered company. Please read and accept the partner agreement.',
+  'legal.loadFailed': 'Could not load the agreement. Check your connection and try again.',
+  'legal.partnerAgreement': 'Partner Agreement',
+  'legal.point1': 'You work as an independent technician, not as a FixBridge employee. You use your own tools and safety gear.',
+  'legal.point2': 'You are responsible for the quality of your work and for any damage you cause.',
+  'legal.point3': '0% commission during the pilot. The customer pays you directly; never ask for more than the price approved in the app.',
+  'legal.point4': 'Always use the start and end codes, and send every price change through the app.',
+  'legal.point5': 'Booking records may be used to settle disputes. Misconduct, fraud or unsafe work means suspension.',
+  'legal.privacyPolicy': 'Privacy Policy',
+  'legal.retry': 'Retry',
+  'legal.section': 'Legal',
+  'legal.signOut': 'Sign out',
+  'legal.title': 'Before you continue',
+  'legal.version': 'Version {version}',
+  'legal.versionChanged': 'The agreement was just updated — please review it again.',
 
   // ---- location ----
   'location.confirmThisLocation': 'Confirm this location',

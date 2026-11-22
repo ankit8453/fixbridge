@@ -138,10 +138,31 @@ function adopt(session: AuthSessionResponse): ClientSession {
   return { accessToken: session.accessToken, expiresIn: session.expiresIn, user: session.user };
 }
 
-export async function requestOtp(
-  phone: string,
-): Promise<{ phone: string; expiresInSeconds: number }> {
-  return postJson('/api/v1/auth/otp/request', { phone });
+/**
+ * How the sign-in code reaches the person.
+ *
+ * `team_relay` is the pilot arrangement: no SMS is sent, the server stores the
+ * code for staff (`/admin/sign-in-requests`) and a team member sends it by hand
+ * on WhatsApp. `automatic` is everything else — SMS/WhatsApp sent by the
+ * server itself.
+ */
+export type OtpDelivery = 'team_relay' | 'automatic';
+
+export interface OtpRequestResult {
+  /** Masked echo (`+9199999*****`) — display only, never sent back to verify. */
+  phone: string;
+  expiresInSeconds: number;
+  delivery: OtpDelivery;
+}
+
+export async function requestOtp(phone: string): Promise<OtpRequestResult> {
+  const body = await postJson<{ phone: string; expiresInSeconds: number; delivery?: unknown }>(
+    '/api/v1/auth/otp/request',
+    { phone },
+  );
+  // Parsed tolerantly: an older API that predates the field, or a value this
+  // build does not know, reads as `automatic` — the existing "code sent" copy.
+  return { ...body, delivery: body.delivery === 'team_relay' ? 'team_relay' : 'automatic' };
 }
 
 export async function login(phone: string, otp: string): Promise<ClientSession> {

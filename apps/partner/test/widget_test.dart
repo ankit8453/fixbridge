@@ -167,6 +167,41 @@ void main() {
       expect(s.isBooked, isTrue);
       expect(s.startsAt, isA<DateTime>());
     });
+
+    test('the booking address carries text, landmark, point and pin flag', () {
+      // The shape of bookings.address_snapshot. The job screen once dropped
+      // all of this and showed every technician a blank address.
+      final b = Booking.fromJson(const {
+        'id': 'abc',
+        'status': 'ACCEPTED',
+        'address': {
+          'addressText': '12 Napier Town',
+          'landmark': 'Near Gol Bazar',
+          'cityId': 1,
+          'lat': 23.1686,
+          'lng': 79.9339,
+          'isPinned': true,
+        },
+      });
+
+      expect(b.address!.addressText, '12 Napier Town');
+      expect(b.address!.landmark, 'Near Gol Bazar');
+      expect(b.address!.lat, 23.1686);
+      expect(b.address!.lng, 79.9339);
+      expect(b.address!.isPinned, isTrue);
+    });
+
+    test('an address snapshot without isPinned is treated as a guess', () {
+      // Older snapshots predate the flag. Unpinned is the safe reading: it
+      // searches the text instead of navigating to a point.
+      final b = Booking.fromJson(const {
+        'id': 'abc',
+        'status': 'ACCEPTED',
+        'address': {'addressText': '12 Napier Town', 'lat': 23.1, 'lng': 79.9},
+      });
+
+      expect(b.address!.isPinned, isFalse);
+    });
   });
 
   group('verification', () {

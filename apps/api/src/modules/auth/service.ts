@@ -257,7 +257,11 @@ export async function requestOtp(
 
   context.logger.info({ phone: maskPhone(phone), transport: transport.name }, 'otp requested');
 
-  return { phone: maskPhone(phone), expiresInSeconds: context.config.OTP_TTL_SECONDS };
+  return {
+    phone: maskPhone(phone),
+    expiresInSeconds: context.config.OTP_TTL_SECONDS,
+    delivery: transport.name === 'team_relay' ? 'team_relay' : 'automatic',
+  };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -335,6 +339,15 @@ export async function verifyOtp(
   const { phone, otp, deviceId } = input;
 
   await consumeOtp(deps, phone, otp);
+
+  // Housekeeping only (e.g. taking the code off the team's relay page), so a
+  // failure here must never cost the person their sign-in.
+  await deps.transport.onVerified?.(phone).catch((error: unknown) => {
+    context.logger.warn(
+      { err: error instanceof Error ? error.message : String(error) },
+      'otp transport cleanup after sign-in failed',
+    );
+  });
 
   const existing = await findUserByPhone(context.prisma, phone);
   const user = existing ?? (await createUserWithRoles(context.prisma, phone, [DEFAULT_ROLE]));

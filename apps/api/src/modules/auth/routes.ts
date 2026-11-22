@@ -3,7 +3,12 @@ import { getContext } from '../../core/context';
 import { authenticate, getAuthUser } from '../../core/middleware/authenticate';
 import { requireRoles } from '../../core/middleware/require-roles';
 import * as adminLogin from './admin-login';
-import { issueAdminSession } from './admin-session';
+import {
+  isAdminRefreshToken,
+  issueAdminSession,
+  refreshAdminSession,
+  revokeAdminSession,
+} from './admin-session';
 import * as service from './service';
 import { updatePreferencesSchema } from '../notifications/types';
 import {
@@ -71,23 +76,44 @@ router.post(
 /**
  * POST /api/v1/auth/refresh
  * Rotates the refresh token. Replaying a rotated token revokes the whole device.
+ *
+ * Serves staff too: a console token is routed to the staff session store,
+ * since staff live in `admin_users`, not `users`. Rejections are identical
+ * either way.
  */
 router.post(
   '/refresh',
   handle(async (req, res) => {
     const input = refreshSchema.parse(req.body);
+    const context = getContext(req);
+
+    if (await isAdminRefreshToken(context, input.refreshToken)) {
+      const session = await refreshAdminSession(context, input.refreshToken, input.deviceId, {
+        userAgent: req.get('user-agent') ?? null,
+      });
+
+      res.status(200).json(session);
+      return;
+    }
+
     const session = await service.refreshSession(deps(req), input, requestInfo(req));
 
     res.status(200).json(session);
   }),
 );
 
-/** POST /api/v1/auth/logout — idempotent. */
+/**
+ * POST /api/v1/auth/logout — idempotent.
+ *
+ * Revokes the token in whichever store holds it. Both calls answer quietly
+ * for a token they do not know, so trying both reveals nothing.
+ */
 router.post(
   '/logout',
   handle(async (req, res) => {
     const input = logoutSchema.parse(req.body);
     await service.logout(deps(req), input);
+    await revokeAdminSession(getContext(req), input.refreshToken);
 
     res.status(200).json({ message: req.t('auth.loggedOut') });
   }),

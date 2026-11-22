@@ -296,6 +296,9 @@
       "notFound": "That item was not found."
     },
     "badRequest": "We could not read what you sent. Please try again.",
+    "legal": {
+      "versionOutdated": "These terms have been updated. Please read the latest version and accept it again."
+    },
     "releases": {
       "unknownApp": "We do not recognise that app."
     },

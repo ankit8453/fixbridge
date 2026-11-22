@@ -10,8 +10,29 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import '../../shared/widgets/app_button.dart';
+import '../../data/models/auth.dart';
 import 'auth_controller.dart';
 import '../../l10n/app_text.dart';
+
+/// The line under "Enter the code".
+///
+/// While the team sends codes by hand on WhatsApp, saying "Sent to …" would
+/// leave people waiting for an SMS that never comes, so the wording follows
+/// the server's `delivery` field. Automatic delivery keeps the original text.
+String otpSentToText({
+  required String masked,
+  required OtpDelivery delivery,
+  required int expiresInSeconds,
+}) {
+  if (delivery != OtpDelivery.teamRelay) {
+    return tr('auth.sentToMasked', {'masked': masked});
+  }
+  final minutes = (expiresInSeconds / 60).round();
+  return tr('auth.teamWillSendCode', {
+    'masked': masked,
+    'minutes': minutes < 1 ? 1 : minutes,
+  });
+}
 
 class OtpScreen extends ConsumerStatefulWidget {
   const OtpScreen({super.key, this.redirectTo});
@@ -105,7 +126,8 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final masked = ref.read(authControllerProvider.notifier).maskedPhone ?? '';
+    final auth = ref.read(authControllerProvider.notifier);
+    final masked = auth.maskedPhone ?? '';
 
     return Scaffold(
       backgroundColor: AppColors.ground,
@@ -128,7 +150,11 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
               Text(tr('auth.enterTheCode'), style: AppType.title),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                tr('auth.sentToMasked', {'masked': masked}),
+                otpSentToText(
+                  masked: masked,
+                  delivery: auth.otpDelivery,
+                  expiresInSeconds: auth.otpExpiresInSeconds,
+                ),
                 style: AppType.body.copyWith(color: AppColors.grey),
               ),
               const SizedBox(height: AppSpacing.xxl),

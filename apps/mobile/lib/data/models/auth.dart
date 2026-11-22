@@ -127,19 +127,39 @@ class AuthSession {
       );
 }
 
+/// How the code reaches the person who asked for it.
+///
+/// During the pilot codes are not sent by SMS: the team is alerted and sends
+/// the code by hand on WhatsApp ([teamRelay]). The server flips this with one
+/// setting, so the OTP screen's wording follows the response rather than being
+/// hard-coded.
+enum OtpDelivery {
+  automatic,
+  teamRelay;
+
+  /// Only the exact string `team_relay` means the team is sending it. Missing,
+  /// null, or anything unrecognised is [automatic] — older servers do not send
+  /// the field at all, and they deliver automatically.
+  static OtpDelivery parse(Object? raw) =>
+      raw == 'team_relay' ? OtpDelivery.teamRelay : OtpDelivery.automatic;
+}
+
 /// What `POST /auth/otp/request` returns. The code itself is never in here —
 /// it never leaves the server, and only its HMAC is stored.
 class OtpChallenge {
   const OtpChallenge({
     required this.maskedPhone,
     required this.expiresInSeconds,
+    this.delivery = OtpDelivery.automatic,
   });
 
   final String maskedPhone;
   final int expiresInSeconds;
+  final OtpDelivery delivery;
 
   factory OtpChallenge.fromJson(Map<String, dynamic> json) => OtpChallenge(
         maskedPhone: json['phone'] as String? ?? '',
         expiresInSeconds: (json['expiresInSeconds'] as num?)?.toInt() ?? 300,
+        delivery: OtpDelivery.parse(json['delivery']),
       );
 }

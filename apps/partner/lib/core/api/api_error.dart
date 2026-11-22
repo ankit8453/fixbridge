@@ -70,6 +70,9 @@ class ApiError implements Exception {
   static const bookingNotFound = 'BOOKING_NOT_FOUND';
   static const providerNotFound = 'PROVIDER_NOT_FOUND';
 
+  /// The agreement version being accepted is no longer the current one.
+  static const legalVersionOutdated = 'LEGAL_VERSION_OUTDATED';
+
   /// The access token simply aged out. Refresh and replay — the user should
   /// never see this.
   bool get isExpiredAccessToken => code == tokenExpired;

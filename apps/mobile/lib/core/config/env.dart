@@ -35,6 +35,13 @@ abstract final class Env {
     defaultValue: 'FixBridge',
   );
 
+  /// The public website, where the full legal documents live. Hindi pages sit
+  /// at the root and English ones under `/en` — see `legal_links.dart`.
+  static const siteUrl = String.fromEnvironment(
+    'SITE_URL',
+    defaultValue: 'https://www.fixbridge.me',
+  );
+
   static const connectTimeout = Duration(seconds: 10);
   static const receiveTimeout = Duration(seconds: 20);
 

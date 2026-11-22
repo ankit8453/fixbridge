@@ -10,6 +10,9 @@ import Download from './pages/Download';
 import Contact from './pages/Contact';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
+import PartnerTerms from './pages/PartnerTerms';
+import RefundPolicy from './pages/RefundPolicy';
+import DeleteAccount from './pages/DeleteAccount';
 
 /**
  * Surface A — the public marketing/SEO site (PHASE12_PROMPT.md §A), ported
@@ -40,6 +43,9 @@ export default function MarketingEntry() {
         <Route path="contact" element={<Contact />} />
         <Route path="privacy" element={<Privacy />} />
         <Route path="terms" element={<Terms />} />
+        <Route path="partner-terms" element={<PartnerTerms />} />
+        <Route path="refund-policy" element={<RefundPolicy />} />
+        <Route path="delete-account" element={<DeleteAccount />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

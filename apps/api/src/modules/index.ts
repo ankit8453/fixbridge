@@ -27,6 +27,8 @@ import { router as complaintsRouter, opsRouter as complaintsOpsRouter } from './
 import { router as trustRouter, opsRouter as trustOpsRouter } from './trust/routes';
 import { router as notificationsRouter } from './notifications/routes';
 import { router as releasesRouter } from './releases/routes';
+import { router as legalRouter } from './legal/routes';
+import { router as otpRelayOpsRouter } from './auth/relay-routes';
 import { router as adminRouter } from './admin/routes';
 // `bookingCouponRouter` is mounted by the bookings router, alongside payments.
 import { opsRouter as couponsOpsRouter } from './coupons/routes';
@@ -81,6 +83,8 @@ export function registerModuleRoutes(app: Express): void {
   app.use(`${API_PREFIX}/reviews`, reviewsRouter);
   app.use(`${API_PREFIX}/complaints`, complaintsRouter);
   app.use(`${API_PREFIX}/notifications`, notificationsRouter);
+  // Which terms a signed-in person has accepted; every app checks after sign-in.
+  app.use(`${API_PREFIX}/legal`, legalRouter);
   // Ops verification lives at the admin path reviewers expect, but the code
   // stays in the verification module. The admin module itself is Phase 11.
   app.use(`${API_PREFIX}/admin/verification`, verificationOpsRouter);
@@ -94,5 +98,7 @@ export function registerModuleRoutes(app: Express): void {
   app.use(`${API_PREFIX}/admin/trust`, trustOpsRouter);
   // Coupons: money config, so the mutations are admin-only inside the router.
   app.use(`${API_PREFIX}/admin/coupons`, couponsOpsRouter);
+  // Sign-in codes the team sends by hand during the pilot (auth/relay.ts).
+  app.use(`${API_PREFIX}/admin/otp-relay`, otpRelayOpsRouter);
   app.use(`${API_PREFIX}/admin`, adminRouter);
 }

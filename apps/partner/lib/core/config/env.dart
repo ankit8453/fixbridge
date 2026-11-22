@@ -35,6 +35,14 @@ abstract final class Env {
     defaultValue: 'FixBridge Partner',
   );
 
+  /// The public website, which hosts the partner agreement, the privacy
+  /// policy and the account-deletion page. Hindi pages sit at the root and
+  /// English ones under `/en` — see LegalLinks.
+  static const siteUrl = String.fromEnvironment(
+    'SITE_URL',
+    defaultValue: 'https://www.fixbridge.me',
+  );
+
   static const connectTimeout = Duration(seconds: 10);
   static const receiveTimeout = Duration(seconds: 20);
 

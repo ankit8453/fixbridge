@@ -16,6 +16,7 @@
     "auth": {
       "title": "लॉगिन करें",
       "otpSentTo": "{{phone}} पर कोड भेजा गया है",
+      "otpTeamRelay": "हमारी टीम कुछ ही मिनटों में (सुबह 9 से रात 8 बजे तक) {{masked}} पर WhatsApp से आपका कोड भेजेगी। कोड {{minutes}} मिनट तक मान्य रहेगा।",
       "changeNumber": "नंबर बदलें"
     },
     "onboarding": {

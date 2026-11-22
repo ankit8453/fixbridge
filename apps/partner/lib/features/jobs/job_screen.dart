@@ -442,25 +442,26 @@ class _CustomerCard extends StatelessWidget {
 class _AddressCard extends StatelessWidget {
   const _AddressCard({required this.address});
 
-  final Object address;
+  /// Typed, not a raw map. This used to be `Object` tested with `is Map`,
+  /// but `Booking.fromJson` had already parsed it into a [BookingAddress] —
+  /// so the test always failed and every job showed a blank address, the
+  /// "not pinned" warning, and a maps search for nothing.
+  final BookingAddress address;
 
   @override
   Widget build(BuildContext context) {
-    final map =
-        address is Map ? (address as Map).cast<String, dynamic>() : null;
-    final text = map?['addressText'] as String? ?? '';
-    final landmark = map?['landmark'] as String?;
+    final text = address.addressText;
+    final landmark = address.landmark;
 
     /// Coordinates, but only when the customer actually pinned them.
     ///
-    /// An unpinned address's point comes from hashing the address text into
-    /// somewhere inside Jabalpur. It looks exactly like a real fix and is not
-    /// where anybody lives — so navigating to it takes a technician
-    /// confidently to a stranger's street, which is worse than making them
-    /// read the address. Unpinned means: search the text, and say so.
-    final isPinned = map?['isPinned'] as bool? ?? false;
-    final lat = isPinned ? (map?['lat'] as num?)?.toDouble() : null;
-    final lng = isPinned ? (map?['lng'] as num?)?.toDouble() : null;
+    /// An unpinned address's point is a fallback, not where anybody lives —
+    /// so navigating to it takes a technician confidently to the wrong
+    /// street, which is worse than making them read the address. Unpinned
+    /// means: search the text, and say so.
+    final isPinned = address.isPinned;
+    final lat = isPinned ? address.lat : null;
+    final lng = isPinned ? address.lng : null;
 
     return AppCard(
       child: Column(

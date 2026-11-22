@@ -43,7 +43,7 @@ export interface BatchResult {
   /** Technicians left out, and why. Ops need to see this, not guess at it. */
   skipped: {
     providerId: string;
-    reason: 'below_minimum' | 'net_negative' | 'no_payout_details';
+    reason: 'below_minimum' | 'net_negative' | 'no_payout_details' | 'payout_pending';
     netPaise: number;
   }[];
 }
@@ -61,10 +61,14 @@ export interface BatchResult {
  *     technician sees a payout smaller than they expected is the last time they
  *     trust the wallet screen.
  *
- * Idempotent in the way that matters: the batch is a *snapshot*, so running it
- * twice in a day produces a second batch of whatever is left, not a double
- * payment — because the first batch's ledger entries have already moved the
- * balance by the time it is marked paid.
+ * Running it again never re-drafts money that is already drafted. The ledger
+ * balance only moves when a payout is **marked paid**, so a payout still
+ * `pending` is money the balance still shows. Without subtracting it, the
+ * daily run re-drafted the same amount into a new batch every day until
+ * somebody paid the first one, and ops working through both batches would
+ * pay the technician twice. What is drafted is the balance *less* whatever is
+ * already pending; a failed payout is no longer pending, so its amount
+ * returns to the next run, which is exactly right.
  */
 export async function buildPayoutBatch(
   deps: PayoutDeps,
@@ -74,7 +78,19 @@ export async function buildPayoutBatch(
   const windowEnd = nowOf(deps);
   const minimum = context.config.PAYOUT_MINIMUM_PAISE;
 
-  const balances = await ledger.allProviderBalances(context.prisma);
+  const [balances, pendingRows] = await Promise.all([
+    ledger.allProviderBalances(context.prisma),
+    context.prisma.payout.groupBy({
+      by: ['providerId'],
+      where: { status: 'pending' },
+      _sum: { amountPaise: true },
+    }),
+  ]);
+
+  const pendingByProvider = new Map(
+    pendingRows.map((row) => [row.providerId, row._sum.amountPaise ?? 0]),
+  );
+
   const skipped: BatchResult['skipped'] = [];
   const payable: { providerId: string; amountPaise: number }[] = [];
 
@@ -90,7 +106,21 @@ export async function buildPayoutBatch(
       continue;
     }
 
-    if (balance.netPaise < minimum) {
+    const pendingPaise = pendingByProvider.get(balance.providerId) ?? 0;
+    const undraftedPaise = balance.netPaise - pendingPaise;
+
+    if (pendingPaise > 0 && undraftedPaise < minimum) {
+      // Already drafted and waiting for ops to pay it. Anything earned since
+      // is too small to add a second line for; it rolls into a later run.
+      skipped.push({
+        providerId: balance.providerId,
+        reason: 'payout_pending',
+        netPaise: balance.netPaise,
+      });
+      continue;
+    }
+
+    if (undraftedPaise < minimum) {
       skipped.push({
         providerId: balance.providerId,
         reason: 'below_minimum',
@@ -99,7 +129,7 @@ export async function buildPayoutBatch(
       continue;
     }
 
-    payable.push({ providerId: balance.providerId, amountPaise: balance.netPaise });
+    payable.push({ providerId: balance.providerId, amountPaise: undraftedPaise });
   }
 
   /**

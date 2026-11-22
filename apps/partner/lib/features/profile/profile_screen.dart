@@ -19,6 +19,7 @@ import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/states.dart';
 import '../auth/auth_controller.dart';
 import '../home/partner_providers.dart';
+import '../legal/legal_controller.dart';
 import 'edit_profile_sheet.dart';
 import 'edit_sheets.dart';
 import '../../l10n/app_text.dart';
@@ -188,6 +189,31 @@ class ProfileScreen extends ConsumerWidget {
                   title: tr('profile.language'),
                   value: locale.languageCode == 'hi' ? 'हिन्दी' : tr('profile.english'),
                   onTap: () => context.push('/settings/language'),
+                ),
+
+                SectionHeader(title: tr('legal.section')),
+                _SettingRow(
+                  icon: Icons.handshake_outlined,
+                  title: tr('legal.partnerAgreement'),
+                  onTap: () => LegalLinks.open(
+                    LegalLinks.partnerTerms(locale.languageCode),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                _SettingRow(
+                  icon: Icons.privacy_tip_outlined,
+                  title: tr('legal.privacyPolicy'),
+                  onTap: () => LegalLinks.open(
+                    LegalLinks.privacy(locale.languageCode),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                _SettingRow(
+                  icon: Icons.delete_outline_rounded,
+                  title: tr('legal.deleteAccount'),
+                  onTap: () => LegalLinks.open(
+                    LegalLinks.deleteAccount(locale.languageCode),
+                  ),
                 ),
 
                 const SizedBox(height: AppSpacing.xl),
@@ -997,13 +1023,16 @@ class _SettingRow extends StatelessWidget {
   const _SettingRow({
     required this.icon,
     required this.title,
-    required this.value,
+    this.value,
     required this.onTap,
   });
 
   final IconData icon;
   final String title;
-  final String value;
+
+  /// The current setting, shown before the chevron. Absent on rows that
+  /// open something rather than change something.
+  final String? value;
   final VoidCallback onTap;
 
   @override
@@ -1027,7 +1056,8 @@ class _SettingRow extends StatelessWidget {
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(child: Text(title, style: AppType.bodyMedium)),
-          Text(value, style: AppType.meta.copyWith(color: AppColors.grey)),
+          if (value != null)
+            Text(value!, style: AppType.meta.copyWith(color: AppColors.grey)),
           const SizedBox(width: 6),
           const Icon(
             Icons.chevron_right_rounded,

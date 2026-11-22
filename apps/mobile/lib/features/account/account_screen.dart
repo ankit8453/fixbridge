@@ -13,6 +13,7 @@ import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_field.dart';
 import '../../shared/widgets/avatar.dart';
 import '../auth/auth_controller.dart';
+import '../legal/legal_links.dart';
 import '../../l10n/app_text.dart';
 
 class AccountScreen extends ConsumerWidget {
@@ -80,6 +81,51 @@ class AccountScreen extends ConsumerWidget {
                 onTap: () => context.push('/account/complaints'),
               ),
             ],
+
+            // The full documents live on the website, in the language the app
+            // is speaking. Reachable signed out too: somebody deciding whether
+            // to sign up should be able to read what they would agree to.
+            const SizedBox(height: AppSpacing.lg),
+            Padding(
+              padding: const EdgeInsets.only(
+                left: AppSpacing.xs,
+                bottom: AppSpacing.sm,
+              ),
+              child: Text(
+                tr('legal.section'),
+                style: AppType.meta.copyWith(
+                  color: AppColors.grey,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            _SettingRow(
+              icon: Icons.description_outlined,
+              title: tr('legal.terms'),
+              external: true,
+              onTap: () => openLegalPage(LegalPage.terms, locale.languageCode),
+            ),
+            _SettingRow(
+              icon: Icons.privacy_tip_outlined,
+              title: tr('legal.privacy'),
+              external: true,
+              onTap: () =>
+                  openLegalPage(LegalPage.privacy, locale.languageCode),
+            ),
+            _SettingRow(
+              icon: Icons.receipt_long_outlined,
+              title: tr('legal.refund'),
+              external: true,
+              onTap: () => openLegalPage(LegalPage.refund, locale.languageCode),
+            ),
+            if (user != null)
+              _SettingRow(
+                icon: Icons.person_remove_outlined,
+                title: tr('legal.deleteAccount'),
+                external: true,
+                onTap: () =>
+                    openLegalPage(LegalPage.deleteAccount, locale.languageCode),
+              ),
 
             const SizedBox(height: AppSpacing.xl),
             const _AboutBlock(),
@@ -291,14 +337,18 @@ class _SettingRow extends StatelessWidget {
   const _SettingRow({
     required this.icon,
     required this.title,
-    required this.value,
+    this.value = '',
     required this.onTap,
+    this.external = false,
   });
 
   final IconData icon;
   final String title;
   final String value;
   final VoidCallback onTap;
+
+  /// Leaves the app for the browser, so the row says so with its icon.
+  final bool external;
 
   @override
   Widget build(BuildContext context) {
@@ -323,14 +373,18 @@ class _SettingRow extends StatelessWidget {
             ),
             const SizedBox(width: AppSpacing.md),
             Expanded(child: Text(title, style: AppType.bodyMedium)),
-            Text(
-              value,
-              style: AppType.meta.copyWith(color: AppColors.grey),
-            ),
-            const SizedBox(width: 6),
-            const Icon(
-              Icons.chevron_right_rounded,
-              size: 18,
+            if (value.isNotEmpty) ...[
+              Text(
+                value,
+                style: AppType.meta.copyWith(color: AppColors.grey),
+              ),
+              const SizedBox(width: 6),
+            ],
+            Icon(
+              external
+                  ? Icons.open_in_new_rounded
+                  : Icons.chevron_right_rounded,
+              size: external ? 16 : 18,
               color: AppColors.greyLight,
             ),
           ],

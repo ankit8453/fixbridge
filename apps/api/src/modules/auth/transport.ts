@@ -1,7 +1,10 @@
 import type { AppConfig } from '../../core/config';
 import { AppError } from '../../core/errors';
 import type { AppLogger } from '../../core/logger';
+import type Redis from 'ioredis';
+import type { Mailer } from '../../core/mailer';
 import { createMbgOtpTransport } from './mbg-otp';
+import { createTeamRelayOtpTransport } from './relay';
 
 export interface OtpMessage {
   phone: string;
@@ -20,6 +23,8 @@ export interface OtpMessage {
 export interface OtpTransport {
   readonly name: string;
   send(message: OtpMessage): Promise<void>;
+  /** Called once the code has been used to sign in. Optional; most need nothing. */
+  onVerified?(phone: string): Promise<void>;
 }
 
 /**
@@ -87,7 +92,23 @@ export function createOtpTransport(
   nodeEnv: string,
   transport: AppConfig['AUTH_OTP_TRANSPORT'] = 'logger',
   config?: AppConfig,
+  services?: { redis: Redis; mailer: Mailer | null },
 ): OtpTransport {
+  if (transport === 'team_relay') {
+    if (!config || !services) {
+      throw new Error('the team_relay OTP transport needs the config, Redis and the mailer');
+    }
+
+    return createTeamRelayOtpTransport({
+      redis: services.redis,
+      ttlSeconds: config.OTP_TTL_SECONDS,
+      mailer: services.mailer,
+      alertEmails: config.OTP_RELAY_ALERT_EMAILS,
+      consoleUrl: `${config.ADMIN_ORIGIN.replace(/\/+$/, '')}/admin/sign-in-requests`,
+      logger,
+    });
+  }
+
   if (transport === 'mbg') {
     if (!config) {
       throw new Error('the mbg OTP transport needs the config to build its client');

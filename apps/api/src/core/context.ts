@@ -8,6 +8,7 @@ import { createRedisClient } from './redis';
 import { APP_VERSION } from './version';
 import { AppError } from './errors';
 import { createOtpTransport } from '../modules/auth/transport';
+import { createSmtpMailer } from './mailer';
 import type { OtpTransport } from '../modules/auth/transport';
 import { createUserDenylist, type UserDenylist } from '../modules/auth/denylist';
 import { createStubGeoService, type GeoService } from './geo';
@@ -94,7 +95,10 @@ export function createContext(config: AppConfig = loadConfig()): AppContext {
     prisma: createPrismaClient(config, logger),
     redis,
     version: APP_VERSION,
-    otpTransport: createOtpTransport(logger, config.NODE_ENV, config.AUTH_OTP_TRANSPORT, config),
+    otpTransport: createOtpTransport(logger, config.NODE_ENV, config.AUTH_OTP_TRANSPORT, config, {
+      redis,
+      mailer: createSmtpMailer(config, logger),
+    }),
     userDenylist: createUserDenylist(redis, config, logger),
     geo: createGeoService(config, redis, logger),
     storage: createS3StorageService(config, logger),

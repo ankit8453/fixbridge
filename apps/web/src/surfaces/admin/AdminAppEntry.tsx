@@ -8,6 +8,7 @@ import {
   MessageSquareWarning,
   ShieldCheck,
   ImageOff,
+  KeyRound,
   Star,
   TicketPercent,
   Users,
@@ -33,6 +34,13 @@ import PayoutBatchPage from './pages/PayoutBatchPage';
 import JournalDetailPage from './pages/JournalDetailPage';
 import QueuesPage from './pages/QueuesPage';
 import AuditPage from './pages/AuditPage';
+import SignInRequestsPage from './pages/SignInRequestsPage';
+import {
+  pendingRelayCount,
+  SIGN_IN_REQUESTS_PATH,
+  useOtpRelayAlerts,
+  useOtpRelayQuery,
+} from './lib/otpRelay';
 
 /**
  * `/admin/*` — the ops console. Ported from the ten pages under
@@ -48,6 +56,14 @@ import AuditPage from './pages/AuditPage';
  */
 const NAV: Omit<AdminNavItem, 'badge'>[] = [
   { key: 'overview', label: 'Overview', href: '/admin', icon: LayoutDashboard },
+  // Second, above every queue: during the pilot a person is standing there
+  // waiting for this code, and it expires in minutes. Badge = codes not yet sent.
+  {
+    key: 'sign-in-requests',
+    label: 'Sign-in requests',
+    href: SIGN_IN_REQUESTS_PATH,
+    icon: KeyRound,
+  },
   { key: 'verification', label: 'Verification', href: '/admin/verification', icon: ShieldCheck },
   { key: 'providers', label: 'Technicians', href: '/admin/providers', icon: Users },
   { key: 'bookings', label: 'Bookings', href: '/admin/bookings', icon: ClipboardList },
@@ -67,6 +83,7 @@ const NAV: Omit<AdminNavItem, 'badge'>[] = [
 
 /** The current page's title/breadcrumb — matched by longest prefix, most-specific first. */
 const TITLES: { prefix: string; label: string }[] = [
+  { prefix: SIGN_IN_REQUESTS_PATH, label: 'Sign-in requests' },
   { prefix: '/admin/verification', label: 'Verification' },
   { prefix: '/admin/providers', label: 'Technicians' },
   { prefix: '/admin/bookings', label: 'Bookings' },
@@ -84,6 +101,14 @@ export default function AdminAppEntry() {
   const { user, roles, logout } = useAuth();
   const { pathname } = useLocation();
 
+  // The sign-in relay is polled here, at the shell, rather than on its page:
+  // the nav badge, the tab-title count and the new-request beep all have to
+  // work while somebody is on Bookings or Money. The page reads the same
+  // query (same key, deduped) — one poll, not two.
+  const relay = useOtpRelayQuery();
+  useOtpRelayAlerts(relay.data?.requests);
+  const relayPending = pendingRelayCount(relay.data?.requests);
+
   const title = useMemo(
     () => TITLES.find((entry) => pathname.startsWith(entry.prefix))?.label ?? 'Overview',
     [pathname],
@@ -94,7 +119,9 @@ export default function AdminAppEntry() {
       title={title}
       activeHref={pathname}
       breadcrumbs={[{ label: 'Admin', href: '/admin' }, { label: title }]}
-      navItems={NAV.map((item) => ({ ...item }))}
+      navItems={NAV.map((item) =>
+        item.key === 'sign-in-requests' ? { ...item, badge: relayPending } : { ...item },
+      )}
       userMenu={
         <div className="flex items-center gap-3">
           <div className="text-right text-xs leading-tight text-muted">
@@ -109,6 +136,7 @@ export default function AdminAppEntry() {
     >
       <Routes>
         <Route index element={<OverviewPage />} />
+        <Route path="sign-in-requests" element={<SignInRequestsPage />} />
         <Route path="verification" element={<VerificationQueuePage />} />
         <Route path="verification/:caseId" element={<VerificationCasePage />} />
         <Route path="providers" element={<ProvidersPage />} />

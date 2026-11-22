@@ -39,6 +39,7 @@
     "restoring": "Checking your session…",
     "changeNumber": "Change number",
     "otpSentTo": "We sent a code to {{phone}}",
+    "otpTeamRelay": "Our team will send your code to {{masked}} on WhatsApp within a few minutes (9 am – 8 pm). The code is valid for {{minutes}} minutes.",
     "signInAs": "Sign in — {{surface}}",
     "registerAs": "Create account — {{surface}}",
     "registerHint": "New here? Verifying your number creates your account automatically — there is no separate sign-up form.",
@@ -69,5 +70,37 @@
   "pagination": {
     "previous": "Previous",
     "next": "Next"
+  },
+  "legalGate": {
+    "title": "Before you continue",
+    "accept": "Accept and continue",
+    "signOut": "Sign out",
+    "retry": "Retry",
+    "loadError": "Could not load the terms. Check your connection and try again.",
+    "version": "Version {{version}}",
+    "privacy": "Privacy Policy",
+    "customer": {
+      "intro": "FixBridge is a pilot (trial) service in Jabalpur, run by a small team. It is not yet a registered company. Please read and accept our terms.",
+      "b1": "FixBridge connects you with independent technicians. The technician does the work and is responsible for it.",
+      "b2": "The price is agreed in the app before work starts. Any extra charge needs a reason and your approval.",
+      "b3": "During the pilot you pay the technician directly, in cash, after the job. FixBridge does not collect any money.",
+      "b4": "Report any damage or problem within 24 hours, with photos, from the booking or on WhatsApp.",
+      "b5": "Booking records (codes, quotes, times) may be used to settle disputes. False complaints or abuse can close your account.",
+      "terms": "Terms & Conditions",
+      "refund": "Refund & cancellation",
+      "checkbox": "I have read and agree to the Terms & Conditions and the Privacy Policy, and I am 18 or older.",
+      "outdated": "The terms were just updated — please review them again."
+    },
+    "partner": {
+      "intro": "FixBridge is a pilot (trial) service in Jabalpur, run by a small team. It is not yet a registered company. Please read and accept the partner agreement.",
+      "b1": "You work as an independent technician, not as a FixBridge employee. You use your own tools and safety gear.",
+      "b2": "You are responsible for the quality of your work and for any damage you cause.",
+      "b3": "0% commission during the pilot. The customer pays you directly; never ask for more than the price approved in the app.",
+      "b4": "Always use the start and end codes, and send every price change through the app.",
+      "b5": "Booking records may be used to settle disputes. Misconduct, fraud or unsafe work means suspension.",
+      "agreement": "Partner Agreement",
+      "checkbox": "I have read and agree to the Partner Agreement and the Privacy Policy, and I am 18 or older.",
+      "outdated": "The agreement was just updated — please review it again."
+    }
   }
 }

@@ -6,6 +6,7 @@ import { useAuth } from '../../lib/auth/useAuth';
 import { ShopShell, type ShopNavItem } from '../../components/shell/ShopShell';
 import { LocaleToggle } from '../../components/shell/LocaleToggle';
 import { Button, Card } from '../../components/ui';
+import { LegalGate } from '../../legal-gate/LegalGate';
 import { useUnreadCount } from './data/notifications';
 import HomePage from './pages/Home';
 import SearchPage from './pages/Search';
@@ -32,6 +33,17 @@ import AccountPage from './pages/Account';
  * button, not just a tap on itself.
  */
 export default function CustomerAppEntry() {
+  // The terms gate sits outside the shell (and outside the unread-count
+  // query below), so nothing of the surface loads until the current Customer
+  // Terms are accepted — see `legal-gate/LegalGate.tsx`.
+  return (
+    <LegalGate document="customer_terms" tone="shop">
+      <CustomerSurface />
+    </LegalGate>
+  );
+}
+
+function CustomerSurface() {
   const t = useT();
   const location = useLocation();
   const { data: unreadData } = useUnreadCount();

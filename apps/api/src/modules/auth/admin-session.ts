@@ -152,9 +152,15 @@ export async function refreshAdminSession(
     include: { admin: true },
   });
 
+  /**
+   * Byte-identical to the customer path's rejection (`REFRESH_REJECTED` in
+   * `service.ts`). `/auth/refresh` serves both kinds of token, so any
+   * difference here would tell a caller which kind of token they hold.
+   */
   const invalid = (): AppError =>
-    AppError.unauthorized('That session is no longer valid', {
-      messageKey: 'errors.auth.tokenInvalid',
+    new AppError(401, 'REFRESH_TOKEN_INVALID', 'Refresh token rejected', {
+      messageKey: 'errors.auth.refreshInvalid',
+      headers: { 'WWW-Authenticate': 'Bearer' },
     });
 
   if (!existing) throw invalid();
@@ -179,6 +185,10 @@ export async function refreshAdminSession(
     throw invalid();
   }
 
+  // Bound to the browser it was issued to, as customer tokens are
+  // (`classifyRefreshToken`): a token lifted from one device and replayed
+  // from another is refused.
+  if (existing.deviceId !== deviceId) throw invalid();
   if (existing.expiresAt <= new Date()) throw invalid();
   if (existing.admin.status !== 'active') throw invalid();
 
@@ -214,6 +224,28 @@ export async function refreshAdminSession(
     refreshExpiresAt: expiresAt.toISOString(),
     ...identityFor(existing.admin, roles),
   };
+}
+
+/**
+ * Whether a presented refresh token was issued to staff.
+ *
+ * `/auth/refresh` and `/auth/logout` are shared by every client, and the web
+ * console calls them like any other surface. Staff tokens live in
+ * `admin_refresh_tokens`, which the customer path never reads — so without
+ * this check a console session could not be renewed and expired after one
+ * access-token lifetime (15 minutes). Tokens are 256 random bits, so a hash
+ * cannot be in both tables.
+ */
+export async function isAdminRefreshToken(
+  context: AppContext,
+  presentedToken: string,
+): Promise<boolean> {
+  const row = await context.prisma.adminRefreshToken.findUnique({
+    where: { tokenHash: hashRefreshToken(presentedToken) },
+    select: { id: true },
+  });
+
+  return row !== null;
 }
 
 /** Revokes every live token for a staff account on one device. */

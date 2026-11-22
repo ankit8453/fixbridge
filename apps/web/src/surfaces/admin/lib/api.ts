@@ -13,6 +13,7 @@ import type {
   DeliveryRow,
   JournalDetail,
   JournalRow,
+  OtpRelayRequest,
   OutboxRow,
   PayoutBatchDetail,
   PayoutBatchRow,
@@ -49,6 +50,20 @@ function adminRequest<T>(path: string, options: RequestOptions = {}): Promise<T>
 /* -------------------------------------------------------------------------- */
 
 export const fetchSummary = (): Promise<AdminSummary> => adminRequest('/api/v1/admin/summary');
+
+/* -------------------------------------------------------------------------- */
+/* Sign-in requests (codes relayed by hand on WhatsApp)                       */
+/* -------------------------------------------------------------------------- */
+
+/** Newest first; open to every staff role. Polled — see `lib/otpRelay.ts`. */
+export async function fetchOtpRelay(): Promise<{ requests: OtpRelayRequest[] }> {
+  const body = await adminRequest<{ requests?: OtpRelayRequest[] }>('/api/v1/admin/otp-relay');
+  return { requests: Array.isArray(body?.requests) ? body.requests : [] };
+}
+
+/** 404 when the request expired or was used in the meantime — the caller just refetches. */
+export const markOtpRelaySent = (id: string): Promise<{ request: OtpRelayRequest }> =>
+  adminRequest(`/api/v1/admin/otp-relay/${id}/sent`, { method: 'POST' });
 
 /* -------------------------------------------------------------------------- */
 /* Verification                                                               */

@@ -140,6 +140,7 @@ model User {
   profilePhotos          ProviderProfilePhoto[]
   photoReportsMade       ProviderProfilePhotoReport[]
   couponRedemptions      CouponRedemption[]
+  legalAcceptances       LegalAcceptance[]
 
   @@index([status])
   @@map("users")
@@ -2155,4 +2156,35 @@ model NotificationDelivery {
   @@index([status, scheduledFor])
   @@index([notificationId])
   @@map("notification_deliveries")
+}
+
+/// Which terms a person can be asked to accept. Each one covers the Privacy
+/// Policy too, so there is no separate privacy row.
+enum LegalDocument {
+  customer_terms
+  partner_terms
+
+  @@map("legal_document")
+}
+
+/// Proof that a person accepted a given version of a given set of terms.
+///
+/// Append-only: a new version adds a row and never edits an old one, so the
+/// table answers "what had this person agreed to on the day of the booking?",
+/// which is the question a dispute actually asks. IP and device are kept for
+/// the same reason. Rows go with the account when it is erased.
+model LegalAcceptance {
+  id         String        @id @default(uuid()) @db.Uuid
+  userId     String        @map("user_id") @db.Uuid
+  document   LegalDocument
+  /// The date-style version shown on the page, e.g. `2026-11-15`.
+  version    String        @db.VarChar(32)
+  acceptedAt DateTime      @default(now()) @map("accepted_at") @db.Timestamptz(3)
+  ip         String?       @db.VarChar(64)
+  userAgent  String?       @map("user_agent") @db.VarChar(512)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, document, version])
+  @@map("legal_acceptances")
 }

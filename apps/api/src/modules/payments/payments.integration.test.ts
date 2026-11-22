@@ -1602,6 +1602,47 @@ describe('Phase 8 — payments, ledger and payouts', () => {
       );
     }, 40_000);
 
+    /**
+     * The balance only moves when a payout is marked paid, so an unpaid draft
+     * is money the balance still shows. The daily run used to draft it again
+     * every day, and ops paying both batches paid the technician twice.
+     */
+    it('never drafts money that is already waiting in an unpaid payout', async () => {
+      if (unavailableReason || !context || !fixture) return;
+
+      // Nobody is drafted without somewhere to send the money.
+      await context.prisma.providerPayoutDetail.upsert({
+        where: { userId: fixture.technicianId },
+        create: { userId: fixture.technicianId, method: 'upi', upiId: 'payout-test@upi' },
+        update: {},
+      });
+
+      const { bookingId, customer } = await completedBooking();
+      await payOnline(bookingId, customer);
+
+      const first = await payouts.buildPayoutBatch({ context }, null);
+      expect(first.payoutCount).toBe(1);
+
+      // Nothing paid yet. A second run must not draft the same money again.
+      const second = await payouts.buildPayoutBatch({ context }, null);
+
+      expect(second.batchId).toBeNull();
+      expect(second.skipped).toContainEqual(
+        expect.objectContaining({ providerId: fixture.technicianId, reason: 'payout_pending' }),
+      );
+
+      // Once that payout fails, the money is free again and the next run
+      // picks it up — the balance never moved.
+      const pending = await context.prisma.payout.findFirstOrThrow({
+        where: { batchId: first.batchId!, status: 'pending' },
+      });
+      await payouts.markPayoutFailed({ context }, pending.id, 'wrong IFSC');
+
+      const third = await payouts.buildPayoutBatch({ context }, null);
+      expect(third.payoutCount).toBe(1);
+      expect(third.totalPaise).toBe(first.totalPaise);
+    }, 40_000);
+
     it('skips a balance below the minimum and leaves it to roll over', async () => {
       if (unavailableReason || !context || !fixture) return;
 
